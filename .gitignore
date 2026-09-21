@@ -15,10 +15,12 @@ pnpm-debug.log*
 
 # environment variables
 .env
-.env.production
+.env.*
+!.env.example
 
 # cloudflare
 .dev.vars
+.dev.vars.*
 .wrangler/
 
 # macOS-specific files
@@ -28,4 +30,24 @@ pnpm-debug.log*
 .idea/
 
 .agents/
+.codex/
 .vscode/
+
+# local credentials
+*.pem
+*.key
+.npmrc
+.netrc
+
+# generated output and caches
+build/
+coverage/
+.cache/
+*.tsbuildinfo
+*.log
+
+# local editor and OS files
+*.swp
+*.swo
+*~
+Thumbs.db
