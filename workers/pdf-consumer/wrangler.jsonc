@@ -1,0 +1,28 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "dishly-pdf-worker",
+  "main": "index.ts",
+  "compatibility_date": "2026-05-08",
+  "limits": { "cpu_ms": 300000 },
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "r2_buckets": [{ "binding": "PDF_BUCKET", "bucket_name": "dishly-pdf-imports-eu", "jurisdiction": "eu" }],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "dishly-pdf-imports",
+        "dead_letter_queue": "dishly-pdf-imports-dlq",
+        "max_batch_size": 1,
+        "max_concurrency": 1,
+        "max_retries": 3,
+        "retry_delay": 60,
+      },
+      {
+        "queue": "dishly-pdf-imports-dlq",
+        "max_batch_size": 1,
+        "max_concurrency": 1,
+        "max_retries": 3,
+        "retry_delay": 60,
+      },
+    ],
+  },
+}

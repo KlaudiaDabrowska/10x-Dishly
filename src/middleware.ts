@@ -4,6 +4,11 @@ import { createClient } from "@/lib/supabase";
 const PROTECTED_ROUTES = ["/dashboard"];
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  // The operational probe uses its own bearer token and must work independently of Supabase.
+  if (context.url.pathname.replace(/\/$/, "") === "/api/ops/deployment-probe") {
+    context.locals.user = null;
+    return next();
+  }
   const supabase = createClient(context.request.headers, context.cookies);
 
   if (

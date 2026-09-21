@@ -130,7 +130,7 @@ Use an EU-jurisdiction R2 bucket, Cloudflare Queues, hosted Supabase in Frankfur
 
 ## Deployment Record
 
-- Status: phase 0 baseline validation complete on 2026-09-21 against commit `79bea95`. Prerequisites reported complete by the user; external state was not independently verified in this phase. Deployment implementation and first-release verification remain pending.
+- Status: phases 0–2 complete locally on 2026-09-21. Prerequisites reported complete by the user; external state has not been independently verified. CI/CD implementation and production deployment/verification remain pending.
 - Web Worker version: pending
 - PDF Worker version: pending
 - Production URL: pending
@@ -171,3 +171,19 @@ Completed locally on 2026-09-21. No cloud publication or resource mutation perfo
 - Local preview HTTP checks passed: `/`, `/auth/signin`, `/auth/signup` returned `200`; `/dashboard` and same-origin POSTs to all three auth APIs returned the expected JSON `503`. Requests without a matching Origin remain subject to Astro's `403` CSRF protection.
 - Expected warnings: absent local `DEPLOY_PROBE_TOKEN`, unset sitemap `site`, and intentionally omitted preview R2 binding. Production secret presence remains unverified.
 - Next: standalone Queue consumer and protected deployment probe, followed by their tests and CI/CD implementation.
+
+### Phase 2 — Queue consumer and deployment probe
+
+Completed locally on 2026-09-21. No cloud resources, secrets, or production deployments changed.
+
+- Added `workers/pdf-consumer/` with a standalone entrypoint, Wrangler configuration, and generated runtime/binding types (`npm run types:consumer`). Both the normal queue and DLQ have batch size/concurrency 1, three retries, and a 60-second retry delay. CPU limit is 300000 ms; observability uses full sampling.
+- Added `POST /api/ops/deployment-probe`, independently authenticated with `DEPLOY_PROBE_TOKEN` so Supabase availability does not block diagnostics. Preview returns `503`; absent or invalid production credentials return `401`; accepted probes return only `jobId` and `status` with `202`.
+- Messages require version 1, the deployment-probe kind, a UUID v4, a matching `deployment-probes/<jobId>.pdf` key, and a valid timestamp. The consumer verifies the small synthetic object, cleans up terminal outcomes in `finally`, and acknowledges only after deletion succeeds. Missing objects are idempotent successes. Storage/read/deletion failures retry; DLQ delivery performs terminal cleanup.
+- Malformed messages are acknowledged without trusting or deleting their supplied object key. Unidentifiable objects, exhausted DLQ cleanup failures, and interrupted executions rely on the prerequisite one-day bucket lifecycle rule. That external rule remains unverified in this local phase.
+- Queue-send failures trigger best-effort producer cleanup. Structured logs contain only the six approved fields, with no raw provider errors, object keys, authorization values, or PDF contents.
+- Added `npm run test:deployment`: nine passing tests cover validation, authentication, absent infrastructure, local Miniflare R2 integration, duplicate delivery, simulated retry exhaustion/DLQ handling, body-read and cleanup failures, enqueue/write failures, acknowledgement ordering, and log redaction. Miniflare is pinned to the version already used by the installed Wrangler.
+- Validation passed: lint; Astro check (34 files, zero diagnostics); production and preview builds/dry runs; standalone consumer dry run (2.59 KiB / gzip 1.06 KiB).
+- Ran both Workers together locally with Wrangler and a synthetic token: incorrect token → `401`; accepted probe → `202`; local Queue delivery → consumer `success` with `object_deleted: true`, correlated by job ID. Live cloud retry timing and resource configuration still require first-release verification.
+- Preview runtime finding: `astro preview` returned `401` for the probe despite the generated preview config containing `DEPLOYMENT_ENV=preview`. Running that same generated config directly with Wrangler returned the required `503`. Use `npm run build:preview` followed by `npm run preview:worker` for binding-sensitive preview verification; this command runs only the local generated Worker. The production build must be restored before a production dry run/deploy.
+- Local combined-worker command after building: `npx wrangler dev --config dist/server/wrangler.json --config workers/pdf-consumer/wrangler.jsonc`. Configure a local-only probe token through the existing local secret mechanism before building; do not use production credentials for the probe test.
+- Next: CI/CD workflows and deployment configuration checks. Cloud publication remains pending.

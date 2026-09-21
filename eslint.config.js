@@ -73,11 +73,12 @@ const astroConfig = defineConfig({
 const scriptsConfig = defineConfig({
   files: ["scripts/**/*.mjs"],
   extends: [tseslint.configs.disableTypeChecked],
-  languageOptions: { globals: { console: true, process: true, fetch: true, URLSearchParams: true } },
+  languageOptions: { globals: { console: true, process: true, fetch: true, Request: true, URLSearchParams: true } },
   rules: { "no-console": "off" },
 });
 
 export default defineConfig(
+  { ignores: ["workers/pdf-consumer/worker-configuration.d.ts"] },
   includeIgnoreFile(gitignorePath),
   baseConfig,
   reactConfig,
