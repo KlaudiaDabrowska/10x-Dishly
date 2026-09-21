@@ -74,6 +74,7 @@ Use an EU-jurisdiction R2 bucket, Cloudflare Queues, hosted Supabase in Frankfur
 - Correct existing CI triggers from `master` to `main`.
 - Keep lint, Astro check, build, and local Supabase smoke tests on pushes and pull requests.
 - Add PR preview upload for `dishly-web-preview` using `wrangler versions upload --env preview`; deploy no consumer Worker and bind no Supabase, Queue, or R2 resources. Preview acceptance covers public routes and controlled degradation only.
+  - Build with `npm run build:preview` first. The Cloudflare Vite environment is selected at build time; passing `--env preview` only at upload time does not turn a production build into a preview build ([Cloudflare environment selection](https://developers.cloudflare.com/workers/vite-plugin/reference/cloudflare-environments/)).
 - Add a manually dispatched production workflow:
   1. require a commit SHA from `main`;
   2. check out that exact SHA;
@@ -129,10 +130,44 @@ Use an EU-jurisdiction R2 bucket, Cloudflare Queues, hosted Supabase in Frankfur
 
 ## Deployment Record
 
-- Status: repository plan recorded; external provisioning and deployment pending human setup gates.
+- Status: phase 0 baseline validation complete on 2026-09-21 against commit `79bea95`. Prerequisites reported complete by the user; external state was not independently verified in this phase. Deployment implementation and first-release verification remain pending.
 - Web Worker version: pending
 - PDF Worker version: pending
 - Production URL: pending
 - R2 bucket: `dishly-pdf-imports-eu` (pending creation)
 - Queue: `dishly-pdf-imports` (pending creation)
 - Dead-letter queue: `dishly-pdf-imports-dlq` (pending creation)
+
+### Phase 0 — Baseline validation
+
+Scope confirmed by the user: installed versions, lint, Astro check, build, and Wrangler dry run. No production publication or resource changes were performed.
+
+| Check | Result |
+|---|---|
+| Working tree before validation | Clean |
+| Runtime | Node.js `24.18.0` |
+| Installed deployment dependencies | Astro `7.3.2`, `@astrojs/cloudflare` `14.3.1`, Wrangler `4.131.1`; all match the plan |
+| `npm run lint` | Passed |
+| `npx astro check` | Passed: 29 files, zero errors, warnings, or hints |
+| `npm run build` | Passed; sitemap skipped because Astro `site` is unset |
+| `npx wrangler deploy --dry-run` | Passed using generated `dist/server/wrangler.json`; upload 2065.65 KiB, gzip 456.07 KiB |
+
+Baseline findings to address during implementation:
+
+- Worker name is still `10x-astro-starter`.
+- Generated bindings are `ASSETS`, `SESSION`, and `IMAGES`. Disable Astro sessions and configure compile-time image optimization as planned before production deployment.
+- R2 and Queue bindings, preview isolation, and the standalone consumer remain to be implemented.
+- The dry run validates local packaging only; it does not verify cloud resources, production secrets, runtime startup, or hosted authentication. Resource creation labels above reflect the prior record and remain unverified despite the user's prerequisite completion report.
+
+### Phase 1 — Web Worker configuration
+
+Completed locally on 2026-09-21. No cloud publication or resource mutation performed.
+
+- Renamed the Worker to `dishly-web`, retained the supported Astro entrypoint, disabled sessions, and enabled compile-time image optimization with runtime passthrough.
+- Added EU-jurisdiction `PDF_BUCKET` and `PDF_IMPORT_QUEUE` production bindings and declared the three required production secrets in Wrangler. Astro secret fields remain optional so isolated previews can start without credentials.
+- Added `dishly-web-preview` with empty R2/Queue bindings and required-secret list. `DEPLOYMENT_ENV=preview` also disables Supabase client creation even if credentials are accidentally present locally.
+- Added `npm run build:preview`; missing infrastructure returns JSON `503 infrastructure_unavailable` for API and dashboard routes. Public pages remain accessible.
+- Validation passed: lint; Astro check (29 files, zero diagnostics); production and preview builds; both Wrangler deployment dry runs; inspection of generated configs confirmed no `SESSION` or `IMAGES` bindings and no preview R2, Queue, or required secrets.
+- Local preview HTTP checks passed: `/`, `/auth/signin`, `/auth/signup` returned `200`; `/dashboard` and same-origin POSTs to all three auth APIs returned the expected JSON `503`. Requests without a matching Origin remain subject to Astro's `403` CSRF protection.
+- Expected warnings: absent local `DEPLOY_PROBE_TOKEN`, unset sitemap `site`, and intentionally omitted preview R2 binding. Production secret presence remains unverified.
+- Next: standalone Queue consumer and protected deployment probe, followed by their tests and CI/CD implementation.
