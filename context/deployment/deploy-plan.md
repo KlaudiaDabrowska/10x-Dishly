@@ -9,7 +9,7 @@ Prepare a short diagnostic proof of concept for **Workers Free**, using two inde
 
 Use an EU-jurisdiction R2 bucket, Cloudflare Queues, hosted Supabase in Frankfurt (`eu-central-1`), GitHub Actions with a manual production gate, and no cloud resources or secrets in PR previews.
 
-The user confirmed the current Cloudflare account and chose Workers Free on 2026-09-22. This revision is local preparation only: no paid-plan activation, resource creation, production deployment, or workflow dispatch is authorized. Commands below are instructions for a later user-controlled setup/deployment.
+The user confirmed the current Cloudflare account and chose Workers Free on 2026-09-22. The initial revision authorized local preparation only. After completing resource, secret, Supabase, and GitHub setup, the user explicitly authorized pushing the verified commit, dispatching production by full SHA, and running the verification below. That release is now deployed; see the deployment record. Paid-plan activation and additional resource creation remain outside this authorization.
 
 ### Scope and Free allowances (checked 2026-09-22)
 
@@ -96,7 +96,7 @@ The 100-page/20-MB input and five-minute import requirements remain in the PRD. 
 7. Store only `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in a GitHub `production` environment. Do not copy Supabase application secrets into GitHub.
 8. In GitHub repository **Settings → Environments → production**, add required reviewers and restrict deployment branches to `main`. If you are the only reviewer, leave “Prevent self-review” disabled so the manual workflow can be approved by you; otherwise designate another reviewer. The environment name `production` denotes the destination, not a paid Cloudflare plan. Enable Actions for the repository. Reviewer/branch protection must be configured in GitHub ([environment gates](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments)).
 9. Optional for PR uploads, create a separate GitHub `preview` environment with its own `CLOUDFLARE_ACCOUNT_ID` and Worker-publication token (no Queue permissions needed). Do not put application secrets there or reuse production environment secrets. Same-repository PRs may upload; forks and Dependabot run validation only. If preview credentials are absent, the upload job fails explicitly after validation; this does not block a manual release run on `main`. Confirm `dishly-web-preview` has no application secrets; version uploads preserve existing remote secrets.
-10. After reviewing and committing the Free-plan changes, push them, wait for CI, then choose **Actions → Deploy production → Run workflow**, branch `main`, and the exact full commit SHA. Review/approve the environment gate. The workflow deploys the consumer first and the web Worker second. These publication steps are deferred, not executed by this task. Save both version IDs and the URL from its summary.
+10. After reviewing and committing the Free-plan changes, push them, wait for CI, then choose **Actions → Deploy production → Run workflow**, branch `main`, and the exact full commit SHA. Review/approve the environment gate if configured. The workflow deploys the consumer first and the web Worker second. Save both version IDs and the URL from its summary. The first authorized publication is recorded below; subsequent releases still require explicit authorization.
 
 ### CI/CD
 
@@ -162,13 +162,28 @@ The 100-page/20-MB input and five-minute import requirements remain in the PRD. 
 
 ## Deployment Record
 
-- Status: phases 0–3 were pushed and passed hosted CI before the Free revision. The Free diagnostic revision below is prepared locally and must be committed/pushed before any later release. Production remains undeployed; account/resource and GitHub setup are still required.
-- Web Worker version: pending
-- PDF Worker version: pending
-- Production URL: pending
-- R2 bucket: `dishly-pdf-imports-eu` (pending creation)
-- Queue: `dishly-pdf-imports` (pending creation)
-- Dead-letter queue: `dishly-pdf-imports-dlq` (pending creation)
+- Status: Workers Free diagnostic deployed on 2026-09-22. Live R2 → Queue → consumer → R2 cleanup passed. Hosted Supabase signup/signin/signout verification remains pending an approved test email and mailbox confirmation. The first homepage invocation exceeded the nominal 10 ms CPU budget without a runtime error; broader Free-plan suitability is not established.
+- Release commit: `e90d3101526f9cabe135543882bab43083eb5552`
+- Web Worker version: `5fa0a33b-be50-465e-8b53-d372bf6cf105`
+- PDF Worker version: `c75518b7-8fb3-429f-8479-1a996a4b1c5f`
+- Production URL: <https://dishly-web.dabrowskaa-klaudia.workers.dev>
+- R2 bucket: `dishly-pdf-imports-eu` (EU jurisdiction, Standard, public managed domain disabled)
+- Queue: `dishly-pdf-imports` (24-hour retention)
+- Dead-letter queue: `dishly-pdf-imports-dlq` (24-hour retention)
+
+### First authorized Free deployment — 2026-09-22
+
+- Pushed the existing Free revision commit to `main`. [CI run 35772150128](https://github.com/KlaudiaDabrowska/10x-Dishly/actions/runs/35772150128) passed validation and local Supabase smoke tests.
+- Manually dispatched [Deploy production run 35772670850](https://github.com/KlaudiaDabrowska/10x-Dishly/actions/runs/35772670850) with the full release SHA above. Exact-commit validation, smoke tests, consumer publication, and web publication all passed. Publication completed at approximately 19:19 UTC.
+- GitHub's `production` environment contained both required deployment secret names. Its protection rules included a branch policy but no required reviewers; GitHub did not pause for approval. No protection rule was bypassed or changed. Add required reviewers in repository Settings → Environments → production if a separate approval pause is wanted for future releases.
+- Read-only Cloudflare preflight confirmed all three web secret names, the private EU Standard bucket, and its enabled one-day `deployment-probes/` lifecycle rule. Both queues have 86400-second retention. After deployment, both consumers reference `dishly-pdf-worker` with batch size/concurrency 1, three retries, and a 60-second retry delay.
+- Live HTTP checks passed: `/` → 200; anonymous `/dashboard` → 302 `/auth/signin`; body-free probe POST without authorization and with an incorrect token → 401; one valid token → 202 with exactly `jobId` and `status`.
+- Probe job `45f56925-af9e-4412-8961-e305c79e264c` correlated across sanitized JSON tails: producer `probe_queued`; consumer `probe_processed`, `success`, attempt 1, `object_deleted: true`. The subsequent remote R2 lookup returned “The specified key does not exist.” Both queues' realtime metrics returned backlog count 0 and backlog bytes 0 after processing (best-effort point-in-time metrics, not an ongoing guarantee).
+- Actual invocation CPU from live tails: homepage 14 ms; anonymous dashboard 8 ms; missing/incorrect-token probes 1 ms each; accepted probe 2 ms; first consumer invocation 1 ms. Every captured invocation had outcome `ok` and zero exceptions. Producer/consumer elapsed wall times were 726/754 ms; those values are not CPU usage. The first homepage request was the first observed request after publication, but isolate cold-start state was not independently identifiable. A separately controlled cold producer invocation remains unverified. Do not infer a universal 10 ms bound from these few samples: the homepage already exceeded it. Cloudflare documents limited tolerance for occasional overruns in [Workers limits](https://developers.cloudflare.com/workers/platform/limits/); optimize/profile Astro initialization before treating broader app traffic as proven on Free.
+- The telemetry-query API rejected the local login with HTTP 403. GraphQL analytics was readable and its schema confirmed CPU quantiles are in microseconds, but returned `__unknown__` script names; per-Worker evidence therefore comes from the named live tails, not attribution inferred from those aggregates.
+- Reran `npm run test:deployment` locally after publication: all 12 tests passed, including duplicate delivery, transient failure/retry exhaustion, terminal content handling, and DLQ cleanup. No live failure injection was performed.
+- Pending: hosted Supabase signup/signin/signout. The hosted public auth settings endpoint returned 200 with email signup enabled and email confirmation required. An approved test email and mailbox confirmation are still required; the local smoke suite uses disposable local Supabase and does not establish hosted authentication. Supply test details through ignored local environment files, never chat or committed files. No production auth settings were weakened to run tests.
+- No paid plan was activated, no extra cloud resources were provisioned, and no secret values were printed. This successful marker job does not establish that five-minute PDF extraction will run on Free; production extraction requirements remain separate.
 
 ### Phase 0 — Baseline validation
 
