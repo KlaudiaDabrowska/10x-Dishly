@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
@@ -301,4 +302,68 @@ test("storage write failure does not enqueue a message", async () => {
   assert.equal(response.status, 503);
   assert.equal(queued, false);
   assert.ok(!JSON.stringify(logs).includes("private"));
+});
+
+test("Free probe ignores upload bytes and emits only a tiny fixed object and message", async () => {
+  const bucket = fakeBucket();
+  const messages = [];
+  const logs = [];
+  const response = await handleProbe(
+    new Request("https://example.test/api/ops/deployment-probe", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: "not a PDF upload".repeat(10000),
+    }),
+    {
+      DEPLOY_PROBE_TOKEN: token,
+      PDF_BUCKET: bucket,
+      PDF_IMPORT_QUEUE: {
+        async send(body) {
+          messages.push(body);
+        },
+      },
+    },
+    (entry) => logs.push(entry),
+  );
+  assert.equal(response.status, 202);
+  assert.equal([...bucket.objects.values()][0], PROBE_PDF);
+  assert.ok(Buffer.byteLength(PROBE_PDF) < 64);
+  assert.ok(Buffer.byteLength(JSON.stringify(messages[0])) < 1024);
+});
+
+test("Free consumer rejects oversized objects without reading their body", async () => {
+  let read = false;
+  let deleted = false;
+  const item = delivery(message());
+  const logs = [];
+  await consumeProbe(
+    PROBE_QUEUE,
+    item,
+    {
+      ...fakeBucket(),
+      async get() {
+        return {
+          size: 20 * 1024 * 1024,
+          async text() {
+            read = true;
+            return "large PDF";
+          },
+        };
+      },
+      async delete() {
+        deleted = true;
+      },
+    },
+    (entry) => logs.push(entry),
+  );
+  assert.equal(read, false);
+  assert.ok(deleted);
+  assert.ok(item.acknowledged);
+  assert.equal(logs[0].outcome, "terminal_failure");
+});
+
+test("Free diagnostic rejects oversized authorization and message fields", async () => {
+  assert.equal((await handleProbe(request(`Bearer ${"x".repeat(8192)}`), { DEPLOY_PROBE_TOKEN: token })).status, 401);
+  assert.equal(isProbeMessage({ ...message(), requestedAt: " ".repeat(8192) + new Date().toISOString() }), false);
+  assert.equal(isProbeMessage({ ...message(), jobId: "a".repeat(8192) }), false);
 });

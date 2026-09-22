@@ -12,6 +12,8 @@ tech_stack:
 
 ## Recommendation
 
+**Scope update, 2026-09-22:** the current release is a short Workers Free diagnostic, as specified in [the deployment plan](../deployment/deploy-plan.md). Queues is now available on Workers Free; Workers Paid is not required merely to use Queues. The paid-runtime recommendation below concerns future real PDF extraction. Its requirements and remaining decisions are separated into [production PDF processing](../deployment/pdf-processing-requirements.md).
+
 **Deploy on Cloudflare Workers + Queues.**
 
 This is the only shortlisted option that preserves the repository's existing `@astrojs/cloudflare` 14 adapter and Wrangler 4 configuration while providing a managed asynchronous job primitive for PDF imports. It best matches the cost-first, single-region MVP constraints: Workers Paid starts at $5/month and includes the Queues capability needed for durable retries, while the accepted memory, CPU, and cross-provider database risks are explicitly mitigated below. The target is Workers, not a new Pages project: current Astro and Cloudflare guidance directs new full-stack Astro applications to Workers.

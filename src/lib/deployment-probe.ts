@@ -1,3 +1,4 @@
+// Fixed ASCII diagnostic only. Never parse PDFs or accept uploaded bytes on this path.
 export const PROBE_PDF = "%PDF-1.4\n% Dishly deployment probe\n%%EOF\n";
 export const PROBE_QUEUE = "dishly-pdf-imports";
 export const PROBE_DLQ = "dishly-pdf-imports-dlq";
@@ -49,15 +50,19 @@ export function isProbeMessage(value: unknown): value is ProbeMessage {
     message.version === 1 &&
     message.kind === "deployment_probe" &&
     typeof message.jobId === "string" &&
+    message.jobId.length === 36 &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(message.jobId) &&
     message.objectKey === probeObjectKey(message.jobId) &&
     typeof message.requestedAt === "string" &&
+    message.requestedAt.length === 24 &&
     Number.isFinite(Date.parse(message.requestedAt))
   );
 }
 
 async function authorized(header: string | null, token: string | undefined) {
   if (!header?.startsWith("Bearer ") || !token) return false;
+  // Bound hashing work on Free, including for unauthenticated requests.
+  if (token.length > 256 || header.length !== token.length + 7) return false;
   const encoder = new TextEncoder();
   const [actual, expected] = await Promise.all(
     [header.slice(7), token].map(

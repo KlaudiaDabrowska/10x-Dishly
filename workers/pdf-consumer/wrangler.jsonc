@@ -3,7 +3,7 @@
   "name": "dishly-pdf-worker",
   "main": "index.ts",
   "compatibility_date": "2026-05-08",
-  "limits": { "cpu_ms": 300000 },
+  // Diagnostic only: inherit Workers Free CPU limits; no paid-only CPU override.
   "observability": { "enabled": true, "head_sampling_rate": 1 },
   "r2_buckets": [{ "binding": "PDF_BUCKET", "bucket_name": "dishly-pdf-imports-eu", "jurisdiction": "eu" }],
   "queues": {

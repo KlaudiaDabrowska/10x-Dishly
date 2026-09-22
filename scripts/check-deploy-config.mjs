@@ -8,6 +8,7 @@ export const requiredSecrets = ["DEPLOY_PROBE_TOKEN", "SUPABASE_KEY", "SUPABASE_
 export function checkConfig(config, target) {
   assert.ok(["production", "preview"].includes(target), "Expected production or preview");
   const preview = target === "preview";
+  assert.equal(config.limits?.cpu_ms, undefined, "Free diagnostic must not set a custom CPU limit");
   assert.equal(config.name, preview ? "dishly-web-preview" : "dishly-web");
   assert.deepEqual(config.vars, { DEPLOYMENT_ENV: target });
   assert.deepEqual([...(config.secrets?.required ?? [])].sort(), preview ? [] : requiredSecrets);
@@ -51,9 +52,13 @@ export function checkDeployment(target) {
     readFileSync("workers/pdf-consumer/wrangler.jsonc", "utf8"),
   );
   assert.equal(consumer.error, undefined);
-  const config = consumer.config;
+  checkConsumerConfig(consumer.config);
+  console.log(`Deployment configuration verified: ${target}`);
+}
+
+export function checkConsumerConfig(config) {
   assert.equal(config.name, "dishly-pdf-worker");
-  assert.equal(config.limits.cpu_ms, 300000);
+  assert.equal(config.limits?.cpu_ms, undefined, "Free diagnostic must not set a custom CPU limit");
   assert.deepEqual(config.observability, { enabled: true, head_sampling_rate: 1 });
   assert.deepEqual(config.r2_buckets, [
     { binding: "PDF_BUCKET", bucket_name: "dishly-pdf-imports-eu", jurisdiction: "eu" },
@@ -69,7 +74,6 @@ export function checkDeployment(target) {
     },
     { queue: "dishly-pdf-imports-dlq", max_batch_size: 1, max_concurrency: 1, max_retries: 3, retry_delay: 60 },
   ]);
-  console.log(`Deployment configuration verified: ${target}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) checkDeployment(process.argv[2]);

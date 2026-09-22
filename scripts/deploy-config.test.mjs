@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkConfig, requiredSecrets } from "./check-deploy-config.mjs";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
+import { checkConfig, checkConsumerConfig, requiredSecrets } from "./check-deploy-config.mjs";
 
 function config(target = "preview") {
   return {
@@ -61,4 +63,18 @@ test("rejects automatic bindings and missing production contracts", () => {
     mutate(c);
     assert.throws(() => checkConfig(c, "production"));
   }
+});
+
+test("Free diagnostic rejects CPU overrides on either Worker and larger consumer batches", () => {
+  const consumer = ts.parseConfigFileTextToJson(
+    "wrangler.jsonc",
+    readFileSync("workers/pdf-consumer/wrangler.jsonc", "utf8"),
+  ).config;
+  checkConsumerConfig(consumer);
+  for (const cpu_ms of [10, 300000]) {
+    assert.throws(() => checkConsumerConfig({ ...consumer, limits: { cpu_ms } }), /custom CPU limit/);
+    assert.throws(() => checkConfig({ ...config("production"), limits: { cpu_ms } }, "production"), /custom CPU limit/);
+  }
+  consumer.queues.consumers[0].max_batch_size = 10;
+  assert.throws(() => checkConsumerConfig(consumer));
 });
