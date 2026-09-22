@@ -1,55 +1,103 @@
 name: CI
-
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
-
+    branches: [main]
+  workflow_call:
+    inputs:
+      commit_sha:
+        type: string
+        required: true
+permissions:
+  contents: read
 jobs:
-  ci:
+  validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx astro sync
+      - run: npx --no-install astro sync
       - run: npm run lint
-      - run: npx astro check
+      - run: npx --no-install astro check
+      - run: npm run test:deployment
+      - run: npm run test:deploy-config
       - run: npm run build
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-
+      - run: npm run check:deploy -- production
+      - run: npx --no-install wrangler deploy --dry-run
+      - run: npx --no-install wrangler deploy --config workers/pdf-consumer/wrangler.jsonc --dry-run
+      - run: npm run build:preview
+      - run: npm run check:deploy -- preview
+      - run: npx --no-install wrangler versions upload --env preview --dry-run
+      - name: Verify isolated preview responses
+        run: |
+          npm run preview:worker -- --port 4321 > preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          node scripts/check-preview.mjs
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
       - run: npm ci
       - name: Start local Supabase
         run: |
-          supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
-          supabase status -o env | grep -E '^(API_URL|ANON_KEY)=' > supabase.env
-      - name: Configure secrets for build and preview
+          npx --no-install supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor > supabase-start.log
+          npx --no-install supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=' > supabase.env
+      - name: Configure local test secrets
         run: |
           source supabase.env
-          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$API_URL" "$ANON_KEY" > .env
-          cp .env .dev.vars
+          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nDEPLOY_PROBE_TOKEN=ci-local-test-only\n' "$API_URL" "$PUBLISHABLE_KEY" > .env
       - run: npm run build
-      - name: Run smoke test against production preview
+      - name: Run auth smoke test against local Worker
         run: |
-          npm run preview -- --port 4321 &
-          for i in $(seq 1 60); do curl -sf -o /dev/null http://localhost:4321/ && break; sleep 1; done
-          BASE_URL=http://localhost:4321 npm run smoke
+          npm run preview:worker -- --port 4321 > smoke-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          node scripts/wait-for-server.mjs
+          npm run smoke
       - if: always()
-        run: supabase stop --no-backup
+        run: npx --no-install supabase stop --no-backup
+  preview:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    needs: [validate, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: preview
+    concurrency:
+      group: preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build:preview
+      - run: npm run check:deploy -- preview
+      - name: Upload isolated web preview
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          PREVIEW_ALIAS: pr-${{ github.event.pull_request.number }}
+        run: node scripts/publish-workers.mjs preview

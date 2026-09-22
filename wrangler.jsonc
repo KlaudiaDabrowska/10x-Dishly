@@ -25,6 +25,7 @@
   "env": {
     "preview": {
       "name": "dishly-web-preview",
+      "preview_urls": true,
       "vars": { "DEPLOYMENT_ENV": "preview" },
       "secrets": { "required": [] },
       "r2_buckets": [],

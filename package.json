@@ -8,6 +8,8 @@
     "build:preview": "CLOUDFLARE_ENV=preview astro build",
     "types:consumer": "wrangler types --config workers/pdf-consumer/wrangler.jsonc --env-interface PdfConsumerEnv workers/pdf-consumer/worker-configuration.d.ts",
     "test:deployment": "node --test scripts/deployment-probe.test.mjs",
+    "test:deploy-config": "node --test scripts/deploy-config.test.mjs scripts/publish-workers.test.mjs",
+    "check:deploy": "node scripts/check-deploy-config.mjs",
     "preview": "astro preview",
     "preview:worker": "wrangler dev --config dist/server/wrangler.json",
     "astro": "astro",

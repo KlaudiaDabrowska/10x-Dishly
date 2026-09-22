@@ -68,6 +68,8 @@ Use an EU-jurisdiction R2 bucket, Cloudflare Queues, hosted Supabase in Frankfur
    - install `SUPABASE_URL`, `SUPABASE_KEY`, and a generated high-entropy `DEPLOY_PROBE_TOKEN` as Worker secrets.
 6. Create a narrowly scoped Cloudflare CI token restricted to the selected account and deployment operations. Resource creation remains an interactive bootstrap action and does not use the long-lived CI token.
 7. Store only `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` in a GitHub `production` environment. Do not copy Supabase application secrets into GitHub.
+8. Configure required reviewers and restrict the `production` environment to `main`. The repository workflow references this environment, but reviewer/branch protection must be configured in GitHub ([environment gates](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments)).
+9. For PR uploads, create a separate GitHub `preview` environment with its own `CLOUDFLARE_ACCOUNT_ID` and narrowly scoped `CLOUDFLARE_API_TOKEN`. Do not put application secrets there or reuse production environment secrets. Same-repository PRs may upload; forks and Dependabot run validation only. If preview credentials are absent, the upload job fails explicitly after validation. Confirm the dedicated `dishly-web-preview` Worker has no pre-existing application secrets before enabling previews; version uploads preserve existing remote secrets.
 
 ### CI/CD
 
@@ -130,7 +132,7 @@ Use an EU-jurisdiction R2 bucket, Cloudflare Queues, hosted Supabase in Frankfur
 
 ## Deployment Record
 
-- Status: phases 0–2 complete locally on 2026-09-21. Prerequisites reported complete by the user; external state has not been independently verified. CI/CD implementation and production deployment/verification remain pending.
+- Status: phases 0–3 complete locally as of 2026-09-22. Prerequisites reported complete by the user; external state has not been independently verified. GitHub environment setup, hosted workflow execution, and production deployment/verification remain unverified.
 - Web Worker version: pending
 - PDF Worker version: pending
 - Production URL: pending
@@ -187,3 +189,16 @@ Completed locally on 2026-09-21. No cloud resources, secrets, or production depl
 - Preview runtime finding: `astro preview` returned `401` for the probe despite the generated preview config containing `DEPLOYMENT_ENV=preview`. Running that same generated config directly with Wrangler returned the required `503`. Use `npm run build:preview` followed by `npm run preview:worker` for binding-sensitive preview verification; this command runs only the local generated Worker. The production build must be restored before a production dry run/deploy.
 - Local combined-worker command after building: `npx wrangler dev --config dist/server/wrangler.json --config workers/pdf-consumer/wrangler.jsonc`. Configure a local-only probe token through the existing local secret mechanism before building; do not use production credentials for the probe test.
 - Next: CI/CD workflows and deployment configuration checks. Cloud publication remains pending.
+
+### Phase 3 — CI/CD and deployment checks
+
+Implemented locally on 2026-09-22; no push, GitHub workflow dispatch, or cloud publication performed.
+
+- CI now runs on pushes/PRs to `main` and can be called by the release workflow for an exact SHA. It uses Node 24 and lockfile-installed tools, runs lint, Astro checks, nine probe tests, six deployment-config/publication tests, production/consumer/preview dry runs, and eight preview HTTP assertions.
+- The separate smoke job starts disposable local Supabase, builds using only local URL/publishable-key credentials, and runs all eight authentication smoke assertions against Wrangler's local Worker runtime. No Supabase credentials are read from GitHub secrets. Local service startup output is redirected to avoid printing generated test credentials.
+- Same-repository PRs upload only the isolated web version with `wrangler versions upload --env preview --preview-alias pr-<number>`. Preview URLs are enabled in the preview config. No consumer is uploaded. Preview credentials are separate from production and exposed only to the publication step.
+- `.github/workflows/deploy.yml` accepts a full lowercase commit SHA via manual dispatch on `main`, verifies it is an ancestor of `origin/main`, and reruns CI against that SHA. The deploy job checks out the same SHA and uses the `production` environment gate. Production deployments are serialized and are not automatically cancelled mid-release.
+- `npm run check:deploy -- production|preview` inspects the generated config and installed versions. It rejects environment/name mismatches, unexpected bindings including `SESSION`/`IMAGES`, preview R2/Queue resources or declared secrets, and missing production bindings/secrets. It also verifies the consumer's retry, concurrency, EU storage, CPU, and observability configuration.
+- `scripts/publish-workers.mjs` uses the installed Wrangler 4.131.1 directly, checks remote production secret names before either deployment, disables automatic provisioning, deploys the consumer before the web Worker, and records each returned version immediately in the GitHub summary. The web/preview URL is recorded as well. Partial failures retain the consumer version for recovery and do not trigger an automatic rollback.
+- Validation passed locally: actionlint 1.7.12; lint; Astro check; all 15 automated tests; both build configurations and all three dry runs; eight isolated-preview HTTP checks; eight Supabase auth smoke assertions. Publication tests used simulated Wrangler results; actual remote credentials, GitHub approvals, provider startup limits, and cloud publication remain unverified.
+- Next: commit/push these workflows, verify the GitHub environments and resource/secret prerequisites, then manually dispatch **Deploy production** for a reviewed commit from `main`. After publication, run the first-release checks and copy the workflow's version IDs and URL into this record. Runtime CPU/memory behavior and orphaned-object/lifecycle verification remain part of first-release operations.
