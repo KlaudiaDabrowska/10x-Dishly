@@ -1,3 +1,7 @@
+## Repository-wide commit rules
+
+Before creating or amending any commit, read and follow [commit conventions](.agents/AGENTS.md). These conventions apply to every commit in this repository, regardless of which files are changed.
+
 <!-- BEGIN @przeprogramowani/10x-cli -->
 
 ## 10xDevs AI Toolkit — Module 1, Lesson 5
