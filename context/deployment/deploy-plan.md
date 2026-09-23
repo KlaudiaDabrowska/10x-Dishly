@@ -1,5 +1,11 @@
 # Cloudflare Workers Free Diagnostic Deployment Plan
 
+## Product-flow decision — 2026-09-23
+
+The next product import uses browser-local PDF text reading, authenticated backend calls to AI with text/layout/page context, backend validation and private recipe persistence. The original PDF stays on the user's device; the user keeps the tab open until import completes. This accepted flow supersedes the previous proposed server-side PDF parsing path; see [processing requirements](pdf-processing-requirements.md).
+
+The deployed R2/Queue marker diagnostic and the release history below are unchanged. They neither implement nor validate AI import. Provider/model, spending limits and provider data-use/retention terms remain open. Backend runtime measurements must cover the actual AI/validation/persistence workload. No billing changes, resource removal or production publication are implied by this documentation update.
+
 ## Summary
 
 Prepare a short diagnostic proof of concept for **Workers Free**, using two independent Workers on `workers.dev`:
@@ -32,7 +38,7 @@ CPU time excludes waiting for I/O. `duration_ms` in application logs is elapsed 
 
 ### Real PDF processing is a separate release
 
-The 100-page/20-MB input and five-minute import requirements remain in the PRD. They are **not tested or satisfied by this diagnostic**. The required runtime decision, benchmarks, import protocol, persistence, and cleanup changes are documented separately in [production PDF processing requirements](pdf-processing-requirements.md). No Workers Paid upgrade is scheduled by this plan.
+The 100-page/20-MB input and five-minute import requirements remain in the PRD. They are **not tested or satisfied by this diagnostic**. The accepted browser/backend/AI responsibilities, remaining provider decisions, verification, persistence, and temporary-data lifecycle are documented separately in [production PDF processing requirements](pdf-processing-requirements.md). No Workers Paid upgrade is scheduled by this plan.
 
 ## Implementation Changes
 

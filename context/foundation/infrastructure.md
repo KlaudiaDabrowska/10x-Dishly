@@ -1,7 +1,9 @@
 ---
 project: Dishly
 researched_at: 2026-09-20
-recommended_platform: Cloudflare Workers + Queues
+recommended_platform: Cloudflare Workers
+import_architecture: browser-text-backend-ai
+decision_updated: 2026-09-23
 runner_up: Netlify + Background Functions
 context_type: mvp
 tech_stack:
@@ -10,7 +12,16 @@ tech_stack:
   runtime: Cloudflare Workers
 ---
 
-## Recommendation
+## Current decision — 2026-09-23
+
+The accepted product flow is browser-local PDF text reading → authenticated backend → AI interpretation of bounded text/layout/page context → backend validation and private recipe saves. Original PDFs are not uploaded to R2 or parsed in a server-side Queue consumer. Provider credentials stay server-side; ownership, limits, validation and writes remain ordinary backend responsibilities.
+
+Keep the existing web deployment and diagnostic resources. The user keeps the browser tab open until completion. The AI provider/model, spending limits and data-use/retention terms are still undecided. Free-plan suitability for the new backend workload must be measured; accepting this flow is not a paid-plan approval.
+
+[Processing requirements](../deployment/pdf-processing-requirements.md) and [PRD](prd.md) describe the accepted contract. This supersedes the earlier recommendation to select a paid runtime for server-side PDF parsing. The comparison, risk register, operational assumptions and getting-started steps below are historical research for that superseded architecture, not the implementation checklist for the accepted flow. Deployment evidence remains in the deployment plan.
+
+## Historical recommendation — 2026-09-20
+
 
 **Scope update, 2026-09-22:** the current release is a short Workers Free diagnostic, as specified in [the deployment plan](../deployment/deploy-plan.md). Queues is now available on Workers Free; Workers Paid is not required merely to use Queues. The paid-runtime recommendation below concerns future real PDF extraction. Its requirements and remaining decisions are separated into [production PDF processing](../deployment/pdf-processing-requirements.md).
 

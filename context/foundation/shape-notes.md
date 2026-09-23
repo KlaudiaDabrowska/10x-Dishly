@@ -2,7 +2,7 @@
 project: "Dishly"
 context_type: greenfield
 created: 2026-09-17
-updated: 2026-09-18
+updated: 2026-09-23
 product_type: web-app
 target_scale:
   users: small
@@ -75,6 +75,19 @@ checkpoint:
   frs_drafted: 9
   quality_check_status: warned
 ---
+
+## Accepted follow-up decisions — 2026-09-23
+
+This section records the user's later decisions and supersedes conflicting original shaping statements below. [PRD v3](prd.md) is the current product contract; the original discovery record remains for provenance.
+
+- An unauthenticated visitor opening a protected screen is redirected to login.
+- The browser reads the selected PDF locally with text, layout/column context and 1-based PDF page numbers. The original PDF is not uploaded or deleted from the user's device.
+- The authenticated backend sends bounded text/context portions to AI, keeps its credential server-side, enforces limits, validates results and owns private persistence. AI recognizes recipes and their fields; it cannot assign ownership or write directly to the database.
+- Complete validated recipes save automatically; detected incomplete recipes require keep/discard. Progress distinguishes reading, recognition and saving; counts refer to confirmed saves and do not guarantee no recipe was missed.
+- For the summer ebook, preserve four recipe cards with three labelled ingredient-quantity variants per card and shared instructions; no calorie calculator or arbitrary choice of one variant.
+- Internet and an open tab are required until completion. Release app-held temporary data on success, failure or cancellation, leaving the original file untouched. No promise of continued import after the tab closes.
+- AI is part of import only. Provider/model, spending limits and provider data-use/retention terms remain undecided; acceptance did not approve paid services.
+- Limits remain 20 MB / 100 pages. Raising the limit to 150 pages and mapping non-standard source categories were earlier proposals, not decisions made by accepting this flow.
 
 ## Seed idea
 

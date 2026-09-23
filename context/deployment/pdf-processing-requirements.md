@@ -1,19 +1,38 @@
-# Production PDF processing — separate from the Free diagnostic
+# PDF import: accepted browser + backend + AI flow
 
-The Workers Free proof of concept validates transport and cleanup of a fixed 41-byte marker. It performs no PDF parsing, recipe extraction, or database writes. Its success does not establish the feasibility of a five-minute PDF import on Free.
+Decision accepted by the user on 2026-09-23. Implementation and provider selection are pending.
 
-## Product requirements retained
+## Product contract
 
-The [PRD](../foundation/prd.md) still requires selectable-text PDFs up to 100 pages / 20 MB, a representative roughly 50-recipe import within five minutes (excluding upload and user decisions), private recipe storage, and deletion of temporary PDFs after success or failure. Five minutes is an end-to-end processing requirement, not a CPU allocation or a measured result.
+The [PRD](../foundation/prd.md) remains the source of truth: selectable-text PDFs, at most 20 MB and 100 pages, private recipes, automatic saving of complete results, keep/discard for detected incomplete results. The representative 50-recipe flow must finish within five minutes from local text reading through AI processing and confirmed saving, excluding file selection and user decisions. This is a requirement, not a measured result.
 
-## Decisions and changes required before implementation
+The original PDF stays on the user's device. The app sends extracted text with necessary layout/column/page context through the authenticated backend to the AI provider. Temporary application-held input is released after success, failure or cancellation; the original local file is never deleted. Provider retention is a separate unresolved selection criterion.
 
-1. Select and explicitly approve a processing runtime/budget. Workers Free's CPU allowance is not the runtime budget for this feature. Evaluate Workers Paid or the previously researched Render Workflows fallback; do not enable either automatically. Recheck current provider limits and pricing when making that decision.
-2. If paid Workers is selected, review the consumer's CPU configuration and update the deployment guard deliberately. The prior `limits.cpu_ms: 300000` proposal is not active. Even a five-minute CPU allowance does not guarantee a five-minute completion deadline: storage, database, queue delays, and retries consume wall time. The 128 MB Worker memory constraint still matters.
-3. Benchmark actual parsing and extraction on at least 20 diverse PDFs, including 100-page/20-MB examples. Measure peak memory, CPU, wall time, cold start, and retry behavior. Preserve meaningful headroom; the earlier p95 CPU target below 240 seconds is insufficient by itself to prove an absolute five-minute product deadline.
-4. Replace the diagnostic marker protocol with a separate versioned import protocol and authenticated upload route. Validate file size/pages/type, apply per-user limits, define job states/deadlines, and keep PDFs out of Queue messages. Do not reuse the diagnostic's missing-object-is-success rule for a real import without persisted job-state evidence.
-5. Implement transactional/idempotent recipe writes and user isolation in Supabase. Ensure duplicate delivery cannot produce duplicate or partial recipes, and distinguish partial extraction from full success.
-6. Reconcile retry/retention with immediate terminal cleanup. Keep objects for retryable attempts, delete after terminal success/failure and DLQ handling, and retain a lifecycle safety net. Add alerting for orphaned objects and exhausted DLQ cleanup; lifecycle expiry is delayed and is not an immediate deletion guarantee.
-7. Review deployment compatibility, observability, rate limits, billing exposure, and rollback with both Worker versions. Update the foundation infrastructure contract and deploy plan before real PDFs are accepted.
+## Responsibilities
 
-References: [Workers limits](https://developers.cloudflare.com/workers/platform/limits/), [Queue consumer limits](https://developers.cloudflare.com/queues/platform/limits/), and the [original infrastructure research](../foundation/infrastructure.md). The original paid-processing recommendation remains research for this future decision; the current release is diagnostic only.
+1. **Browser:** validate local size/page/text-readability constraints; read text page by page, retaining column boundaries and 1-based PDF page numbers; show progress for reading, recognition and saving. Keep the tab open until completion. No scanned-PDF/OCR support is added.
+2. **Backend:** authenticate the user; enforce independent payload, request and import limits; treat browser-supplied metadata as untrusted; send bounded text batches to AI; store provider credentials server-side. Local file-limit checks are not a substitute for backend request/cost limits.
+3. **AI provider:** identify recipes, titles, ingredients, instructions, variants and an allowed meal category from source text. It must not invent missing content, treat shopping lists as recipes, choose the owner or write to the database.
+4. **Validation/persistence:** ordinary backend code checks required fields, permitted categories and references to supplied pages, binds ownership to the verified session, and performs idempotent writes. Complete validated recipes save automatically; detected incomplete ones await keep/discard. Full extraction failure saves no result. Counts report confirmed writes, not proposed model output.
+5. **UI:** report saved and pending counts without claiming every source recipe was found; expose detected omissions. Later editing/deletion and filtering do not require model calls.
+
+The summer ebook acceptance example is four recipe cards, each preserving three labelled ingredient-quantity variants and shared instructions. This does not introduce calorie calculations, portion conversion or dietary filters.
+
+## Remaining decisions and verification
+
+- Choose provider/model, spending limits, provider data-use/retention terms and the user-facing explanation of text transfer. No provider or paid plan was approved by acceptance of the flow.
+- Verify extraction quality with source comparisons, starting from the three inspected ebooks: columns, quantities, units, variants, source pages, missed/duplicated recipes and editorial-page exclusion. The 113-page ebook is an analysis fixture outside the accepted product limit; raising that limit remains a proposal.
+- Test the PRD's known 50-recipe case separately, including confirmed persistence. Local text extraction speed is not evidence for AI quality or end-to-end performance.
+- Measure browser memory/responsiveness on desktop/mobile and backend CPU, response validation, network/provider latency and total processing time. Assess actual deployment limits before assuming the Free plan is sufficient.
+- Define bounded requests, timeouts and retry behavior. A retry must not create duplicate recipes or uncontrolled repeat AI charges. Reconcile confirmed writes after interruptions; closing the tab does not guarantee cancellation of already submitted provider calls.
+- Test private access with two accounts, complete failure, detected incomplete results, invalid model responses and provider unavailability. Structured output alone is not an accuracy guarantee.
+- Avoid raw recipe text, provider credentials or full responses in operational logs. Keep temporary application data only for processing and decisions; select provider-side retention separately.
+- Choose request/job mechanics during implementation planning. Users are required to keep the tab open; continuing the import after closing it is not promised. Existing queue infrastructure does not impose the old PDF upload protocol.
+
+## Relation to the deployed diagnostic and prior research
+
+The existing Workers Free diagnostic transports and deletes a fixed marker in R2/Queues. It performs no user PDF parsing, AI extraction or recipe writes. Its deployment remains intact and its measurements are not product-import benchmarks.
+
+This accepted flow supersedes the previous requirement to upload original PDFs into R2 and parse them in a server-side Queue consumer. Paid parsing-runtime selection, the proposed CPU override and a mandatory 20-PDF server-parser benchmark are no longer prerequisites of this design. Existing diagnostic cleanup/retry behavior remains specific to that diagnostic; it must not be reused as evidence that a user import succeeded.
+
+No billing, resource, deployment, secret or source-code changes are performed by this documentation decision.
