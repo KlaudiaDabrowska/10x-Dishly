@@ -50,7 +50,10 @@ function check(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function assertResponse(actual, { status, location, error = false, owner, denied = false }) {
+function assertResponse(
+  actual,
+  { status, location, error = false, owner, denied = false, collection = false, home = false },
+) {
   check(actual.status === status, "unexpected status");
   const directives = actual.cacheControl
     .toLowerCase()
@@ -71,9 +74,27 @@ function assertResponse(actual, { status, location, error = false, owner, denied
     const other = owner === actorA ? actorB : actorA;
     check(!actual.body.includes(other.email), "another account identity was exposed");
   }
+  if (collection) {
+    check(actual.body.includes("<title>Your recipes | Dishly</title>"), "missing collection document title");
+    check(/<h1\b[^>]*>\s*Your recipes\s*<\/h1>/.test(actual.body), "missing collection heading");
+    check(actual.body.includes("No recipes yet"), "missing empty collection title");
+    check(actual.body.includes("Your saved recipes will appear here."), "missing empty collection message");
+    check(
+      /<form\b(?=[^>]*\bmethod="POST")(?=[^>]*\baction="\/api\/auth\/signout")[^>]*>/.test(actual.body),
+      "missing POST signout form",
+    );
+    check(actual.body.includes("Sign out"), "missing signout control");
+  }
+  if (home) {
+    check(
+      /<a\b[^>]*href="\/dashboard"[^>]*>\s*Your recipes\s*<\/a>/.test(actual.body),
+      "missing collection navigation link",
+    );
+  }
   if (denied) {
     check(!actual.body.includes(actorA.email) && !actual.body.includes(actorB.email), "account identity was exposed");
-    check(!actual.body.includes("This page is only for authenticated users."), "protected markup was exposed");
+    check(!actual.body.includes("No recipes yet"), "private collection markup was exposed");
+    check(!actual.body.includes("Your saved recipes will appear here."), "private collection markup was exposed");
   }
 }
 
@@ -103,7 +124,7 @@ for (const [label, actor] of [
     [
       `signin accepts correct password for ${label}`,
       () => request(actor, "/api/auth/signin", { method: "POST", form: { email: actor.email, password } }),
-      { status: 302, location: "/" },
+      { status: 302, location: "/dashboard" },
     ],
   );
 }
@@ -117,7 +138,11 @@ for (const [label, actor, other] of [
     steps.push([
       `${label} sees only own identity on ${page}`,
       () => request(actor, path),
-      { status: 200, owner: actor },
+      {
+        status: 200,
+        owner: actor,
+        ...(path.startsWith("/dashboard") ? { collection: true } : { home: true }),
+      },
     ]);
   }
 }
@@ -136,7 +161,7 @@ steps.push(
   [
     "A remains authenticated after malformed session",
     () => request(actorA, "/dashboard"),
-    { status: 200, owner: actorA },
+    { status: 200, owner: actorA, collection: true },
   ],
   [
     "anonymous session remains isolated",
@@ -165,7 +190,7 @@ for (const [label, actor] of [
     steps.push([
       "B remains authenticated after A signout",
       () => request(actorB, "/dashboard"),
-      { status: 200, owner: actorB },
+      { status: 200, owner: actorB, collection: true },
     ]);
 }
 
