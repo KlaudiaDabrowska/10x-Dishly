@@ -3,7 +3,7 @@ project: Dishly
 version: 3
 status: draft
 created: 2026-09-23
-updated: 2026-09-26
+updated: 2026-09-27
 prd_version: 3
 main_goal: low-complexity
 top_blocker: decisions
@@ -44,7 +44,7 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 | ID | Change ID | Outcome (user can …) | Prerequisites | PRD refs | Status |
 | --- | --- | --- | --- | --- | --- |
 | F-01 | validate-pdf-processing | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified. | — | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy | blocked |
-| S-01 | private-recipe-collection | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible. | — | FR-001, FR-006, US-02; Access Control | in-progress |
+| S-01 | private-recipe-collection | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible. | — | FR-001, FR-006, US-02; Access Control | done |
 | S-02 | import-complete-recipes | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01 | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | proposed |
 | S-03 | resolve-incomplete-recipes | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately. | S-02 | FR-005, FR-003, US-01; Business Logic | proposed |
 | S-04 | browse-and-read-recipes | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number. | S-02 | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness | proposed |
@@ -94,7 +94,7 @@ Do not rebuild authentication, the queue or publication mechanisms. F-01 is limi
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Existing authentication does not yet isolate future recipes; this capability establishes a private entry point, and subsequent capabilities extend protection to their own operations.
-- **Status:** in-progress
+- **Status:** done
 
 Q3 resolved on 2026-09-23: an unauthenticated user opening a protected screen is redirected to login. The decision was recorded in PRD v2.
 
@@ -228,3 +228,5 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to the new question 3 i
 ## Milestone History
 
 ## Done
+
+- **S-01: The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.** — Archived 2026-09-27 → `context/archive/2026-09-26-private-recipe-collection/`. Lesson: —.
