@@ -240,11 +240,11 @@ No data migration, schema change, new secret or route migration is required. `/d
 
 #### Automated
 
-- [x] 2.1 Static checks pass on Node 24: `npx --no-install astro sync`, `npm run lint`, and `npx --no-install astro check`.
-- [x] 2.2 The normal Worker build succeeds, and `BASE_URL=http://localhost:4321 npm run smoke` passes direct login-to-collection, exact redirects, English empty-state content, navigation, separate-account isolation, signout and cache checks against local Supabase.
-- [x] 2.3 The preview build and `BASE_URL=http://localhost:4321 node scripts/check-preview.mjs` retain the protected-page 503 contract; `npm run test:deployment` and `npm run test:deploy-config` still pass.
+- [x] 2.1 Static checks pass on Node 24: `npx --no-install astro sync`, `npm run lint`, and `npx --no-install astro check`. — 59e13b9
+- [x] 2.2 The normal Worker build succeeds, and `BASE_URL=http://localhost:4321 npm run smoke` passes direct login-to-collection, exact redirects, English empty-state content, navigation, separate-account isolation, signout and cache checks against local Supabase. — 59e13b9
+- [x] 2.3 The preview build and `BASE_URL=http://localhost:4321 node scripts/check-preview.mjs` retain the protected-page 503 contract; `npm run test:deployment` and `npm run test:deploy-config` still pass. — 59e13b9
 
 #### Manual
 
-- [x] 2.4 In Chrome and Firefox at desktop and mobile widths, registration followed by login reaches the collection; its empty state, current email and signout are clear, keyboard-accessible and free of horizontal overflow, including a long email address.
-- [x] 2.5 On the completed screen, reload preserves the account, two independent sessions show only their own identity, and signout followed by Back/reload or direct `/dashboard` access cannot retrieve private collection content.
+- [x] 2.4 In Chrome and Firefox at desktop and mobile widths, registration followed by login reaches the collection; its empty state, current email and signout are clear, keyboard-accessible and free of horizontal overflow, including a long email address. — 59e13b9
+- [x] 2.5 On the completed screen, reload preserves the account, two independent sessions show only their own identity, and signout followed by Back/reload or direct `/dashboard` access cannot retrieve private collection content. — 59e13b9
