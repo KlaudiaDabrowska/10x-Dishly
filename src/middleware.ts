@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase";
 
 const PROTECTED_ROUTES = ["/dashboard"];
 
+function privateResponse(response: Response): Response {
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   // The operational probe uses its own bearer token and must work independently of Supabase.
   if (context.url.pathname.replace(/\/$/, "") === "/api/ops/deployment-probe") {
@@ -16,7 +21,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     (context.url.pathname.startsWith("/api/") ||
       PROTECTED_ROUTES.some((route) => context.url.pathname.startsWith(route)))
   ) {
-    return Response.json({ error: "infrastructure_unavailable" }, { status: 503 });
+    return privateResponse(Response.json({ error: "infrastructure_unavailable" }, { status: 503 }));
   }
 
   if (supabase) {
@@ -30,9 +35,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (PROTECTED_ROUTES.some((route) => context.url.pathname.startsWith(route))) {
     if (!context.locals.user) {
-      return context.redirect("/auth/signin");
+      return privateResponse(context.redirect("/auth/signin"));
     }
   }
 
-  return next();
+  return privateResponse(await next());
 });
