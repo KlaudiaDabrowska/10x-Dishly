@@ -1,7 +1,7 @@
 ---
 change_id: private-recipe-collection
 title: Access a private collection
-status: plan_reviewed
+status: implementing
 created: 2026-09-26
 updated: 2026-09-26
 archived_at: null

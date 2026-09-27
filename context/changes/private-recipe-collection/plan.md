@@ -226,15 +226,15 @@ No data migration, schema change, new secret or route migration is required. `/d
 
 #### Automated
 
-- [ ] 1.1 Static checks pass on Node 24: `npx --no-install astro sync`, `npm run lint`, and `npx --no-install astro check`.
-- [ ] 1.2 The normal Worker build succeeds, and `BASE_URL=http://localhost:4321 npm run smoke` passes the existing auth flow plus separate-account, ownership-hint, malformed-session and cache assertions against local Supabase.
-- [ ] 1.3 The preview build succeeds, and `BASE_URL=http://localhost:4321 node scripts/check-preview.mjs` passes unchanged status/body expectations plus application cache assertions against that preview Worker.
-- [ ] 1.4 Existing diagnostic and deployment-contract tests pass: `npm run test:deployment` and `npm run test:deploy-config`.
+- [x] 1.1 Static checks pass on Node 24: `npx --no-install astro sync`, `npm run lint`, and `npx --no-install astro check`.
+- [x] 1.2 The normal Worker build succeeds, and `BASE_URL=http://localhost:4321 npm run smoke` passes the existing auth flow plus separate-account, ownership-hint, malformed-session and cache assertions against local Supabase.
+- [x] 1.3 The preview build succeeds, and `BASE_URL=http://localhost:4321 node scripts/check-preview.mjs` passes unchanged status/body expectations plus application cache assertions against that preview Worker.
+- [x] 1.4 Existing diagnostic and deployment-contract tests pass: `npm run test:deployment` and `npm run test:deploy-config`.
 
 #### Manual
 
-- [ ] 1.5 Two separate browser sessions retain their own email across reloads; signout followed by direct dashboard navigation denies access, and browser Back/reload does not restore a usable signed-in screen.
-- [ ] 1.6 In a disposable local session, force SDK refresh by making its stored expiry metadata stale while retaining valid tokens; dashboard access renews cookies, and subsequent signout plus a new dashboard request still denies access.
+- [x] 1.5 Two separate browser sessions retain their own email across reloads; signout followed by direct dashboard navigation denies access, and browser Back/reload does not restore a usable signed-in screen.
+- [x] 1.6 In a disposable local session, force SDK refresh by making its stored expiry metadata stale while retaining valid tokens; dashboard access renews cookies, and subsequent signout plus a new dashboard request still denies access.
 
 ### Phase 2: Deliver the empty private collection
 
