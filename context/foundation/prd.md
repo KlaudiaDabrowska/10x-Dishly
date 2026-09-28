@@ -1,9 +1,9 @@
 ---
 project: "Dishly"
-version: 3
+version: 5
 status: draft
 created: 2026-09-18
-updated: 2026-09-23
+updated: 2026-09-28
 context_type: greenfield
 product_type: web-app
 target_scale:
@@ -48,13 +48,13 @@ The creator expects to be the only user initially. Registration remains open to 
 
 ### US-01: Import a cooking ebook successfully
 
-- **Given** a user with a PDF containing 50 breakfast recipes, including sweet and savory options with different calorie values
+- **Given** a user with a representative cooking PDF within the accepted file limits, with an independently checked expected recipe set
 - **When** the user selects the PDF in the application and keeps the tab open while local reading, AI extraction, and saving finish
-- **Then** all 50 recipes are extracted and saved correctly, and the user sees a toast stating that 50 recipes were saved, without claiming that the app has independently verified every source recipe was found.
+- **Then** all expected recipes are extracted and saved correctly, and the user sees a toast stating the confirmed saved count, without claiming that the app has independently verified every source recipe was found.
 
 #### Acceptance Criteria
 
-- Full success in the example test requires all 50 recipes from the PDF to be extracted and saved correctly.
+- Full success requires all expected recipes from the representative PDF to be extracted and saved correctly, compared against a verified reference set.
 - The import message reports “Saved X recipes” and, when applicable, a warning stating “Y recipes require a decision”; it does not claim that no source recipes were omitted.
 - Automatic saving requires a title, a non-empty ingredient list, preparation instructions, a meal category, and source metadata containing the original filename and page number. If any required content is missing, the recipe requires a keep-or-discard decision.
 - If most recipes are extracted successfully but one or two are detected as incomplete, show a warning instead of presenting the import as full success.
@@ -62,7 +62,7 @@ The creator expects to be the only user initially. Registration remains open to 
 - Kept incomplete recipes can be corrected by their owner after saving through MVP editing of title, ingredients, and preparation instructions; editing within the import flow is excluded.
 
 - The browser reads text with layout/column context and page numbers; the backend alone calls AI and validates the response before saving.
-- For LETNI-DZIEN-PROBNY, the expected result is four recipe cards, each preserving three separately labelled ingredient-quantity variants and shared preparation instructions. Never merge quantities or silently select one variant. This is an additional source-specific acceptance case, not a replacement for the 50-recipe test.
+- For LETNI-DZIEN-PROBNY, the expected result is four recipe cards, each preserving three separately labelled ingredient-quantity variants and shared preparation instructions. Never merge quantities or silently select one variant. This is a source-specific acceptance case in the representative ebook set accepted on 2026-09-28.
 - Progress distinguishes local reading, recipe recognition, and saving. A successful count includes only confirmed saved recipes. Missing fields require a keep-or-discard decision; presence of all fields does not prove extraction accuracy.
 
 Sweet/savory options and calorie values describe sample input; no new filtering requirements have been agreed from this example.
@@ -80,7 +80,7 @@ Sweet/savory options and calorie values describe sample input; no new filtering 
 - Polish ingredient matching handles common inflected forms across grammatical case, number, and capitalization: `pomidor` matches `pomidory`, `pomidora`, and `pomidorów`, including capitalization differences.
 - `pomidor` does not automatically match `passata` or `ketchup`; related ingredients and substitutions remain distinct.
 - The user can open a matching recipe and read its title, ingredients, and preparation instructions.
-- This scenario is separate from US-01, which checks that all 50 recipes in a known source PDF are correctly extracted and saved.
+- This scenario is separate from US-01, which checks that all expected recipes in a representative source PDF are correctly extracted and saved.
 
 ### US-03: Correct an already saved recipe
 
@@ -139,9 +139,9 @@ Sweet/savory options and calorie values describe sample input; no new filtering 
 
 ## Non-Functional Requirements
 
-- Processing a representative PDF containing about 50 recipes finishes within five minutes (absolute maximum, not an average), measured from the start of local text reading through AI processing, validation, and confirmed saving, excluding file selection and user keep-or-discard decisions. This is an accepted requirement, not measured performance.
+- Processing each accepted representative PDF within the file limits finishes within five minutes (absolute maximum, not an average), measured from the start of local text reading through AI processing, validation, and confirmed saving, excluding file selection and user keep-or-discard decisions. This is an accepted requirement, not measured performance.
 - Filtering results appear within one second for a collection of up to 1,000 recipes with one active user. This is an accepted requirement, not measured performance.
-- The original PDF stays on the user's device; only extracted text and necessary layout/page context are sent through the backend to the AI provider. App-held temporary input is released after success, failure, or cancellation; saved recipes remain in the private account. Provider retention and data-use terms must be selected explicitly; local cleanup does not guarantee provider-side deletion.
+- The original PDF stays on the user's device; only extracted text and necessary layout/page context are sent through the backend to the AI provider. App-held temporary input is released after success, failure, or cancellation; saved recipes remain in the private account. Provider retention and data-use terms were accepted on 2026-09-28 (see the processing decision below); local cleanup does not guarantee provider-side deletion.
 - Recipe collections remain private to their owners; users cannot access another user's import text, results, or saved recipes.
 - The main flow (registration/login, local PDF reading, AI processing, import results and keep-or-discard decisions, filtering, and reading recipes) is usable in current versions of the two agreed mainstream browsers on desktop and mobile with a responsive layout.
 
@@ -165,7 +165,13 @@ The user accepted this MVP flow: choose PDF → local browser text reading → b
 - **Persistence/UI:** save complete validated recipes automatically, hold detected incomplete results outside the collection until keep/discard, and report confirmed saved/pending counts. Repeated requests must not duplicate recipes.
 - **Variants:** preserve the summer ebook's three labelled ingredient blocks on one card per dish with shared instructions. No calorie calculator, dietary filter, or automatic portion conversion is introduced.
 - **Lifecycle:** release app-held temporary PDF/text data on completion, failure or cancellation; retain saved recipes and source filename/page metadata. Closing the tab is not proof that an already submitted provider call was cancelled or its data deleted. Cancellation/retry handling must reconcile any confirmed writes.
-- **Scope:** AI is used for import; browsing, filtering, editing and deletion use ordinary application logic. The provider/model, spending limits and provider data-use/retention terms remain open. Accepting this flow does not approve a paid service or increase PDF limits.
+- **Scope:** AI is used for import; browsing, filtering, editing and deletion use ordinary application logic. The provider/model, spending limits and provider data-use/retention terms were accepted on 2026-09-28 (see below). PDF limits remain unchanged.
+
+### Accepted processing decision — 2026-09-28
+
+Google Gemini Developer API Paid, model `gemini-2.5-flash`; USD 5 total for F-01 validation, then USD 10 per month for AI and USD 0.50 per import. Prompts and responses are not used to improve Google products; the accepted abuse-monitoring retention is 55 days, subject to provider policy and legal obligations. This is not zero data retention.
+
+Use local PDF.js reading with page/layout context, backend-only AI calls and backend validation. Enforce spending limits before provider calls, reserving for concurrent requests, bounded output/reasoning and retries. Do not log raw source text or full model responses. Detailed terms, sources and remaining verification are recorded in [PDF processing requirements](../deployment/pdf-processing-requirements.md). Approval records the selected paid service and budget; no billing setup, credentials, deployment or live processing has been performed by this decision.
 
 ## Access Control
 
@@ -193,4 +199,8 @@ An unauthenticated visitor who opens a protected application screen is redirecte
 1. Should a later iteration allow editing incomplete recipes directly during import? — Owner: user; tentative future idea, not committed scope.
 2. Does the revised three-week estimate provide enough time for the full MVP after adding basic saved-recipe editing and deletion? — Owner: user; validate during implementation planning. Consequence: implementation planning may still require a smaller delivery slice if the estimate proves too tight.
 
-3. Which AI provider/model, import spending limits, and text retention/data-use terms should be used for the accepted browser → backend → AI flow? — Owner: user; blocks live AI integration and final extraction validation.
+3. **Resolved 2026-09-28 (roadmap Q4):** Google Gemini Developer API Paid, model `gemini-2.5-flash`; USD 5 total for F-01 validation, then USD 10 per month for AI and USD 0.50 per import. Prompts and responses are not used to improve Google products; the accepted abuse-monitoring retention is 55 days, subject to provider policy and legal obligations. This is not zero data retention. Provider selection no longer blocks planning; extraction accuracy, actual cost and end-to-end performance remain unverified.
+
+### Representative ebook clarification — 2026-09-28
+
+The user accepted `LETNI-DZIEN-PROBNY.pdf`, `MINI-E-BOOK-MAKARONOWY-2kbhp6.pdf` and `Niski indeks glikemiczny - niska waga.pdf` as the representative set. The earlier 50-recipe count was an approximate initial example, not a fixed acceptance count or a requirement for another ebook. Correctness means matching the verified expected recipes and content in each tested source. The 20 MB / 100-page limits remain unchanged: summer and pasta are full-import fixtures; the 113-page book is a layout-analysis and rejection fixture unless a later page-limit change is explicitly accepted. The five-minute end-to-end bound continues to apply to representative imports within those limits.

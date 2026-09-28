@@ -1,12 +1,12 @@
 ---
 project: Dishly
-version: 3
+version: 5
 status: draft
 created: 2026-09-23
-updated: 2026-09-27
-prd_version: 3
+updated: 2026-09-28
+prd_version: 5
 main_goal: low-complexity
-top_blocker: decisions
+top_blocker: pdf-processing-validation
 milestone_id: private-pdf-to-meal
 milestone_seq: 1
 milestone_status: open
@@ -14,7 +14,7 @@ milestone_status: open
 
 # Roadmap: Dishly
 
-> Derived from PRD v3 and the researched codebase baseline, confirmed by the user.
+> Derived from PRD v5 and the researched codebase baseline, confirmed by the user.
 > Items are listed in dependency order. The "At a glance" table is their index.
 > Update this document in place; when replacing it entirely, follow the foundation-document archive convention.
 
@@ -23,7 +23,7 @@ milestone_status: open
 **M-1: From a personal PDF to finding meals and managing recipes** — Status: open
 
 - **Intent:** The user can import their own ebook, find a meal and use private recipes, then correct and delete them. The first usefulness check is the complete import → filter → open recipe flow.
-- **Source materials:** `context/foundation/prd.md` (v3). Supplementary materials: `context/foundation/shape-notes.md`, `context/foundation/tech-stack.md`, `context/foundation/infrastructure.md`, `context/deployment/deploy-plan.md`, `context/deployment/pdf-processing-requirements.md`, `context/foundation/lessons.md`.
+- **Source materials:** `context/foundation/prd.md` (v5). Supplementary materials: `context/foundation/shape-notes.md`, `context/foundation/tech-stack.md`, `context/foundation/infrastructure.md`, `context/deployment/deploy-plan.md`, `context/deployment/pdf-processing-requirements.md`, `context/foundation/lessons.md`.
 - **Done when:** every F-NN and S-NN below is `done`; US-01–US-04 acceptance criteria and the PRD's non-functional requirements are met. Working diagnostics do not prove that import requirements are satisfied.
 - **Scope anchors:** FR-001–FR-009, US-01–US-04; Non-Functional Requirements, Business Logic and Access Control sections.
 - **Sequencing:** the user chose simplicity, US-02 as the first target flow, and the PDF-processing decision as the main risk. This is dependency ordering, without a schedule or new estimates.
@@ -41,16 +41,16 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 
 ## At a glance
 
-| ID | Change ID | Outcome (user can …) | Prerequisites | PRD refs | Status |
-| --- | --- | --- | --- | --- | --- |
-| F-01 | validate-pdf-processing | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified. | — | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy | blocked |
-| S-01 | private-recipe-collection | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible. | — | FR-001, FR-006, US-02; Access Control | done |
-| S-02 | import-complete-recipes | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01 | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | proposed |
-| S-03 | resolve-incomplete-recipes | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately. | S-02 | FR-005, FR-003, US-01; Business Logic | proposed |
-| S-04 | browse-and-read-recipes | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number. | S-02 | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness | proposed |
-| S-05 | find-meal-from-pdf | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from. | S-03, S-04 | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness | proposed |
-| S-06 | edit-saved-recipe | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections. | S-04 | FR-008, US-03; Access Control | proposed |
-| S-07 | delete-saved-recipe | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results. | S-04 | FR-009, US-04; Access Control | proposed |
+| ID   | Change ID                  | Outcome (user can …)                                                                                                                                                                                                                              | Prerequisites | PRD refs                                                                                                        | Status   |
+| ---- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- | -------- |
+| F-01 | validate-pdf-processing    | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.                                                                                 | —             | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy                        | ready    |
+| S-01 | private-recipe-collection  | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.                                                                              | —             | FR-001, FR-006, US-02; Access Control                                                                           | done     |
+| S-02 | import-complete-recipes    | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01    | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | proposed |
+| S-03 | resolve-incomplete-recipes | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | proposed |
+| S-04 | browse-and-read-recipes    | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02          | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | proposed |
+| S-05 | find-meal-from-pdf         | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed |
+| S-06 | edit-saved-recipe          | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | proposed |
+| S-07 | delete-saved-recipe        | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results.                                                                                                                                 | S-04          | FR-009, US-04; Access Control                                                                                   | proposed |
 
 ## Baseline
 
@@ -72,15 +72,15 @@ Do not rebuild authentication, the queue or publication mechanisms. F-01 is limi
 - **Outcome:** (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.
 - **Change ID:** validate-pdf-processing
 - **PRD refs:** FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy
-- **Unlocks:** S-02; question Q4; completeness check for 50 known recipes and measurement of real processing.
+- **Unlocks:** S-02; completeness checks against the accepted representative ebooks and measurement of real processing. Q4 is resolved.
 - **Prerequisites:** —
 - **Parallel with:** S-01
 - **Blockers:** —
 - **Unknowns:**
-  - Q4: Which AI provider/model, spending limit, and text-use and retention terms should we choose? The local reading → backend → AI direction has been accepted. — Owner: user. Block: yes.
+  - Q4 resolved on 2026-09-28: provider, budget and processing terms accepted; see the decision below. Block: no.
   - Does preserving columns, variants and page numbers produce correct recipes, and does the complete flow meet the PRD requirements? — Owner: team. Block: no; verification of this is required to complete F-01.
 - **Risk:** Reading text and having all fields present do not prove AI extraction accuracy; the bounded F-01 check precedes account, persistence and UI integration in S-02.
-- **Status:** blocked
+- **Status:** ready
 
 ## Slices
 
@@ -110,7 +110,7 @@ Q3 resolved on 2026-09-23: an unauthenticated user opening a protected screen is
 - **Risk:** Repeated processing must not create duplicates or partial writes; correct completion includes confirmed persistence and release of application-held temporary data without deleting the user's original file.
 - **Status:** proposed
 
-The accepted S-02 flow: local text reading with layout and page numbers → backend sends text to AI → backend code validates and saves. The AI key stays server-side; the model does not determine data ownership. The user keeps the tab open until completion. The four summer dishes must preserve three labelled ingredient variants on each card and shared instructions. Automatic saving requires all fields specified in the PRD, exactly one category, and the filename and page number. Detected incomplete results stay outside the collection and are marked as requiring a decision; S-03 completes their handling. The message does not guarantee that every recipe was found. Verification covers the known 50-recipe document, input limits, complete failure, retry, user isolation and the required processing time. S-02 alone does not complete US-01.
+The accepted S-02 flow: local text reading with layout and page numbers → backend sends text to AI → backend code validates and saves. The AI key stays server-side; the model does not determine data ownership. The user keeps the tab open until completion. The four summer dishes must preserve three labelled ingredient variants on each card and shared instructions. Automatic saving requires all fields specified in the PRD, exactly one category, and the filename and page number. Detected incomplete results stay outside the collection and are marked as requiring a decision; S-03 completes their handling. The message does not guarantee that every recipe was found. Verification covers the accepted representative ebooks (successful import within limits; rejection of the 113-page book), input limits, complete failure, retry, user isolation and the required processing time. S-02 alone does not complete US-01.
 
 ### S-03: Decide on incomplete recipes
 
@@ -184,24 +184,24 @@ This deletes an already saved recipe, independently of discarding a result in S-
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID | Suggested issue title | Ready for `/10x-plan` | Notes |
-| --- | --- | --- | --- | --- |
-| F-01 | validate-pdf-processing | Verify real import feasibility | no | Resolve Q4 first. |
-| S-01 | private-recipe-collection | Access a private collection | yes | Q3 resolved; `private-recipe-collection` can be planned. |
-| S-02 | import-complete-recipes | Import complete recipes from a PDF | no | After completing: F-01, S-01. |
-| S-03 | resolve-incomplete-recipes | Decide on incomplete recipes | no | After completing: S-02. |
-| S-04 | browse-and-read-recipes | Browse and read owned recipes | no | After completing: S-02. |
-| S-05 | find-meal-from-pdf | Find a meal by category and ingredient | no | After completing: S-03, S-04. |
-| S-06 | edit-saved-recipe | Correct a saved recipe | no | After completing: S-04. |
-| S-07 | delete-saved-recipe | Delete a saved recipe | no | After completing: S-04. |
+| Roadmap ID | Change ID                  | Suggested issue title                  | Ready for `/10x-plan` | Notes                                                     |
+| ---------- | -------------------------- | -------------------------------------- | --------------------- | --------------------------------------------------------- |
+| F-01       | validate-pdf-processing    | Verify real import feasibility         | yes                   | Q4 resolved; verify feasibility before marking F-01 done. |
+| S-01       | private-recipe-collection  | Access a private collection            | yes                   | Q3 resolved; `private-recipe-collection` can be planned.  |
+| S-02       | import-complete-recipes    | Import complete recipes from a PDF     | no                    | After completing: F-01, S-01.                             |
+| S-03       | resolve-incomplete-recipes | Decide on incomplete recipes           | no                    | After completing: S-02.                                   |
+| S-04       | browse-and-read-recipes    | Browse and read owned recipes          | no                    | After completing: S-02.                                   |
+| S-05       | find-meal-from-pdf         | Find a meal by category and ingredient | no                    | After completing: S-03, S-04.                             |
+| S-06       | edit-saved-recipe          | Correct a saved recipe                 | no                    | After completing: S-04.                                   |
+| S-07       | delete-saved-recipe        | Delete a saved recipe                  | no                    | After completing: S-04.                                   |
 
-`blocked` means the item has an unresolved question that blocks planning; `proposed` means it is waiting for prerequisites. S-01 is `ready` after Q3 was resolved. Resolving Q4 alone does not complete F-01; feasibility still needs verification.
+`blocked` means the item has an unresolved question that blocks planning; `proposed` means it is waiting for prerequisites. S-01 is `done`. F-01 is `ready` after Q4 was resolved; this does not complete F-01, because feasibility still needs verification.
 
 Main sequence: F-01 and S-01 → S-02 → S-03 and S-04 → S-05 → S-06 and S-07. S-06 and S-07 can be planned after S-04, but completing S-05 takes priority for a solo contributor. Parallelism means no product dependency, not a guarantee of conflict-free code changes. Shared behavior must be verified after integration. A separate Streams table is unnecessary: the work converges into one user flow.
 
 ## Open Roadmap Questions
 
-Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to the new question 3 in PRD v3; Q3 is retained as a resolved decision to preserve identifiers. The estimate mentioned in Q2 comes from the source and is not a roadmap schedule.
+Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved in PRD v4; Q3 is retained as a resolved decision to preserve identifiers. The estimate mentioned in Q2 comes from the source and is not a roadmap schedule.
 
 1. Should a later iteration allow editing incomplete recipes directly during import? — Owner: user; tentative future idea, not committed scope.
    - **Q1 — impact:** outside this milestone; does not block any item.
@@ -209,10 +209,10 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to the new question 3 i
    - **Q2 — impact:** review scope during planning; it does not alter accepted FRs or block starting on its own. Reducing scope requires an explicit PRD change.
 3. **Q3 — resolved 2026-09-23:** an unauthenticated user opening a protected screen is redirected to login. — Owner: user. Block: none.
    - **Q3 — impact:** decision recorded in PRD v2; S-01 is ready for planning.
-4. **Which AI provider/model, spending limit, and text-use and retention terms should we choose?** — Owner: user. Block: F-01; indirectly S-02–S-07.
-   - **Q4 — partially resolved 2026-09-23:** local PDF reading, sending text with layout/page context through the backend to AI, and backend validation and saving have been accepted. Provider, cost and processing-term choices remain open in PRD v3. This does not require choosing a paid PDF-parsing server; free operation of the entire feature remains unverified.
+4. **Q4 — resolved 2026-09-28: AI provider, budget and text-processing terms.** — Owner: user. Block: none.
+   - **Accepted:** Google Gemini Developer API Paid, model `gemini-2.5-flash`; USD 5 total for F-01 validation, then USD 10 per month for AI and USD 0.50 per import. Prompts and responses are not used to improve Google products; the accepted abuse-monitoring retention is 55 days, subject to provider policy and legal obligations. This is not zero data retention. The local reading → backend → AI flow remains accepted. F-01 still requires measured extraction quality, cost and performance; Workers Free suitability remains unverified.
 
-**Next move:** plan S-01 (`private-recipe-collection`); resolve Q4 in parallel to unblock F-01. The local reading → backend → AI architecture is accepted. The 20 MB / 100-page limit remains in effect; the proposed 150-page limit has not yet been accepted.
+**Next move:** `/10x-plan validate-pdf-processing` (F-01). Q4 is resolved and S-01 is done; S-02 still awaits completion of the F-01 feasibility check. The local reading → backend → AI architecture is accepted. The 20 MB / 100-page limit remains in effect; the proposed 150-page limit has not yet been accepted.
 
 ## Parked
 
