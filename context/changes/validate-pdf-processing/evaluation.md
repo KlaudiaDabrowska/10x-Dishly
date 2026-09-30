@@ -1,6 +1,6 @@
 # F-01 evaluation record
 
-Date: 2026-09-30. State: Phase 1 criteria completed; **live execution blocked pending prerequisites**.
+Date: 2026-09-30. State: Phase 1 and Phase 2 criteria completed. **Paid execution waits for durable spending controls.**
 This is a prerequisite/evidence record, not an extraction benchmark or a successful F-01 verdict.
 
 ## What was actually checked
@@ -22,16 +22,16 @@ This is a prerequisite/evidence record, not an extraction benchmark or a success
 
 ## Prerequisites and owners
 
-| Requirement                            | Evidence/status                                                          | Next evidence needed                                                                                  |
-| -------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Original files and local golden drafts | Available, hashes pinned                                                 | Completed on 2026-09-30; approval metadata and hashes recorded                                        |
-| Accepted model on the actual account   | OpenAI gpt-5.4-mini metadata visible (HTTP 200)                          | Ledger-backed generation smoke after Phase 3                                                          |
+| Requirement                            | Evidence/status                                                          | Next evidence needed                                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| Original files and local golden drafts | Available, hashes pinned                                                 | Completed on 2026-09-30; approval metadata and hashes recorded                                  |
+| Accepted model on the actual account   | OpenAI gpt-5.4-mini metadata visible (HTTP 200)                          | Ledger-backed generation smoke after Phase 3                                                    |
 | Paid billing and project identity      | User reports billing/key setup completed; balance not inspected          | Verify billing operation in the ledger-backed smoke; do not infer account balance from metadata |
-| Responses/schema/configuration support | Documentation supports the selected contract; account execution untested | Ledger-backed bounded synthetic smoke after Phase 3                                                   |
-| Desktop Chrome/Firefox                 | Chrome present; Firefox missing                                          | Arrange current Firefox for Phase 6 and record actual tested versions                                 |
-| Real phone Chrome/Firefox              | iPhone 15 Pro Max, Chrome confirmed; iOS version/Firefox unconfirmed     | Record iOS/browser versions and arrange Firefox for the agreed matrix                                 |
-| Actual Cloudflare CPU/latency          | Not measured for this path                                               | Phase 6 on authorized deployment                                                                      |
-| Durable spend controls                 | Not implemented in Phase 1                                               | Phase 3 transaction/concurrency tests before paid calls                                               |
+| Responses/schema/configuration support | Documentation supports the selected contract; account execution untested | Ledger-backed bounded synthetic smoke after Phase 3                                             |
+| Desktop Chrome/Firefox                 | Chrome present; Firefox missing                                          | Arrange current Firefox for Phase 6 and record actual tested versions                           |
+| Real phone Chrome/Firefox              | iPhone 15 Pro Max, Chrome confirmed; iOS version/Firefox unconfirmed     | Record iOS/browser versions and arrange Firefox for the agreed matrix                           |
+| Actual Cloudflare CPU/latency          | Not measured for this path                                               | Phase 6 on authorized deployment                                                                |
+| Durable spend controls                 | Not implemented in Phase 1                                               | Phase 3 transaction/concurrency tests before paid calls                                         |
 
 Progress 1.4 is complete: authenticated model metadata, user-confirmed billing setup and the planned device environments are recorded, with missing prerequisites explicitly identified. This criterion records readiness and blockers; it does not require successful generation or the Phase 6 browser matrix. Paid execution still waits for the tested ledger and bounded smoke; Firefox availability and actual device/browser versions remain required before the final benchmark.
 Unavailable model access stops the live branch and requires a separate model decision; there is no automatic fallback or hosting upgrade.
@@ -73,3 +73,42 @@ On 2026-09-30 the user confirmed they do not have Gemini API access and asked wh
 - Standard API token billing is separate from subscription usage ([pricing](https://learn.chatgpt.com/docs/pricing)). An independently billed OpenAI API integration remains an alternative for the hosted app; the subsequent accepted choice is recorded in provider-decision.md.
 
 Decision: use separately billed OpenAI API / gpt-5.4-mini, as accepted by the user. Quality and the 300-second target remain unmeasured.
+
+## Phase 2: local reader evidence (2026-09-30)
+
+Implemented the browser reader with pinned pdfjs-dist 6.3.289 and a native same-origin module worker. Hashing precedes buffer transfer; pages are read sequentially and retain raw text transforms, widths, directions, line endings, rotations and stable source anchors. Byte/page/text/batch limits reject explicitly; empty/photo pages are accepted within readable documents. No provider adapter or upload endpoint is used.
+
+### Browser evidence
+
+Local desktop headless Chrome 152.0.7977.75 read all three original fixtures through the browser File API. Both the development entry and the built inspection entry were exercised. Full results and summaries remain ignored under evaluation/validate-pdf-processing/local/reader/ and local/reader-built/.
+
+| Fixture | Built reader result                  | Text items | Batches / UTF-8 body bytes |
+| ------- | ------------------------------------ | ---------- | -------------------------- |
+| summer  | 16 pages accepted                    | 1312       | 2 / 164000 + 161500        |
+| pasta   | 12 pages accepted                    | 743        | 2 / 102258 + 69502         |
+| low-gi  | rejected: too-many-pages (113 pages) | not read   | none                       |
+
+Development and built results match exactly, including source hashes and text positions. Built local read-plus-batching observations were approximately 625 ms, 196 ms and 136 ms respectively; these are single desktop observations, **not** the end-to-end import benchmark or phone results. All 4 summer and 10 pasta reference anchors were found on their expected pages in the local reader text.
+
+Both browser runs exercised cancellation after native worker creation and returned cancelled. No workers remained after completion/error/cancellation and no external HTTP requests were observed. The built entry rejects selected-page inspection with inspection-disabled. The emitted worker is byte-identical to the installed package (SHA-256 8ab0e5e30031b4a06ecfddd5ae9562f0227f830ee7ec9ed1a968b134243d2386).
+
+The agent visually compared all nine recipe pages: summer 7/9/11/13 and pasta 4/6/8/9/11. Columns, variant labels, serving notes and 1-based page identities were preserved. A local side-by-side review is available at [reader/review.html](../../../evaluation/validate-pdf-processing/local/reader/review.html). Its approximate system font is only an inspection aid; raw transforms are retained in JSON. The user confirmed the visual comparison on 2026-09-30, completing Progress 2.3.
+
+### Implementation adaptations
+
+- The engine-independent reader-core.ts permits deterministic cleanup/error tests; the browser adapter uses the actual PDF.js worker.
+- A separate Vite inspection build proves browser bundling before Phase 5 adds the product UI. It lives in dist/pdf-reader-inspection, outside deployed Cloudflare assets, and has separate cache and dotenv loading disabled. The app does not yet import PDF.js.
+- Batches shrink their core-page windows when needed and count repeated context/envelopes against the cumulative limit. A single oversized page/context is rejected explicitly without truncation. Provider envelopes and token limits still require enforcement in Phase 4.
+- Installed PDF.js 6 declarations/source require PDFWorker.create and no longer expose the former isEvalSupported option. The adapter follows the installed API.
+
+Paid generation calls in Phase 2: **0**. Phone/Firefox, AI extraction accuracy, durable spending controls, persistence and the final F-01 verdict remain later-phase work.
+
+### Phase 2 automated verification
+
+- PASS: npm run test:pdf — 20 tests, including the actual authored PDF fixture and cleanup/limits/batching cases.
+- PASS: deliberate-break check removed the previous-page batch context; the ownership/overlap test failed, and git checkout restored the staged implementation unconditionally. The full PDF suite passed afterwards.
+- PASS: npx --no-install astro sync and astro check — zero errors, warnings or hints.
+- PASS: npm run build, followed by the final inspection rebuild/browser check after the DOM typing correction. The matching PDF.js worker is emitted. The existing sitemap warning about missing site remains unchanged.
+- PASS: npm run lint, npm run test:deployment (12 tests), npm run test:deploy-config (7 tests), npm run check:deploy -- production.
+- Type checking and lint initially found integration/type-style issues; they were corrected without suppressing rules or weakening assertions. The standalone inspection uses a separate Vite cache to avoid conflicts with Astro.
+- No deployment, paid API call or phone benchmark was performed. The auth smoke was not repeated for this browser-only phase; Phase 1 evidence remains above.

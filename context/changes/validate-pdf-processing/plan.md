@@ -395,12 +395,12 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 
 #### Automated
 
-- [ ] 2.1 `npm run test:pdf` covers size/page limits, empty versus unreadable documents, deterministic provenance, bounded batches and cancellation cleanup.
-- [ ] 2.2 `npx --no-install astro sync && npx --no-install astro check` and `npm run build` pass with PDF.js confined to the browser and its matching worker emitted.
+- [x] 2.1 `npm run test:pdf` covers size/page limits, empty versus unreadable documents, deterministic provenance, bounded batches and cancellation cleanup.
+- [x] 2.2 `npx --no-install astro sync && npx --no-install astro check` and `npm run build` pass with PDF.js confined to the browser and its matching worker emitted.
 
 #### Manual
 
-- [ ] 2.3 Visual comparison against summer and pasta source pages confirms intact columns, variant labels, serving notes and 1-based pages; selecting the 113-page file fails before any provider call.
+- [x] 2.3 Visual comparison against summer and pasta source pages confirms intact columns, variant labels, serving notes and 1-based pages; selecting the 113-page file fails before any provider call.
 
 ### Phase 3: Durable Spending Controls
 

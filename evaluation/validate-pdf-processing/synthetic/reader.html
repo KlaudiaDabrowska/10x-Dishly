@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Lokalna inspekcja PDF</title>
+  </head>
+  <body>
+    <h1>Lokalna inspekcja PDF — faza 2</h1>
+    <p>Dokument pozostaje w przeglądarce. Ten ekran nie zapisuje przepisów i nie wywołuje AI.</p>
+    <label>PDF <input id="file" type="file" accept="application/pdf" /></label>
+    <button id="cancel" type="button">Anuluj</button>
+    <label>Strona <input id="page" type="number" value="1" min="1" /></label>
+    <pre id="status" aria-live="polite"></pre>
+    <div style="display: flex; gap: 16px; flex-wrap: wrap">
+      <iframe id="source" title="Oryginalny PDF" style="width: 48%; height: 800px"></iframe>
+      <div id="layout" style="position: relative; background: white; border: 1px solid gray; overflow: hidden"></div>
+    </div>
+    <script type="module" src="./reader-inspection.ts"></script>
+  </body>
+</html>
