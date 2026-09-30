@@ -1,5 +1,7 @@
 # PDF import: accepted browser + backend + AI flow
 
+> Provider update accepted 2026-09-30: [OpenAI API / gpt-5.4-mini decision](../changes/validate-pdf-processing/provider-decision.md) supersedes the historical Gemini model, API accounting and 55-day retention clauses below. Product scope and monetary limits are unchanged.
+
 Flow accepted by the user on 2026-09-23; provider, budget and processing terms accepted on 2026-09-28. Implementation and feasibility verification are pending.
 
 ## Product contract

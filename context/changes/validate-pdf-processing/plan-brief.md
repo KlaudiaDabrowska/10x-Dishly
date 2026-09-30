@@ -4,16 +4,20 @@
 > Research: [research.md](research.md)
 > Decisions and six phases approved: 2026-09-30.
 
+## Provider amendment — 2026-09-30
+
+User-approved OpenAI API replacement: [provider-decision.md](provider-decision.md). Authenticated model metadata is visible; no generation test has run. This supersedes the historical Google-specific provider/retention clauses.
+
 ## What & Why
 
-F-01 will verify the complete local PDF reading → authenticated backend → Gemini → validation → real-save path.
+F-01 will verify the complete local PDF reading → authenticated backend → OpenAI → validation → real-save path.
 Its purpose is evidence that the accepted ebooks can become correct private recipes within five minutes and the agreed budget.
 A restricted feasibility screen supports the experiment; S-02 still owns the finished product import experience.
 
 ## Starting Point
 
 Astro/React, Cloudflare Workers, Supabase authentication and deployment/auth checks already exist.
-There is no PDF reader, Gemini adapter, recipe persistence or shared spending ledger. The existing PDF-named queue handles a diagnostic marker only.
+There is no PDF reader, OpenAI adapter, recipe persistence or shared spending ledger. The existing PDF-named queue handles a diagnostic marker only.
 
 ## Desired End State
 
@@ -23,17 +27,17 @@ A repeat of the identical PDF skips existing recipes without overwriting edits, 
 
 ## Key Decisions Made
 
-| Decision | Choice | Why | Source |
-| --- | --- | --- | --- |
-| Real save | Include minimal persistence in F-01 | The five-minute measurement must include a confirmed write/read-back | Plan: 1A |
-| Category | Source wins; second breakfast → breakfast; AI only if unlabelled | Preserve the author's classification | Plan: 2A |
-| Golden results | Agent prepares; user checks before live ebook extraction | Keep the reference independent of model output | Plan: 3A |
-| Mobile | User tests Chrome and Firefox on a real phone in F-01 | Emulation does not establish real-device feasibility | Plan: 4A |
-| Reimport | Skip saved source recipes for identical bytes on the same account | Avoid duplicates and preserve corrections | Plan: 5A |
-| Inputs | Summer/pasta full imports; 113-page book rejection/local analysis | Use the accepted representative set and unchanged 20 MB / 100-page limit | Research / PRD |
-| AI | Gemini Developer API Paid, gemini-2.5-flash | Preserve the accepted provider/model decision | Research / PRD |
-| Spending | USD 5 total F-01; bounded imports; tested later USD 10/month global and USD 0.50/import controls | Reserve before dispatch, including concurrency and uncertain charges | Research / Plan |
-| Storage | Supabase metadata/accounting and saved recipes; unsaved content in browser/request memory | Reuse the stack and avoid retaining temporary input | Plan |
+| Decision       | Choice                                                                                           | Why                                                                      | Source          |
+| -------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | --------------- |
+| Real save      | Include minimal persistence in F-01                                                              | The five-minute measurement must include a confirmed write/read-back     | Plan: 1A        |
+| Category       | Source wins; second breakfast → breakfast; AI only if unlabelled                                 | Preserve the author's classification                                     | Plan: 2A        |
+| Golden results | Agent prepares; user checks before live ebook extraction                                         | Keep the reference independent of model output                           | Plan: 3A        |
+| Mobile         | User tests Chrome and Firefox on a real phone in F-01                                            | Emulation does not establish real-device feasibility                     | Plan: 4A        |
+| Reimport       | Skip saved source recipes for identical bytes on the same account                                | Avoid duplicates and preserve corrections                                | Plan: 5A        |
+| Inputs         | Summer/pasta full imports; 113-page book rejection/local analysis                                | Use the accepted representative set and unchanged 20 MB / 100-page limit | Research / PRD  |
+| AI             | OpenAI API Paid, gpt-5.4-mini                                                                    | User-approved replacement on 2026-09-30                                  | Research / PRD  |
+| Spending       | USD 5 total F-01; bounded imports; tested later USD 10/month global and USD 0.50/import controls | Reserve before dispatch, including concurrency and uncertain charges     | Research / Plan |
+| Storage        | Supabase metadata/accounting and saved recipes; unsaved content in browser/request memory        | Reuse the stack and avoid retaining temporary input                      | Plan            |
 
 ## Scope
 
@@ -43,30 +47,30 @@ Full source-derived fixtures remain ignored local files; only synthetic examples
 
 ## Architecture / Approach
 
-Browser PDF.js preserves page/layout provenance; the authenticated Worker makes bounded sequential Gemini calls.
+Browser PDF.js preserves page/layout provenance; the authenticated Worker makes bounded sequential OpenAI calls.
 Supabase atomically reserves costs and records immutable result digests; finalization verifies browser-returned payloads against those digests and commits complete recipes atomically.
 Stable owner/file/source-item identity prevents duplicate writes. Unknown provider charges remain reserved; closing the tab does not prove provider cancellation.
 
 ## Phases at a Glance
 
-| Phase | What it delivers | Key risk |
-| --- | --- | --- |
-| 1. References/prerequisites | User-approved expected results and account/configuration checks | Chosen model access or source review unavailable |
-| 2. Browser reader | Bounded local reading with columns, variants and pages | Layout loss or mobile resource use |
-| 3. Spending controls | Durable reservations, authorization and concurrency tests | Unknown charges incorrectly released |
-| 4. AI/validation | Fixed generateContent adapter and source-based quality evaluation | Valid JSON with wrong or missing recipe content |
-| 5. Real save/screen | Private, atomic, replay-safe persistence and experiment UI | Client tampering, duplicates or misleading success |
-| 6. Measurements | Desktop/phone matrix, actual-host CPU/cost and F-01 verdict | Missing evidence or a failed five-minute bound |
+| Phase                       | What it delivers                                                  | Key risk                                           |
+| --------------------------- | ----------------------------------------------------------------- | -------------------------------------------------- |
+| 1. References/prerequisites | User-approved expected results and account/configuration checks   | Chosen model access or source review unavailable   |
+| 2. Browser reader           | Bounded local reading with columns, variants and pages            | Layout loss or mobile resource use                 |
+| 3. Spending controls        | Durable reservations, authorization and concurrency tests         | Unknown charges incorrectly released               |
+| 4. AI/validation            | Fixed Responses API adapter and source-based quality evaluation | Valid JSON with wrong or missing recipe content    |
+| 5. Real save/screen         | Private, atomic, replay-safe persistence and experiment UI        | Client tampering, duplicates or misleading success |
+| 6. Measurements             | Desktop/phone matrix, actual-host CPU/cost and F-01 verdict       | Missing evidence or a failed five-minute bound     |
 
-**Prerequisites:** accepted local ebooks, user's golden review, local Supabase, Paid Gemini access and server-side credentials, an authorized real deployment, two test accounts and a phone.
+**Prerequisites:** accepted local ebooks, user's golden review, local Supabase, Paid OpenAI access and server-side credentials, an authorized real deployment, two test accounts and a phone.
 **Estimated effort:** a substantial six-phase change; provisional 6–10 focused working sessions plus user review/device tests, not a delivery commitment. Reassess after references and the ledger-backed smoke.
 
 ## Open Risks & Assumptions
 
-- Gemini 2.5 access is restricted to prior users in the lifecycle documentation checked during planning. Unavailable access blocks live work; a replacement requires a separate decision.
+- Model metadata access passed; successful generation/schema support must be verified after the ledger.
 - Workers Free suitability is unproven. Measure the actual path; a failure does not authorize a paid hosting upgrade.
 - Final matrix: two ebooks × Chrome/Firefox × desktop/real phone = eight clean imports on a fixed configuration. Tuning and smoke calls also count toward USD 5.
-- App cleanup and the accepted 55-day provider retention are separate. Preview intentionally has no live model/database access.
+- App cleanup and the OpenAI provider retention described in provider-decision.md are separate. Preview intentionally has no live model/database access.
 
 ## Success Criteria (Summary)
 
@@ -76,4 +80,4 @@ Stable owner/file/source-item identity prevents duplicate writes. Unknown provid
 
 ## References
 
-[PRD](../../foundation/prd.md) · [PDF requirements](../../deployment/pdf-processing-requirements.md) · [Roadmap](../../foundation/roadmap.md) · [Gemini access/lifecycle](https://ai.google.dev/gemini-api/docs/deprecations).
+[PRD](../../foundation/prd.md) · [PDF requirements](../../deployment/pdf-processing-requirements.md) · [Roadmap](../../foundation/roadmap.md) · [OpenAI provider decision](provider-decision.md).

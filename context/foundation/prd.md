@@ -13,6 +13,8 @@ timeline_budget:
   hard_deadline: null
   after_hours_only: true
 ---
+> Provider update accepted 2026-09-30: [OpenAI API / gpt-5.4-mini decision](../changes/validate-pdf-processing/provider-decision.md) supersedes the historical Gemini model, API accounting and 55-day retention clauses below. Product scope and monetary limits are unchanged.
+
 
 ## Vision & Problem Statement
 

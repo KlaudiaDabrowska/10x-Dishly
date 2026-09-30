@@ -11,7 +11,7 @@
       "expectation": "accept",
       "recipePages": [7, 9, 11, 13],
       "referencePath": "local/references/summer.json",
-      "referenceSha256": "c70e35413ea05b8647a901f658f361507842988d0785c31d2eae2ecd5e4c0c8a"
+      "referenceSha256": "b36c4f40f86b022d99f512e0b46e8ca56718ddc7ec3228359a240d56d1ebd8d4"
     },
     {
       "id": "pasta",
@@ -23,7 +23,7 @@
       "expectation": "accept",
       "recipePages": [4, 6, 8, 9, 11],
       "referencePath": "local/references/pasta.json",
-      "referenceSha256": "cdb4df44a491a9298f8529c17ada8afefb92aac32311bd5202fc16715b5424e7"
+      "referenceSha256": "59f28979bb38ba24c7a2a08c9bbade4b89ef6b26a988fc0e525a78f0c29a1227"
     },
     {
       "id": "low-gi",

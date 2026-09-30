@@ -1,6 +1,6 @@
 # F-01 reference fixtures
 
-Prepared locally on 2026-09-30. Golden content is **pending user review**; schema validation does not certify recipe accuracy.
+Prepared locally on 2026-09-30. Golden content was **approved by the user on 2026-09-30**; schema validation alone does not certify recipe accuracy.
 
 ## Inventory
 
@@ -27,7 +27,7 @@ Initial files were copied from the user's existing `/home/klaudia/Pobrane/` dire
 ## Method and expected structure
 
 The references were prepared with local Poppler text extraction, using positioned lines to separate columns, and visually compared with all nine rendered recipe pages. No Gemini/API inference was used.
-The user performs the independent final review before these references can qualify live extraction results.
+The user completed the independent review and explicitly approved both references.
 
 - Summer: four dishes, each with exactly three labelled ingredient groups and one shared preparation paragraph. Labels retain the source kcal strings as identifiers; no calorie calculation is performed.
 - Summer source categories are breakfast, second breakfast, lunch and dinner. The second-breakfast dessert maps to breakfast, not dessert.
@@ -65,5 +65,8 @@ Any reference correction invalidates its old hash and requires review of the new
 ## User review gate
 
 Compare all nine recipes in the visual/Markdown view with the original pages. Verify every title, ingredient amount/unit, labelled variant, instruction, serving note, footnote, category and page.
-Report corrections by ebook/page/field, or explicitly approve both references. Until then, their review.status remains pending and Progress 1.3 remains unchecked.
-After explicit approval, record the approved content hashes, reviewer and date; synchronize any review-metadata hash change with the manifest and regenerate the view so it identifies the same version.
+The user explicitly approved both references on 2026-09-30; review.status is approved and Progress 1.3 is checked.
+Only approval metadata changed after review; recipe content is unchanged. The manifest and local views identify the updated files.
+
+- summer: reviewed draft SHA-256 c70e35413ea05b8647a901f658f361507842988d0785c31d2eae2ecd5e4c0c8a; approved file SHA-256 b36c4f40f86b022d99f512e0b46e8ca56718ddc7ec3228359a240d56d1ebd8d4.
+- pasta: reviewed draft SHA-256 cdb4df44a491a9298f8529c17ada8afefb92aac32311bd5202fc16715b5424e7; approved file SHA-256 59f28979bb38ba24c7a2a08c9bbade4b89ef6b26a988fc0e525a78f0c29a1227.

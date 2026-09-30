@@ -1,8 +1,12 @@
 # Validate PDF Processing Implementation Plan
 
+## Approved provider amendment — 2026-09-30
+
+The user approved OpenAI API with gpt-5.4-mini. [provider-decision.md](provider-decision.md) is the current account, request, accounting and retention contract; it supersedes earlier Gemini-specific foundation/research clauses. This is an explicit user-approved plan amendment, not implementation drift.
+
 ## Overview
 
-F-01 will establish whether Dishly can read the accepted ebooks locally, recognize recipes through the authenticated backend and Gemini, validate them, and persist complete recipes correctly within five minutes. It delivers a restricted feasibility screen, reusable processing modules and an evidence report; S-02 still owns the normal product import experience.
+F-01 will establish whether Dishly can read the accepted ebooks locally, recognize recipes through the authenticated backend and OpenAI, validate them, and persist complete recipes correctly within five minutes. It delivers a restricted feasibility screen, reusable processing modules and an evidence report; S-02 still owns the normal product import experience.
 
 Planning decisions and the six-phase structure were approved in this conversation on 2026-09-30. Implementation, measurements, account access and model availability have not been demonstrated by writing this plan.
 
@@ -10,7 +14,7 @@ Planning decisions and the six-phase structure were approved in this conversatio
 
 The application has Astro/React on Cloudflare Workers and cookie-based Supabase authentication. The dashboard is an empty collection shell. The PDF-named R2/Queue path transports a diagnostic marker; it does not parse documents, call AI or save recipes. There are no application migrations, recipe persistence or shared budget reservations in the inspected working tree.
 
-Research already settled PDF.js, local original PDFs, Gemini Developer API Paid with `gemini-2.5-flash`, USD 5 total for F-01, then USD 10/month application-wide and USD 0.50/import. Accepted provider retention is separate from application cleanup. Do not repeat provider selection or require another 50-recipe ebook.
+Research and the user-approved provider amendment settled PDF.js, local original PDFs, OpenAI API Paid with `gpt-5.4-mini`, USD 5 total for F-01, then USD 10/month application-wide and USD 0.50/import. Accepted provider retention is separate from application cleanup. Do not repeat provider selection or require another 50-recipe ebook.
 
 The three accepted inputs are summer and pasta for full import, plus the 113-page low-glycemic-index ebook for limit rejection and local layout analysis. Existing recipe counts and Poppler timings are preliminary observations, not checked expected results or browser/end-to-end measurements.
 
@@ -30,7 +34,7 @@ F-01 passes only when the final benchmark matrix passes and total F-01 AI usage,
 - `.github/workflows/ci.yml:59`: CI already runs local Supabase; use it for real database concurrency and ownership tests.
 - `package.json:7` and `scripts/deployment-probe.test.mjs:1`: Node tests, Miniflare and build/config checks are reusable. A queue mock cannot prove PostgreSQL atomicity.
 - `supabase/config.toml:53`: migrations are enabled but absent; the configured seed file is also absent. Remote schema state was not inspected.
-- Google's model lifecycle page checked during planning limits Gemini 2.5 access to prior users. Retain the accepted model, but make account availability an execution prerequisite rather than silently selecting a replacement.
+- Authenticated OpenAI model metadata lookup returned HTTP 200 for gpt-5.4-mini; generation and billing operation remain untested until ledger-backed smoke.
 
 ## What We're NOT Doing
 
@@ -49,6 +53,7 @@ Reuse the existing Worker and Supabase project. Add browser-only PDF.js reading,
 The database retains import metadata, immutable batch input/result digests, accounting and saved recipes. Raw source text and unsaved candidate content remain in request/browser memory. After validating a model result, the backend records its canonical payload digest before returning the candidate payload. Finalization recomputes each digest and compares it with the server-owned batch record, then saves only validated complete candidates. This prevents client modifications without persisting temporary recipe text on the server.
 
 Five approved decisions:
+
 - Include minimal real persistence and the complete five-minute measurement in F-01.
 - Source category wins; second breakfast maps to breakfast; AI chooses one permitted category only when the source has no explicit category.
 - Codex prepares the golden results from source pages; the user checks them before live ebook extraction.
@@ -56,6 +61,7 @@ Five approved decisions:
 - A later import of the identical PDF skips already saved source recipes and preserves their edits.
 
 Use a small versioned contract in `src/lib/pdf-processing/contracts.ts`:
+
 - Source: client-computed SHA-256 of PDF bytes, original filename, page count and stable page/text-item identifiers. These are untrusted metadata, not proof that the backend received a PDF.
 - Page text: 1-based page position, dimensions, text items and layout coordinates; preserve column separation and item order.
 - Candidate: source start item and page references, title, labelled ingredient groups, ordered instructions, optional serving/footnote text, category and missing-field reasons.
@@ -63,7 +69,7 @@ Use a small versioned contract in `src/lib/pdf-processing/contracts.ts`:
 - Status: created → processing → ready → committed, with failed/cancelled terminal alternatives; accounting uncertainty is tracked separately.
 - Counts: newly saved, already saved and pending are distinct; only a committed database result may increase the saved count.
 
-Initial bounded execution settings belong in one server-owned limits module: decimal 20,000,000 PDF bytes in the browser, 100 pages, 512 KiB per text-batch HTTP body, 2 MiB cumulative canonical input and 2 MiB finalization body, 32,768 counted input tokens per model call, one candidate, 8,192 maximum output tokens and a 1,024 thinking-token budget. Reserve conservatively for output plus thinking until the model-specific accounting contract is verified. Never silently truncate text to fit a bound; split at source-item boundaries or reject explicitly. Backend payload limits are independent resource limits, not a claim that browser-supplied file size is trusted.
+Initial bounded execution settings belong in one server-owned limits module: decimal 20,000,000 PDF bytes in the browser, 100 pages, 512 KiB per text-batch HTTP body, 2 MiB cumulative canonical input and 2 MiB finalization body, 32,768 counted input tokens per model call, one candidate, 8,192 total maximum output tokens (including any non-visible tokens), with reasoning.effort=none. Reserve the output limit once; reasoning usage is a subset, not an additional budget. Never silently truncate text to fit a bound; split at source-item boundaries or reject explicitly. Backend payload limits are independent resource limits, not a claim that browser-supplied file size is trusted.
 
 Batch construction uses up to eight core pages and the immediately preceding/following page as context, split further for byte/token limits; at most 32 batches per import. Ownership of a candidate follows its source-start item in a core range. Context-only candidates are not saved twice. Identical source anchors with conflicting content are an explicit validation failure, not an arbitrary winner. A continuation outside supplied context must be flagged incomplete rather than invented.
 
@@ -103,7 +109,7 @@ Define the checkable expected results and execution prerequisites before relying
 
 **Intent**: Make model access, verified pricing, test environments and measurement definitions explicit.
 
-**Contract**: Add `pdf:fixtures` to validate the local manifest/references and `test:pdf` for offline contract tests. Record account/model availability, Paid billing, model-specific generateContent support, token bounds and current rates without exposing secrets. Discovery/listing may precede Phase 3; any billable smoke request waits for the tested ledger. If the accepted model is unavailable, stop the live branch and obtain a new provider/model decision; never silently substitute. Credential entry uses ignored files/provider secret management, not chat.
+**Contract**: Add `pdf:fixtures` to validate the local manifest/references and `test:pdf` for offline contract tests. Record account/model availability, Paid billing, model-specific Responses API support, token bounds and current rates without exposing secrets. Discovery/listing may precede Phase 3; any billable smoke request waits for the tested ledger. If the accepted model is unavailable, stop the live branch and obtain a new provider/model decision; never silently substitute. Credential entry uses ignored files/provider secret management, not chat.
 
 ### Success Criteria:
 
@@ -178,7 +184,7 @@ RPCs lock applicable scope rows in stable order, check spent + held + new maximu
 
 **Intent**: Separate accounting authority from the cookie-bound user client and verify it with a real local database.
 
-**Contract**: A server-only privileged Supabase credential invokes narrowly granted RPCs; never inherit user cookies into that client. Revoke table mutations and accounting RPC execution from PUBLIC, anon and authenticated; explicitly grant only the backend role. Prefer invoker functions; any definer function has fixed search_path and schema-qualified names. Session identity is checked before privileged work. Add `test:pdf:db` and local-only CI credentials; no live Gemini key or billable tests in CI. Fix the absent seed reference narrowly if it blocks local setup.
+**Contract**: A server-only privileged Supabase credential invokes narrowly granted RPCs; never inherit user cookies into that client. Revoke table mutations and accounting RPC execution from PUBLIC, anon and authenticated; explicitly grant only the backend role. Prefer invoker functions; any definer function has fixed search_path and schema-qualified names. Session identity is checked before privileged work. Add `test:pdf:db` and local-only CI credentials; no live OpenAI key or billable tests in CI. Fix the absent seed reference narrowly if it blocks local setup.
 
 ### Success Criteria:
 
@@ -188,7 +194,7 @@ RPCs lock applicable scope rows in stable order, check spent + held + new maximu
 - `npm run test:pdf:db` proves anon/authenticated clients cannot reserve or reconcile spending, a second owner cannot access import metadata, and timeout/crash/cancel never release possibly charged usage.
 - `npm run test:pdf` passes fail-closed database/provider-dispatch tests, including a crash between dispatch claim and network response.
 
-## Phase 4: Gemini Recognition and Result Validation
+## Phase 4: OpenAI Recognition and Result Validation
 
 ### Overview
 
@@ -198,11 +204,11 @@ Add bounded model calls and distinguish structural validity, detected incomplete
 
 #### 1. Fixed model adapter
 
-**Files**: `src/lib/pdf-processing/gemini.ts`, `src/lib/pdf-processing/prompt.ts`, `src/lib/pdf-processing/validation.ts`, `scripts/pdf-processing.test.mjs`.
+**Files**: `src/lib/pdf-processing/openai.ts`, `src/lib/pdf-processing/prompt.ts`, `src/lib/pdf-processing/validation.ts`, `scripts/pdf-processing.test.mjs`.
 
 **Intent**: Use a small fetch-based REST adapter on Workers, keeping model syntax and billing separate from product logic.
 
-**Contract**: Pin `v1beta/models/gemini-2.5-flash:generateContent`, not Interactions; use structured JSON generation and verify the selected model's schema/configuration support in a bounded ledger-backed synthetic smoke. Count the complete request, including instructions/schema/context, before reserving. Enforce the limits module and validate actual usage fields, including thoughts. Pricing is a verified snapshot; unavailable or incompatible accounting fails closed. Reserve the full conservative maximum even when a timeout prevents usage reporting.
+**Contract**: Pin POST /v1/responses with model gpt-5.4-mini, store=false, background=false, reasoning.effort=none and strict text.format JSON Schema. Follow [provider-decision.md](provider-decision.md) for counting, request fields, response validation and pricing. Verify compatibility in a bounded ledger-backed synthetic smoke. Count the full input/instructions/schema before reservation; stop if counting is unavailable. Enforce 32,768 input and 8,192 total output tokens. Reconcile input_tokens/output_tokens; reasoning_tokens is already included in output_tokens. Pricing/accounting incompatibility fails closed. Reserve the full conservative maximum even when a timeout prevents usage reporting.
 
 Use a 60-second provider deadline and 270-second total processing deadline, leaving time for commit/status verification within 300 seconds. No automatic paid retry. A transport/429/5xx/truncation/blocked response ends the attempt explicitly; a deliberate retry requires a new reservation within the same import cap and remaining time, or reselecting the PDF after failure. Never repair truncated JSON into a successful result. Test `MAX_TOKENS`, missing candidates/usage, malformed fields and oversized responses. Provider errors are sanitized.
 
@@ -258,7 +264,7 @@ The transaction returns saved/existing/pending counts and committed IDs; verify 
 
 **Contract**: Create, batch, finalize, status and cancel actions validate session/ownership, evaluator allowlist, same-origin mutation requests, schema and streamed body-size bounds. Recompute input digests server-side; manifest core ranges must partition all supplied source pages/items exactly once. Browser metadata does not authorize spending. Limit each evaluator to one active import; allow different evaluators to test global budget concurrency. All private responses are no-store.
 
-Show reading, recognition and saving, then confirmed saved/existing/pending counts. Show incomplete content and missing-field warnings for evaluation, without providing the S-03 keep/discard workflow or claiming all recipes were found. Complete recipes require no user approval. Include the accepted text-transfer/55-day-retention explanation. Start timing before hashing/reading; stop only after commit read-back. All controls remain usable on mobile.
+Show reading, recognition and saving, then confirmed saved/existing/pending counts. Show incomplete content and missing-field warnings for evaluation, without providing the S-03 keep/discard workflow or claiming all recipes were found. Complete recipes require no user approval. Include the accepted OpenAI text-transfer and provider-retention explanation from provider-decision.md. Start timing before hashing/reading; stop only after commit read-back. All controls remain usable on mobile.
 
 Use memory only for original bytes/text/unsaved candidates; no localStorage, IndexedDB, raw-content logs or server cache. Release PDF/text after recognition and candidate data after terminal display is dismissed, failed or cancelled. Pending evaluation content remains only while its result view is open. Close-tab cleanup is best effort; submitted provider calls can still incur cost. Backend expiry prevents abandoned imports being finalized and retains only non-content accounting metadata.
 
@@ -268,7 +274,7 @@ Use memory only for original bytes/text/unsaved candidates; no localStorage, Ind
 
 **Intent**: Configure the experiment explicitly without weakening existing diagnostic/preview guarantees.
 
-**Contract**: Add server-only Gemini and privileged database credentials, evaluator IDs and enable switch; missing configuration disables the experiment. Keep production secrets/config guards and generated checks synchronized. Preview remains without model/database credentials and returns experiment-unavailable. Preserve queue/R2 diagnostic behavior and the no-CPU-override guard. Prepare publication through the existing reviewed manual deployment workflow; no hosting upgrade or deployment follows merely from this plan.
+**Contract**: Add server-only OpenAI and privileged database credentials, evaluator IDs and enable switch; missing configuration disables the experiment. Keep production secrets/config guards and generated checks synchronized. Preview remains without model/database credentials and returns experiment-unavailable. Preserve queue/R2 diagnostic behavior and the no-CPU-override guard. Prepare publication through the existing reviewed manual deployment workflow; no hosting upgrade or deployment follows merely from this plan.
 
 ### Success Criteria:
 
@@ -367,7 +373,7 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 - Runtime: `src/middleware.ts:4`, `src/lib/supabase.ts:6`, `astro.config.mjs:19`, `scripts/check-deploy-config.mjs:6`.
 - Verification: `package.json:7`, `scripts/deployment-probe.test.mjs:1`, `.github/workflows/ci.yml:59`, `supabase/config.toml:53`.
 - [PDF.js display API](https://github.com/mozilla/pdf.js/blob/master/src/display/api.js), [Supabase database functions](https://supabase.com/docs/guides/database/functions), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security): scoped Context7 documentation consulted during planning.
-- [Gemini generateContent reference](https://ai.google.dev/api/generate-content), [model lifecycle/access](https://ai.google.dev/gemini-api/docs/deprecations), [pricing](https://ai.google.dev/gemini-api/docs/pricing). Current generic examples may target other models/Interactions; verify the accepted 2.5 adapter and live account before use.
+- [OpenAI provider amendment and official sources](provider-decision.md): account evidence, API contract, current pricing, token accounting and retention.
 
 ## Progress
 
@@ -382,8 +388,8 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 
 #### Manual
 
-- [ ] 1.3 The user checks and approves the summer and pasta golden results, including every ingredient quantity/unit, variant, instruction and source page; approval and reference hashes are recorded.
-- [ ] 1.4 The prerequisite record identifies the accepted model's actual account availability, Paid billing status and planned desktop/phone environments; unavailable prerequisites are recorded as blocking live execution.
+- [x] 1.3 The user checks and approves the summer and pasta golden results, including every ingredient quantity/unit, variant, instruction and source page; approval and reference hashes are recorded.
+- [x] 1.4 The prerequisite record identifies the accepted model's actual account availability, Paid billing status and planned desktop/phone environments; unavailable prerequisites are recorded as blocking live execution.
 
 ### Phase 2: Local PDF Reading and Layout Preservation
 
@@ -404,7 +410,7 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 - [ ] 3.2 `npm run test:pdf:db` proves anon/authenticated clients cannot reserve or reconcile spending, a second owner cannot access import metadata, and timeout/crash/cancel never release possibly charged usage.
 - [ ] 3.3 `npm run test:pdf` passes fail-closed database/provider-dispatch tests, including a crash between dispatch claim and network response.
 
-### Phase 4: Gemini Recognition and Result Validation
+### Phase 4: OpenAI Recognition and Result Validation
 
 #### Automated
 
