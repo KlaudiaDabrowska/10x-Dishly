@@ -1,9 +1,9 @@
 ---
 change_id: validate-pdf-processing
 title: Validate pdf processing
-status: preparing
+status: planned
 created: 2026-09-28
-updated: 2026-09-28
+updated: 2026-09-30
 archived_at: null
 ---
 
