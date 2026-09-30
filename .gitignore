@@ -51,3 +51,6 @@ coverage/
 *.swo
 *~
 Thumbs.db
+
+# private PDF evaluation inputs, references and review renderings
+evaluation/validate-pdf-processing/local/

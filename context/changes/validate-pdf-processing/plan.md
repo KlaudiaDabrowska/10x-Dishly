@@ -377,8 +377,8 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 
 #### Automated
 
-- [ ] 1.1 `npm run pdf:fixtures` verifies the three local file hashes/page counts, reference schemas and source anchors; missing local files produce an explicit prerequisite failure.
-- [ ] 1.2 `npm run test:pdf` passes synthetic contract cases for categories, labelled variants, page numbering and decimal file-size boundaries.
+- [x] 1.1 `npm run pdf:fixtures` verifies the three local file hashes/page counts, reference schemas and source anchors; missing local files produce an explicit prerequisite failure.
+- [x] 1.2 `npm run test:pdf` passes synthetic contract cases for categories, labelled variants, page numbering and decimal file-size boundaries.
 
 #### Manual
 

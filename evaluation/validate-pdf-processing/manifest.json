@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "fixtures": [
+    {
+      "id": "summer",
+      "filename": "LETNI-DZIEN-PROBNY.pdf",
+      "localPath": "local/pdfs/LETNI-DZIEN-PROBNY.pdf",
+      "sha256": "f6751a77a78fd802c138902872a5089278b46b10170490b30dc324b52ef616dc",
+      "byteLength": 16593596,
+      "pageCount": 16,
+      "expectation": "accept",
+      "recipePages": [7, 9, 11, 13],
+      "referencePath": "local/references/summer.json",
+      "referenceSha256": "c70e35413ea05b8647a901f658f361507842988d0785c31d2eae2ecd5e4c0c8a"
+    },
+    {
+      "id": "pasta",
+      "filename": "MINI-E-BOOK-MAKARONOWY-2kbhp6.pdf",
+      "localPath": "local/pdfs/MINI-E-BOOK-MAKARONOWY-2kbhp6.pdf",
+      "sha256": "54db6afbe10d791b2d3eb8fa02e84232d9bbeac66744ba2cee1fbd07a0f960cb",
+      "byteLength": 12689424,
+      "pageCount": 12,
+      "expectation": "accept",
+      "recipePages": [4, 6, 8, 9, 11],
+      "referencePath": "local/references/pasta.json",
+      "referenceSha256": "cdb4df44a491a9298f8529c17ada8afefb92aac32311bd5202fc16715b5424e7"
+    },
+    {
+      "id": "low-gi",
+      "filename": "Niski indeks glikemiczny - niska waga.pdf",
+      "localPath": "local/pdfs/Niski indeks glikemiczny - niska waga.pdf",
+      "sha256": "934ee9f4af8a2d90b41adb0b59490f73321757d5095f0213287323c0bb297b58",
+      "byteLength": 10662733,
+      "pageCount": 113,
+      "expectation": "reject-page-limit",
+      "recipePages": [],
+      "referencePath": null,
+      "referenceSha256": null
+    }
+  ]
+}
