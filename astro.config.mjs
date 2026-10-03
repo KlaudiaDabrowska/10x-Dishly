@@ -21,6 +21,7 @@ export default defineConfig({
       DEPLOY_PROBE_TOKEN: envField.string({ context: "server", access: "secret", optional: true }),
       SUPABASE_URL: envField.string({ context: "server", access: "secret", optional: true }),
       SUPABASE_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+      SUPABASE_SECRET_KEY: envField.string({ context: "server", access: "secret", optional: true }),
     },
   },
 });

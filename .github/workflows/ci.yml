@@ -30,6 +30,7 @@ jobs:
       - run: npx --no-install astro check
       - run: npm run test:deployment
       - run: npm run test:deploy-config
+      - run: npm run test:pdf
       - run: npm run build
       - run: npm run check:deploy -- production
       - run: npx --no-install wrangler deploy --dry-run
@@ -60,6 +61,8 @@ jobs:
         run: |
           npx --no-install supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor > supabase-start.log
           npx --no-install supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=' > supabase.env
+      - name: Verify durable PDF spending controls
+        run: npm run test:pdf:db
       - name: Configure local test secrets
         run: |
           source supabase.env

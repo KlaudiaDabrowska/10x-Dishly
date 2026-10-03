@@ -18,7 +18,8 @@
     "format": "prettier --write .",
     "smoke": "node scripts/smoke.mjs",
     "pdf:fixtures": "node scripts/pdf-fixtures.mjs",
-    "test:pdf": "node --test scripts/pdf-contracts.test.mjs scripts/pdf-fixtures.test.mjs scripts/pdf-reader.test.mjs",
+    "test:pdf": "node --test scripts/pdf-contracts.test.mjs scripts/pdf-fixtures.test.mjs scripts/pdf-reader.test.mjs scripts/pdf-budget.test.mjs",
+    "test:pdf:db": "node --test scripts/pdf-processing-db.test.mjs",
     "build:pdf-reader": "vite build --config scripts/pdf-reader.vite.config.mjs"
   },
   "dependencies": {

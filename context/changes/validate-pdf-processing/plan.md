@@ -395,20 +395,20 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 
 #### Automated
 
-- [x] 2.1 `npm run test:pdf` covers size/page limits, empty versus unreadable documents, deterministic provenance, bounded batches and cancellation cleanup.
-- [x] 2.2 `npx --no-install astro sync && npx --no-install astro check` and `npm run build` pass with PDF.js confined to the browser and its matching worker emitted.
+- [x] 2.1 `npm run test:pdf` covers size/page limits, empty versus unreadable documents, deterministic provenance, bounded batches and cancellation cleanup. — c08e7fb
+- [x] 2.2 `npx --no-install astro sync && npx --no-install astro check` and `npm run build` pass with PDF.js confined to the browser and its matching worker emitted. — c08e7fb
 
 #### Manual
 
-- [x] 2.3 Visual comparison against summer and pasta source pages confirms intact columns, variant labels, serving notes and 1-based pages; selecting the 113-page file fails before any provider call.
+- [x] 2.3 Visual comparison against summer and pasta source pages confirms intact columns, variant labels, serving notes and 1-based pages; selecting the 113-page file fails before any provider call. — c08e7fb
 
 ### Phase 3: Durable Spending Controls
 
 #### Automated
 
-- [ ] 3.1 `npm run test:pdf:db` applies migrations locally and proves atomic near-limit admission across independent concurrent requests, all budget scopes, rounding, UTC rollover, duplicate reservations and exactly-once reconciliation.
-- [ ] 3.2 `npm run test:pdf:db` proves anon/authenticated clients cannot reserve or reconcile spending, a second owner cannot access import metadata, and timeout/crash/cancel never release possibly charged usage.
-- [ ] 3.3 `npm run test:pdf` passes fail-closed database/provider-dispatch tests, including a crash between dispatch claim and network response.
+- [x] 3.1 `npm run test:pdf:db` applies migrations locally and proves atomic near-limit admission across independent concurrent requests, all budget scopes, rounding, UTC rollover, duplicate reservations and exactly-once reconciliation.
+- [x] 3.2 `npm run test:pdf:db` proves anon/authenticated clients cannot reserve or reconcile spending, a second owner cannot access import metadata, and timeout/crash/cancel never release possibly charged usage.
+- [x] 3.3 `npm run test:pdf` passes fail-closed database/provider-dispatch tests, including a crash between dispatch claim and network response.
 
 ### Phase 4: OpenAI Recognition and Result Validation
 
