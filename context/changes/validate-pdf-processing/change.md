@@ -17,6 +17,8 @@ Normalization amendment (2026-10-05): deterministic source-derived normalization
 
 Second frame (2026-10-05): [frame.md](frame.md) reframes acceptance toward product-relevant correctness (no lost recipe, no wrong/added ingredient or amount); the earlier brief is preserved as frame-2026-10-03.md. Three repeat lunchboxy runs: blocking tier 1/5 overall, with recurring failure classes. Spend USD 1.14985125, held 0. Next: /10x-plan amendment.
 
+Acceptance measurement (2026-10-05): 4.10–4.12 done offline. Live 3×(summer+lunchboxy) with reasoning low: summer 1/3 (2 runs aborted by provider HTTP 429 rate limit, the completed run passes), lunchboxy 2/3 (recurring line-join defect). Gate 4.13 FAIL. Spent USD 1.5774885, held USD 0.294912 (two 429 calls). Awaiting user decision.
+
 ## Notes
 
 F-01 in context/foundation/roadmap.md. Provider, budget and retention accepted on 2026-09-28. Research requested before implementation planning.

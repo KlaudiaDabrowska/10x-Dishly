@@ -544,9 +544,9 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 - [x] 4.7 `npm run test:pdf` proves separate quantity/unit and unlabelled-group conventions, required versus optional omission handling, strict provenance, deterministic reconciliation and version-bound canonical digests.
 - [x] 4.8 Offline runner and database checks prove truthful exit status, immutable private run artifacts, hash/argument preflight, retained rejection/partial-failure evidence, one import deadline and preservation of historical spending; lint, Astro checks and build pass.
 - [ ] 4.9 One bounded ledger-backed attempt on the repaired fixed configuration passes exact golden comparison for all four summer and five pasta recipes, with no unresolved invalid/incomplete/conflicting candidates and complete run/accounting evidence.
-- [ ] 4.10 `npm run test:pdf` proves contradicted or provenance-verified omission reasons are dropped with warnings, an unlabelled group among several is a warning, and unknown reasons, schema and provenance failures stay invalid.
-- [ ] 4.11 `npm run pdf:acceptance -- --self-test` detects every planted blocking failure and passes the variant and form-only controls; re-scoring saved lunchboxy runs reproduces the frame verdicts.
-- [ ] 4.12 `npm run test:pdf` proves requests use `reasoning.effort=low` and `max_output_tokens` 16,384 and reservations use 147,456,000 nano-USD per call; lint, Astro check and build pass.
+- [x] 4.10 `npm run test:pdf` proves contradicted or provenance-verified omission reasons are dropped with warnings, an unlabelled group among several is a warning, and unknown reasons, schema and provenance failures stay invalid.
+- [x] 4.11 `npm run pdf:acceptance -- --self-test` detects every planted blocking failure and passes the variant and form-only controls; re-scoring saved lunchboxy runs reproduces the frame verdicts.
+- [x] 4.12 `npm run test:pdf` proves requests use `reasoning.effort=low` and `max_output_tokens` 16,384 and reservations use 147,456,000 nano-USD per call; lint, Astro check and build pass.
 - [ ] 4.13 Three ledger-backed summer + lunchboxy runs on one frozen configuration pass the blocking tier 3/3 per ebook in `pdf:acceptance`, with reported-tier counts, tokens and cost recorded.
 
 #### Manual

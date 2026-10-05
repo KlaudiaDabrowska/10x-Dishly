@@ -6,6 +6,10 @@ The user accepted OpenAI API with gpt-5.4-mini after learning that API billing i
 
 The user requested raising the application input cap after summer exceeded it. Exact counts are 60,886 and 80,950 tokens for the two standard batches; the previously rejected page-4 window measured 34,625. The new 98,304 cap leaves headroom and fits the documented 400,000-token context window together with the unchanged 8,192 output cap. Official model limits and standard USD 0.75 / 4.50 per million rates were rechecked on 2026-10-03. Existing monetary caps and historical reservations are preserved.
 
+## Reasoning amendment — 2026-10-05
+
+User-approved per the acceptance-contract amendment in plan.md: `reasoning.effort=low` and `max_output_tokens=16,384` (reasoning tokens count within output). Model, pricing (USD 0.75 / 4.50 per million) and the 98,304 input cap are unchanged. Maximum reservation per call = 98,304 × 0.75 + 16,384 × 4.50 per million = **147,456,000 nano-USD (USD 0.147456)**; a two-batch import reserves USD 0.294912 ≤ USD 0.50/import. A switch to `gpt-5.4` is not approved and needs a separate decision.
+
 ## Account evidence
 
 OPENAI_API_KEY is present in ignored local configuration. Authenticated GET /v1/models/gpt-5.4-mini returned HTTP 200 with the requested model ID on 2026-09-30. No key, account identifier or raw API response was logged. Billing setup is user-reported; balance and project identity were not independently inspected. Metadata visibility does not prove generation entitlement, quota, schema support or quality. Generation requests: 0. The first paid synthetic smoke still waits for Phase 3's tested ledger.

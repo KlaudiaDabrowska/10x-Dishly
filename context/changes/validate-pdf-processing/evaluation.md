@@ -284,3 +284,31 @@ The heading, paragraph and name fixes applied correctly where they fit.
 ## Frame verification: lunchboxy repeatability (2026-10-05)
 
 The user ran `/10x-frame` and then requested verification before planning: three lunchboxy runs with unchanged code/prompt/model (**eaa6c74b, 5ea356b0, ba2d31c8**), each 2 batches, about 11–14 s, no automatic retry. All failed exact golden comparison (9 / 8 / 32 differences). Scored by the proposed product-relevant blocking tier (read-only script `.cache/frame-blocking-tier.mjs`), 1 of 5 lunchboxy runs passes (8b771929). The failures are: spurious `missing-source-metadata` making 3 recipes incomplete; 2 recipes rejected for contradictory `absent-footnotes`; and twice, a "2g oleju" ingredient added from another area plus wrapped continuation lines split into separate ingredients. Incremental cost **USD 0.142504** (3 runs). Cumulative F-01 **USD 1.14985125**, held 0. See [frame.md](frame.md). Gate 4.9 remains FAIL and 4.4/4.9 pending.
+
+## Two-tier acceptance, lenient validation and reasoning low (2026-10-05)
+
+### Offline (4.10–4.12) — PASS
+
+- Validation: contradicted omission reasons and a model-supplied `missing-source-metadata` (after provenance passes) are dropped with warnings; an unlabelled group among several is the warning `unlabelled-variant-group`. Unknown/duplicate/mis-pathed reasons, schema errors, duplicate labels and all provenance checks stay invalid.
+- `npm run pdf:acceptance`: offline blocking-tier scorer plus `evaluateRecipes` reported tier and a 3/3 same-config verdict. Self-test: 14 planted failures, 5 controls. Re-scoring the saved lunchboxy runs reproduces the frame verdicts: 8b771929 PASS; cdf946c5, eaa6c74b, 5ea356b0 and ba2d31c8 FAIL.
+- Configuration: `reasoning.effort=low`, `max_output_tokens` 16,384, reservation 147,456,000 nano-USD per call.
+- Gates: 79 PDF tests, lint, Astro check (0/0/0), build, evaluator self-test, fixtures, golden invariance and deployment tests all pass. Two deliberate breaks (amount check in the scorer; context-only ownership in validation) turned the tests red, and the code was restored.
+- Offline revalidation of saved raw responses with the new validation: cdf946c5 summer keeps all 4 recipes and passes the blocking tier. The eaa6c74b and 5ea356b0 metadata losses disappear, but the ingredient errors remain.
+
+### Live 3 × (summer + lunchboxy) on one frozen configuration (4.13) — FAIL
+
+| Run | summer | lunchboxy |
+| --- | --- | --- |
+| ea77ac19 | **PASS** — 4/4 recipes; reported 25 diffs | FAIL — "Kanapka z pieczonym tofu": continuation lines split into entries |
+| 77ca3fb1 | **ABORTED** — batch 2 HTTP 429 `provider-rate-limited`; 3 recipes missing | **PASS** — 0 differences, exact golden match |
+| e7c581a0 | **ABORTED** — batch 2 HTTP 429; 3 recipes missing | **PASS** — 0 differences, exact golden match |
+
+`pdf:acceptance` verdict: summer 1/3, lunchboxy 2/3 → **FAIL**. No automatic retry was made.
+
+- The two summer failures are infrastructure, not extraction quality: the provider rejected the second summer call (97,329 input tokens) with 429, about 5–10 s after the previous runs. This is a tokens-per-minute rate limit of the account tier on back-to-back runs. The only completed summer run passed.
+- The lunchboxy blocking failure is the recurring line-join defect on page 12 ("40g humusu" / "(dowolny smak)", "90g tofu" / "wędzononego"). It occurred in 3 of 8 lunchboxy samples across both reasoning settings.
+- Reasoning low used 198–1,113 reasoning tokens per call; total output ≤ 2,788, far below 16,384.
+
+Accounting: 9 completed calls reconciled. The two rate-limited calls stay **held at the full reservation (2 × USD 0.147456 = USD 0.294912)** by design, because a dispatched call with an unknown outcome is never auto-released. Cumulative spent **USD 1.5774885**, held **USD 0.294912**, with USD 3.1275995 available under the USD 5 cap. Releasing the 429 holds requires the trusted reconciliation that the plan names as a separate step; OpenAI does not bill a 429-rejected request, but the application ledger cannot prove that on its own.
+
+**GATE 4.13: FAIL.** 4.4/4.9/4.13 remain pending. Per the amendment, the model escalation decision (`gpt-5.4`) belongs to the user. The evidence suggests two other causes first: rate-limit pacing between summer calls, and the page-12 line-join defect, which can be corrected deterministically from geometry.
