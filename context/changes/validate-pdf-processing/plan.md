@@ -4,19 +4,65 @@
 
 The user approved OpenAI API with gpt-5.4-mini. [provider-decision.md](provider-decision.md) is the current account, request, accounting and retention contract; it supersedes earlier Gemini-specific foundation/research clauses. This is an explicit user-approved plan amendment, not implementation drift.
 
+## Approved input-limit amendment — 2026-10-03
+
+The user explicitly requested increasing the input cap to unblock summer. The new cap is 98,304 counted input tokens per call; the 8,192 output cap, USD 0.50/import and USD 5 F-01 budgets remain unchanged. Standard summer batches measured 60,886 and 80,950 tokens. The maximum reservation is now 110,592,000 nano-USD (USD 0.110592) per call. One bounded summer verification under this amended configuration is authorized; golden acceptance remains mandatory.
+
+## Approved diagnostic-fixture amendment — 2026-10-04
+
+The user authorized a bounded diagnostic attempt using a representative excerpt of `25.1. Dietetyka w pigułce - dieta 1500 kcal dietetyka_w_pigulce.pdf` in place of further paid attempts on low-gi and pasta. The 54-page, 4,902,790-byte source remains within the current browser file/page limits, but a complete import needs at least seven standard core-page batches and cannot fit the unchanged USD 0.50/import reservation. The two-page excerpt preserving source pages 29–30 has a separately prepared local golden, approved by the user on 2026-10-04, before any paid call. Its result is diagnostic evidence only: it cannot replace the required summer/pasta acceptance in 4.4/4.9, weaken golden equality, change the provider, or authorize a budget increase.
+
+## Approved acceptance-fixture amendment — 2026-10-05
+
+The user replaced pasta and low-gi with `lunchboxy`: pages 1–12 of `8. Klaudia MIx Fit - Lunchboxy.pdf` (pdfseparate/pdfunite, text identical to the source pages; 12 pages, 7,038,572 bytes, SHA-256 46d58ed5…7591; five recipes on pages 4, 6, 8, 10 and 12). Phase 4.4/4.9 acceptance is now **summer + lunchboxy**; wherever this plan says "pasta" as an acceptance fixture, read lunchboxy. Golden equality, provider, budgets and the no-retry rule are unchanged. The user approved the lunchboxy golden on 2026-10-05.
+
+Lunchboxy states no meal type. Its golden records `category: null` with `sourceCategory: null`; the evaluator then requires one allowed AI-inferred category instead of an exact value (the category inference already permitted by the plan). Every other field, including sourceCategory, is compared exactly. The dietetyka excerpt was found to be cropped (CropBox hides the upper recipes from PDF.js) and is retired as diagnostic evidence.
+
+## Approved deterministic-normalization amendment — 2026-10-05
+
+The user approved deterministic, source-derived post-processing of validated model candidates, applied once inside runtime validation (shared by evaluation and the future backend) before the canonical digest. It never reads golden data, fixture IDs or titles, never invents content and records every applied change as a validation warning:
+
+- A single ingredient group whose label is only an ingredient-section heading ("Składniki", "Składniki do przygotowania N porcji", "Ingredients", optional colon) gets label null. Multi-group variant labels are untouched.
+- An instruction entry whose source start is an unnumbered, unbulleted line that directly continues the previous entry's last source line (same page, the line above with overlapping columns, ordinary line spacing) is merged into that entry with one space. Numbered/bulleted steps and entries that cannot be located in the source are left unchanged.
+- When sourceText starts with the extracted metric quantity+unit and the model's name is a prefix of the remainder, name becomes that remainder verbatim, minus only a trailing household-measure parenthetical (containing a digit or a measure word). Descriptive parentheses are kept.
+
+Offline gates come first: unit tests, and applying the normalization to the approved goldens must change nothing. Re-validating saved raw responses without provider calls shows the effect. Then one bounded summer + lunchboxy attempt, with no automatic retry.
+
+## Approved acceptance-contract amendment — 2026-10-05
+
+Based on [frame.md](frame.md) (second frame, HIGH confidence after repeat-run verification), the user approved replacing exact golden equality as the Phase 4 acceptance gate. This supersedes "zero golden discrepancies" (Phase 4 overview), "zero field differences" (§6) and "Do not weaken … multi-group label validation" (§5) wherever they conflict. Goldens stay unchanged and approved.
+
+- **Blocking tier:** all golden recipes are present, retained and complete. No invented or duplicate recipe. Each recipe's ingredient entries match the golden one-to-one: no added, missing or altered entry. Exact metric quantity/unit wherever the golden has one.
+- **Reported tier (non-blocking):** every other field difference (labels, names, sourceText form, instruction boundaries, notes, servings, category, sourceCategory, pages). It is still computed by `pdf:evaluate` and recorded.
+- **Summer variants:** one complete variant is sufficient. A recipe passes when its ingredients match any single golden variant, or each returned group matches a distinct golden variant. This also changes PRD US-01 (line 67), roadmap S-02 and `fixtures.md`, updated in §7.
+- **Repeatability:** 4.9 requires the blocking tier to pass in **3 of 3** ledger-backed runs per ebook (summer, lunchboxy) on one frozen configuration.
+- **Model escalation:** `gpt-5.4-mini` with `reasoning.effort=low` and `max_output_tokens` 16,384 (reservation USD 0.147456/call, USD 0.294912 for a two-batch summer import, within USD 0.50/import). A failure stops for a separate user decision on `gpt-5.4`, which is not part of this amendment.
+
 ## Overview
 
 F-01 will establish whether Dishly can read the accepted ebooks locally, recognize recipes through the authenticated backend and OpenAI, validate them, and persist complete recipes correctly within five minutes. It delivers a restricted feasibility screen, reusable processing modules and an evidence report; S-02 still owns the normal product import experience.
 
-Planning decisions and the six-phase structure were approved in this conversation on 2026-09-30. Implementation, measurements, account access and model availability have not been demonstrated by writing this plan.
+Planning decisions and the six-phase structure were approved on 2026-09-30. The Phase 4 repair amendment of 2026-10-03 follows [frame-2026-10-03.md](frame-2026-10-03.md) and the user's decisions: address both summer and pasta, use golden as the sole accuracy criterion, and base diagnosis on the three existing extraction runs. This amendment schedules repairs; it is not evidence that they pass.
 
 ## Current State Analysis
 
-The application has Astro/React on Cloudflare Workers and cookie-based Supabase authentication. The dashboard is an empty collection shell. The PDF-named R2/Queue path transports a diagnostic marker; it does not parse documents, call AI or save recipes. There are no application migrations, recipe persistence or shared budget reservations in the inspected working tree.
+At initial planning, the application had Astro/React on Cloudflare Workers, Supabase authentication, an empty collection shell and a PDF-named R2/Queue diagnostic path. Phases 1–3 now have recorded verification: approved references, a local reader and durable budget controls. Phase 4 has an adapter, validator, evaluator and successful ledger-backed synthetic smoke, but extraction accuracy still fails. Recipe persistence and the feasibility screen remain Phase 5 work.
 
 Research and the user-approved provider amendment settled PDF.js, local original PDFs, OpenAI API Paid with `gpt-5.4-mini`, USD 5 total for F-01, then USD 10/month application-wide and USD 0.50/import. Accepted provider retention is separate from application cleanup. Do not repeat provider selection or require another 50-recipe ebook.
 
-The three accepted inputs are summer and pasta for full import, plus the 113-page low-glycemic-index ebook for limit rejection and local layout analysis. Existing recipe counts and Poppler timings are preliminary observations, not checked expected results or browser/end-to-end measurements.
+The three accepted inputs are summer and pasta for full import, plus the 113-page low-glycemic-index ebook for limit rejection and local layout analysis. The approved goldens contain four summer recipes and five pasta recipes. Reader/smoke measurements do not establish full-path browser performance.
+
+The reported observation is: “Modelowe wyniki nie są zgodne z zatwierdzonymi źródłami.” The reframed problem is: “The problem is an extraction-and-evaluation pipeline that discards available layout information and lacks sufficiently precise, reproducible failure evidence, while its retained results still fail the approved golden contract.”
+
+The diagnosis in [frame-2026-10-03.md](frame-2026-10-03.md) establishes these boundaries:
+
+| Finding | Evidence and implication |
+| --- | --- |
+| Layout disappears before inference | `prompt.ts:106–114` serializes anchor/text only although the reader and batches retain geometry. Its contribution to errors is unmeasured. |
+| Summer losses include validation rejection | Latest output: five candidates, one retained and four invalid (one provenance, three group-label errors). Three golden recipes are missing from final output; unavailable rejected payloads prevent assigning their exact causes. All golden titles and variant labels occur in reader text. |
+| Pasta has precise representation/content mismatches | All five final categories, page arrays, instructions, servings and footnotes match. All 67 names match; 67 quantity/unit pairs, five group labels, five sourceCategory values and 11 sourceText fields differ. Broad report buckets overstated the failures. |
+| Evidence is incomplete | The runner overwrites previous files, drops rejected payloads and reports unconditional success. Only the latest detailed artifacts survive the three historical runs; earlier outputs cannot be reconstructed. |
+| Golden remains authoritative | Golden self-comparison and projection into runtime shape pass. Neither a schema incompatibility nor model incapability has been established. Both fixtures and every compared field remain required. |
 
 ## Desired End State
 
@@ -34,17 +80,18 @@ F-01 passes only when the final benchmark matrix passes and total F-01 AI usage,
 - `.github/workflows/ci.yml:59`: CI already runs local Supabase; use it for real database concurrency and ownership tests.
 - `package.json:7` and `scripts/deployment-probe.test.mjs:1`: Node tests, Miniflare and build/config checks are reusable. A queue mock cannot prove PostgreSQL atomicity.
 - `supabase/config.toml:53`: migrations are enabled but absent; the configured seed file is also absent. Remote schema state was not inspected.
-- Authenticated OpenAI model metadata lookup returned HTTP 200 for gpt-5.4-mini; generation and billing operation remain untested until ledger-backed smoke.
+- A ledger-backed synthetic OpenAI smoke passed; three ebook extraction runs did not establish golden accuracy. Synthetic schema/accounting success is separate from Phase 4.4 acceptance.
 
 ## What We're NOT Doing
 
 - S-02's finished dashboard import flow; S-03's keep/discard UI; S-04–S-07 browsing, filtering, editing and deletion.
 - Original-PDF upload, ebook storage, OCR, background continuation after closing the tab, or rebuilding the diagnostic queue.
-- Raising 20 MB / 100 pages, importing the complete 113-page ebook, or adding a separate 50-recipe fixture.
+- Raising 20 MB, importing the complete 113-page ebook as an acceptance fixture, or adding a separate 50-recipe fixture. (The page limit is 115 by user amendment of 2026-10-05.)
 - Changing the provider/model, accepting a higher budget, upgrading hosting, or claiming zero provider retention.
 - Automatic content merging across different PDFs, deduplication by mutable title, category editing, calorie calculations or portion conversion.
 - Committing the user's PDFs or full copyrighted reference recipes into the repository. Keep source-derived content in ignored local evaluation files; commit schemas, synthetic examples and aggregate evidence.
 - Claiming the UI can detect every omission. Correctness is established by source comparison in evaluation.
+- Changing goldens to match output, accepting semantic similarity, dropping either ebook, or using expected recipes to repair runtime output. No additional ebooks or new paid diagnostic calls are part of this plan update.
 
 ## Implementation Approach
 
@@ -69,9 +116,9 @@ Use a small versioned contract in `src/lib/pdf-processing/contracts.ts`:
 - Status: created → processing → ready → committed, with failed/cancelled terminal alternatives; accounting uncertainty is tracked separately.
 - Counts: newly saved, already saved and pending are distinct; only a committed database result may increase the saved count.
 
-Initial bounded execution settings belong in one server-owned limits module: decimal 20,000,000 PDF bytes in the browser, 100 pages, 512 KiB per text-batch HTTP body, 2 MiB cumulative canonical input and 2 MiB finalization body, 32,768 counted input tokens per model call, one candidate, 8,192 total maximum output tokens (including any non-visible tokens), with reasoning.effort=none. Reserve the output limit once; reasoning usage is a subset, not an additional budget. Never silently truncate text to fit a bound; split at source-item boundaries or reject explicitly. Backend payload limits are independent resource limits, not a claim that browser-supplied file size is trusted.
+Initial bounded execution settings belong in one server-owned limits module: decimal 20,000,000 PDF bytes in the browser, 115 pages (user amendment 2026-10-05; originally 100), 512 KiB per text-batch HTTP body, 2 MiB cumulative canonical input and 2 MiB finalization body, 98,304 counted input tokens per model call, one candidate, 8,192 total maximum output tokens (including any non-visible tokens), with reasoning.effort=none. Reserve the output limit once; reasoning usage is a subset, not an additional budget. Never silently truncate text to fit a bound; split at source-item boundaries or reject explicitly. Backend payload limits are independent resource limits, not a claim that browser-supplied file size is trusted.
 
-Batch construction uses up to eight core pages and the immediately preceding/following page as context, split further for byte/token limits; at most 32 batches per import. Ownership of a candidate follows its source-start item in a core range. Context-only candidates are not saved twice. Identical source anchors with conflicting content are an explicit validation failure, not an arbitrary winner. A continuation outside supplied context must be flagged incomplete rather than invented.
+Batch construction uses up to eight core pages and the immediately preceding/following page as context, split further for byte/token limits; at most 32 batches per import. The Phase 4 repair adds the first three document pages as explicitly marked document context through the same shared builder used by evaluation and the future browser flow; duplicate pages occur only once in a batch. All context participates in byte/token limits and input digests, and cannot grant recipe ownership. Ownership of a candidate follows its source-start item in a core range. Context-only candidates are not saved twice. Identical source anchors with conflicting content are an explicit validation failure, not an arbitrary winner. A continuation outside supplied context must be flagged incomplete rather than invented.
 
 ## Critical Implementation Details
 
@@ -198,7 +245,7 @@ RPCs lock applicable scope rows in stable order, check spent + held + new maximu
 
 ### Overview
 
-Add bounded model calls and distinguish structural validity, detected incompleteness and source accuracy.
+Add bounded model calls and distinguish structural validity, detected incompleteness and source accuracy. Resume with the repair sequence below. Existing 4.1–4.3 checkmarks record earlier verification; new 4.5–4.9 gates verify the repaired configuration. Phase 4.4 remains pending and requires zero golden discrepancies. Source review explains failures but cannot waive them.
 
 ### Changes Required:
 
@@ -208,7 +255,7 @@ Add bounded model calls and distinguish structural validity, detected incomplete
 
 **Intent**: Use a small fetch-based REST adapter on Workers, keeping model syntax and billing separate from product logic.
 
-**Contract**: Pin POST /v1/responses with model gpt-5.4-mini, store=false, background=false, reasoning.effort=none and strict text.format JSON Schema. Follow [provider-decision.md](provider-decision.md) for counting, request fields, response validation and pricing. Verify compatibility in a bounded ledger-backed synthetic smoke. Count the full input/instructions/schema before reservation; stop if counting is unavailable. Enforce 32,768 input and 8,192 total output tokens. Reconcile input_tokens/output_tokens; reasoning_tokens is already included in output_tokens. Pricing/accounting incompatibility fails closed. Reserve the full conservative maximum even when a timeout prevents usage reporting.
+**Contract**: Pin POST /v1/responses with model gpt-5.4-mini, store=false, background=false, reasoning.effort=none and strict text.format JSON Schema. Follow [provider-decision.md](provider-decision.md) for counting, request fields, response validation and pricing. Verify compatibility in a bounded ledger-backed synthetic smoke. Count the full input/instructions/schema before reservation; stop if counting is unavailable. Enforce 98,304 input and 8,192 total output tokens. Reconcile input_tokens/output_tokens; reasoning_tokens is already included in output_tokens. Pricing/accounting incompatibility fails closed. Reserve the full conservative maximum even when a timeout prevents usage reporting.
 
 Use a 60-second provider deadline and 270-second total processing deadline, leaving time for commit/status verification within 300 seconds. No automatic paid retry. A transport/429/5xx/truncation/blocked response ends the attempt explicitly; a deliberate retry requires a new reservation within the same import cap and remaining time, or reselecting the PDF after failure. Never repair truncated JSON into a successful result. Test `MAX_TOKENS`, missing candidates/usage, malformed fields and oversized responses. Provider errors are sanitized.
 
@@ -222,7 +269,71 @@ Use a 60-second provider deadline and 270-second total processing deadline, leav
 
 Missing title, ingredients, instructions, category or required source metadata means incomplete; never invent it to pass schema checks. Invalid provenance or schema is an invalid result, not a candidate eligible for automatic saving. Filename and owner come from validated import/session context, never the model. Reconcile overlapping source anchors and flag content conflicts. Persist a digest of the exact canonical validated payload with its owner/import/batch/schema version before returning it to the browser.
 
-Add `pdf:evaluate`: compare against the approved local golden set, allowing whitespace/line-wrap normalization only; report missing/invented/duplicate recipes, wrong quantities/units, lost variants/steps/notes and wrong categories/pages separately. Semantic equivalence outside normalization requires explicit source review, not an AI judge alone.
+Add `pdf:evaluate`: compare against the approved local golden set, allowing the existing whitespace/line-wrap normalization only. Golden is the sole accuracy criterion: semantic equivalence, source review and an AI judge cannot waive a mismatch. Structural/provenance validity and existing safety, cost and time gates remain independently required.
+
+#### 3. Precise comparison and reproducible evidence — repair first
+
+**Files**: `scripts/pdf-evaluate.mjs`, `scripts/pdf-extract-review.mjs`, `scripts/pdf-processing.test.mjs`, `package.json`, `context/changes/validate-pdf-processing/evaluation.md`.
+
+**Intent**: Identify every failed field and candidate disposition before changing extraction. Preserve the latest historical files and record unavailable earlier artifacts honestly.
+
+**Contract**: Keep missing/invented/duplicate checks and add field-level paths for title, group count/labels/order, ingredient count/order/name/quantity/unit/sourceText, instructions, servings, footnotes, canonical category, sourceCategory and pages. Existing aggregate buckets may remain for compatibility but derive from precise differences. Null versus text, array boundaries/order and every non-whitespace content change remain significant. Validate source-start ownership separately; do not relax it to obtain a pass. Test each planted field mutation independently, alongside unchanged and whitespace-only passing controls.
+
+Create immutable run directories under ignored `evaluation/validate-pdf-processing/local/extraction-review/<run-id>/`; refuse overwrite. Before any paid effect, validate CLI arguments, approved manifest/PDF/reference hashes and reader source identity. No arguments selects both accepted fixtures; unknown names/options fail before import creation or dispatch. Record build or dirty-tree code fingerprint, model/API, prompt/schema/config hashes, input hashes, per-batch timings, usage/ledger IDs and candidate dispositions. Raw candidates, exact requests and detailed expected/actual diffs remain only in private local artifacts (files mode 0600); operational output contains IDs/counts/error codes only. Product/server retention rules stay unchanged.
+
+Retain rejected candidates with batch/candidate identity, anchors, exact validation condition and field path. Distinguish nonexistent provenance, context ownership and invalid labels instead of storing one broad code. Save partial-run failure evidence and charged/held accounting if later batches fail. Provide offline replay of a saved run without provider access, account creation or ledger mutation. Top-level `ok` and exit status reflect both comparison and pipeline success: any required fixture/batch failure or golden mismatch returns nonzero. Diagnostics never edit expected or actual content to obtain success.
+
+#### 4. Shared layout-preserving model input — repair second
+
+**Files**: `src/lib/pdf-processing/prompt.ts`, `src/lib/pdf-processing/batching.ts`, `src/lib/pdf-processing/contracts.ts`, `scripts/pdf-extract-review.mjs`, `scripts/pdf-processing.test.mjs`, `scripts/pdf-reader.test.mjs`.
+
+**Intent**: Carry the reader's existing evidence through to the provider and remove the runner's special input path.
+
+**Contract**: Version the serialized input to include page dimensions and each item's stable anchor, text, transform, width, height, direction and line-ending flag. Preserve original item identity/order; geometry informs grouping without rewriting source text. A geometry-only change must alter the actual provider input and its digest. Use one shared builder for core/adjacent/document context, moving the runner-only first-three-pages addition into it. Mark context roles explicitly, excluding context-only recipe starts from owned results while allowing a source heading to classify recipes across batches.
+
+Recompute canonical byte totals and full request token counts after all context is included. Enforce per-request and cumulative caps including repeated context, split core ranges deterministically where possible, and reject unsplittable input without truncation or dispatch. Tests exercise the payload passed to the adapter, not just the reader object. Use synthetic multi-column/cross-batch heading examples and existing local reader artifacts; golden recipe content never enters extraction input.
+
+#### 5. Extraction representation and honest completeness — repair third
+
+**Files**: `src/lib/pdf-processing/prompt.ts`, `src/lib/pdf-processing/validation.ts`, `src/lib/pdf-processing/contracts.ts`, `src/lib/pdf-processing/categories.ts`, `src/lib/pdf-processing/reconcile.ts`, `scripts/pdf-processing.test.mjs`.
+
+**Intent**: Resolve contradictory instructions and ambiguous field conventions without hiding missing content or accepting incorrect values.
+
+**Contract**: State general source-to-field rules with synthetic examples: quantity and unit are separate verbatim scalars when unambiguous; do not copy a combined measure into quantity. Preserve full ingredient wording in sourceText. If multiple/ambiguous measures cannot be faithfully represented by a single pair, retain sourceText and use null scalars instead of selecting or calculating a measure. Copy actual variant labels; an unlabelled single group has a null label. Preserve source paragraph/step boundaries, shared preparation, servings and footnotes without paraphrasing or duplication per variant. Copy sourceCategory from the applicable source heading verbatim and derive canonical category through the existing mapping. These rules derive from source structure, never fixture names, titles, hashes or golden values.
+
+Exclude covers/TOCs/headings alone, but emit genuinely incomplete recipes with supplied evidence and reasons; remove the instruction to return only complete recipes. Introduce typed, versioned omission reasons distinguishing required content (including missing continuation/variant content) from absent optional servings/footnotes. Required omissions prevent `complete` even when arrays are nonempty; absent optional fields alone do not. Unknown/inconsistent reasons fail closed as incomplete/invalid, never silently ignored. Derive human-readable explanations from those reasons. Update schema, runtime validation and canonical digest/version together; incompatible prior results cannot be reused under the new contract. Structural status still cannot certify unseen omissions or golden accuracy.
+
+Do not weaken provenance or multi-group label validation to retain summer candidates. Preserve rejects for diagnosis. Reconciliation remains deterministic and reports conflicts; no expected-content lookup, fuzzy acceptance or replacement with golden values is permitted.
+
+#### 6. Offline gate, then one bounded acceptance attempt — repair last
+
+**Files**: `scripts/pdf-extract-review.mjs`, `src/lib/pdf-processing/openai.ts`, `scripts/pdf-processing.test.mjs`, `scripts/pdf-processing-db.test.mjs`, `context/changes/validate-pdf-processing/evaluation.md`.
+
+**Intent**: Verify the repaired path before spending, then obtain attributable evidence for both fixtures without an open-ended tuning loop.
+
+**Contract**: Run new offline gates, existing evaluator tests, fixture validation, lint, Astro checks/build and affected database checks before paid evaluation. Mock a multi-batch import to prove the 270-second deadline starts once per import and is not reset per batch; each provider deadline is at most 60 seconds and bounded by remaining import time. Expiry prevents further dispatch while retaining actual/unknown charges.
+
+Keep all real historical spend and reservations in the existing ledger. Do not reset counters, recreate accounting scopes or treat a new evaluator as fresh F-01 budget. Preflight remaining USD 5 global and USD 0.50/import capacity using current maximum reservations and account for the pending final matrix. Insufficient capacity stops live work; it does not permit higher limits. Reuse the accepted provider and tested reservation/dispatch path, with no automatic retry.
+
+After offline checks pass, a deliberate acceptance attempt runs summer and pasta once each on the same frozen configuration, loading golden only for comparison after extraction. Require exactly four summer and five pasta retained complete recipes, zero field differences, missing/invented/duplicate recipes or unresolved invalid/incomplete/conflicting candidates. Preserve artifacts and report fixtures independently; overall success requires both. A failed attempt stops for evidence-based diagnosis, leaves 4.4/4.9 pending and cannot trigger automatic resampling or model fallback. This planning update itself makes no paid calls.
+
+#### 7. Product-relevant acceptance and configuration — 2026-10-05 amendment
+
+**Files**: `src/lib/pdf-processing/validation.ts`, `src/lib/pdf-processing/limits.ts`, `src/lib/pdf-processing/openai.ts`, `scripts/pdf-acceptance.mjs` (new), `scripts/pdf-acceptance.test.mjs` (new), `scripts/pdf-processing.test.mjs`, `scripts/pdf-extract-review.mjs`, `package.json`, `context/changes/validate-pdf-processing/provider-decision.md`, `context/changes/validate-pdf-processing/fixtures.md`, `context/foundation/prd.md`, `context/foundation/roadmap.md`, `context/changes/validate-pdf-processing/evaluation.md`.
+
+**Intent**: Stop our own metadata gates from discarding recipes whose content is present. Measure the blocking/reported acceptance contract. Spend once on a higher-reasoning configuration measured 3+3.
+
+**Contract — validation**: Code owns source metadata and verified field presence. A model omission reason contradicted by a present field (absent-servings/absent-footnotes with content; missing-title/ingredients/instructions/category with that content present) is dropped with a `dropped-contradictory-reason:<code>` warning instead of `invalid`. `missing-source-metadata` is dropped with a warning when `pages` and `sourceStart` passed provenance validation. A missing label in a multi-group result becomes a `unlabelled-variant-group` warning instead of `invalid`. Unknown codes, wrong field paths, schema errors and all provenance checks (supplied pages, anchors, context-only ownership) stay invalid. Synthetic tests cover each relaxed and each still-strict case. Applying the change to saved raw responses must not create a candidate from a context-only anchor.
+
+**Contract — acceptance**: `npm run pdf:acceptance -- --run <run-dir> [--run …]` scores saved runs offline (no provider/ledger), using `report.json` actual/reconciliation and the pinned golden. An actual ingredient entry matches a golden entry when its sourceText (whitespace-collapsed, leading list bullet/dash removed, case-insensitive) contains the golden `name`, and quantity/unit equal the golden values where the golden has them. Matching is one-to-one: leftovers are added (actual) or missing (golden). For summer, the variant rule above applies. Output: per run and fixture, blocking PASS/FAIL with reasons, reported-tier counts from `evaluateRecipes`, and an overall verdict requiring 3/3 per fixture with an identical recorded config digest. `--self-test` plants each blocking failure (missing, invented, incomplete, added/missing/altered entry, wrong amount, mixed-variant summer recipe) and passes controls (one golden variant, all variants as distinct groups, form-only differences). Re-scoring the five saved lunchboxy runs must reproduce the frame verdicts: 8b771929 PASS, the others FAIL. This holds for the pre-change validation; the validation changes may legitimately turn eaa6c74b/5ea356b0 when revalidated. That before/after difference is recorded.
+
+**Contract — configuration**: `PDF_LIMITS.reasoningEffort` becomes `low` and `maxOutputTokens` 16,384. The maximum reservation is recomputed (147,456,000 nano-USD) and tests are updated. Pricing, input cap, budgets and no-retry stay unchanged. Record the change and reservation arithmetic in `provider-decision.md`. The live measurement makes three invocations of `npm run pdf:extract-review` (summer + lunchboxy), sequentially, with no automatic retry. Each preflight must pass, including final-matrix headroom. Insufficient capacity stops the measurement. Score with `pdf:acceptance` and record runs, verdicts, reported-tier counts, tokens and cost in `evaluation.md`. On failure, stop and ask the user about `gpt-5.4`.
+
+**Contract — documents**: Change the PRD US-01 summer clause, roadmap S-02 summer sentence, plan Desired End State and `fixtures.md` expected structure to: at least one complete, correctly quantified variant per summer recipe; never merge quantities across variants. Use the existing amendment-note style; goldens and their hashes stay unchanged.
+
+Progress note: 4.4 and 4.9 keep their titles. From 2026-10-05 they are judged by this amendment's two-tier 3/3 contract (4.13) rather than exact golden equality.
+
+Phase 4 supplies canonical digest generation and verifies that representation changes alter it. Phase 5 must wire durable owner/import/batch/schema-bound digest recording into the batch handler before returning any candidate to the browser; local JSON digests alone do not satisfy this handoff. Extraction-only success does not establish real-save or five-minute end-to-end feasibility.
 
 ### Success Criteria:
 
@@ -231,10 +342,20 @@ Add `pdf:evaluate`: compare against the approved local golden set, allowing whit
 - `npm run test:pdf` passes adapter contract, usage accounting, malformed/truncated/blocked responses, source validation, category precedence, overlap reconciliation and prompt-injection-as-source-data cases.
 - `npm run pdf:evaluate -- --self-test` detects planted omissions, quantity/unit changes, merged variants, invented dishes, duplicate anchors and incorrect source pages.
 - A ledger-backed synthetic provider smoke records the exact accepted model/API, schema support, bounded usage and reconciled cost without raw prompt/response logs.
+- `npm run pdf:evaluate -- --self-test` independently detects every compared field mutation and accepts only unchanged or whitespace-normalized controls; offline replay reports precise differences without provider calls.
+- `npm run test:pdf` proves geometry reaches the adapter input, shared context preserves ownership, and post-context byte/token bounds reject oversize input without truncation or dispatch.
+- `npm run test:pdf` proves separate quantity/unit and unlabelled-group conventions, required versus optional omission handling, strict provenance, deterministic reconciliation and version-bound canonical digests.
+- Offline runner and database checks prove truthful exit status, immutable private run artifacts, hash/argument preflight, retained rejection/partial-failure evidence, one import deadline and preservation of historical spending; lint, Astro checks and build pass.
+- One bounded ledger-backed attempt on the repaired fixed configuration passes exact golden comparison for all four summer and five pasta recipes, with no unresolved invalid/incomplete/conflicting candidates and complete run/accounting evidence.
+- `npm run test:pdf` proves contradicted or provenance-verified omission reasons are dropped with warnings, an unlabelled group among several is a warning, and unknown reasons, schema and provenance failures stay invalid.
+- `npm run pdf:acceptance -- --self-test` detects every planted blocking failure and passes the variant and form-only controls; re-scoring saved lunchboxy runs reproduces the frame verdicts.
+- `npm run test:pdf` proves requests use `reasoning.effort=low` and `max_output_tokens` 16,384 and reservations use 147,456,000 nano-USD per call; lint, Astro check and build pass.
+- Three ledger-backed summer + lunchboxy runs on one frozen configuration pass the blocking tier 3/3 per ebook in `pdf:acceptance`, with reported-tier counts, tokens and cost recorded.
 
 #### Manual Verification:
 
 - With golden results approved, summer and pasta extraction are compared with source pages; every discrepancy is documented and resolved before claiming a passing extraction configuration.
+- The user reviews the reported-tier differences of the measured runs and the updated PRD, roadmap and fixtures variant wording, and accepts them.
 
 ## Phase 5: Real Persistence and the Feasibility Screen
 
@@ -346,8 +467,8 @@ Use the existing local Supabase + built Worker CI approach. Exercise actual data
 
 1. Review the independent local golden set against visible PDF pages and record approved hashes.
 2. Verify reader output and column/variant preservation before live ebook calls.
-3. Run ledger-backed model smoke, then tune extraction against the approved golden set within the same budget.
-4. Run the final eight-cell matrix on a fixed configuration with clean test collections; compare persisted fields against the sources.
+3. Complete Phase 4 offline repair gates, then run one bounded two-fixture acceptance attempt; stop on discrepancies and preserve evidence. Existing smoke/tuning spend remains charged.
+4. Run the final eight-cell matrix on a fixed configuration with clean test collections; compare persisted fields exactly against approved goldens, allowing only existing whitespace normalization.
 5. Exercise incomplete and failed results, cancellation, lost responses, repeat import, a second account and 113-page rejection.
 6. Inspect actual-host CPU, browser/network behavior and the evidence report; user-run phone results are mandatory.
 
@@ -368,6 +489,7 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 ## References
 
 - Baseline: [research.md](research.md).
+- Phase 4 diagnosis/acceptance amendment (2026-10-03): [frame-2026-10-03.md](frame-2026-10-03.md); implementation gaps are established, the proposed repair's accuracy remains unproven.
 - Product: [PRD](../../foundation/prd.md), [roadmap](../../foundation/roadmap.md), [accepted PDF requirements](../../deployment/pdf-processing-requirements.md).
 - Source layouts: [PDF import review](../../foundation/pdf-import-review.md); historical proposals there are superseded by the PRD and five planning decisions.
 - Runtime: `src/middleware.ts:4`, `src/lib/supabase.ts:6`, `astro.config.mjs:19`, `scripts/check-deploy-config.mjs:6`.
@@ -406,21 +528,31 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 
 #### Automated
 
-- [x] 3.1 `npm run test:pdf:db` applies migrations locally and proves atomic near-limit admission across independent concurrent requests, all budget scopes, rounding, UTC rollover, duplicate reservations and exactly-once reconciliation.
-- [x] 3.2 `npm run test:pdf:db` proves anon/authenticated clients cannot reserve or reconcile spending, a second owner cannot access import metadata, and timeout/crash/cancel never release possibly charged usage.
-- [x] 3.3 `npm run test:pdf` passes fail-closed database/provider-dispatch tests, including a crash between dispatch claim and network response.
+- [x] 3.1 `npm run test:pdf:db` applies migrations locally and proves atomic near-limit admission across independent concurrent requests, all budget scopes, rounding, UTC rollover, duplicate reservations and exactly-once reconciliation. — b0fefdb
+- [x] 3.2 `npm run test:pdf:db` proves anon/authenticated clients cannot reserve or reconcile spending, a second owner cannot access import metadata, and timeout/crash/cancel never release possibly charged usage. — b0fefdb
+- [x] 3.3 `npm run test:pdf` passes fail-closed database/provider-dispatch tests, including a crash between dispatch claim and network response. — b0fefdb
 
 ### Phase 4: OpenAI Recognition and Result Validation
 
 #### Automated
 
-- [ ] 4.1 `npm run test:pdf` passes adapter contract, usage accounting, malformed/truncated/blocked responses, source validation, category precedence, overlap reconciliation and prompt-injection-as-source-data cases.
-- [ ] 4.2 `npm run pdf:evaluate -- --self-test` detects planted omissions, quantity/unit changes, merged variants, invented dishes, duplicate anchors and incorrect source pages.
-- [ ] 4.3 A ledger-backed synthetic provider smoke records the exact accepted model/API, schema support, bounded usage and reconciled cost without raw prompt/response logs.
+- [x] 4.1 `npm run test:pdf` passes adapter contract, usage accounting, malformed/truncated/blocked responses, source validation, category precedence, overlap reconciliation and prompt-injection-as-source-data cases.
+- [x] 4.2 `npm run pdf:evaluate -- --self-test` detects planted omissions, quantity/unit changes, merged variants, invented dishes, duplicate anchors and incorrect source pages.
+- [x] 4.3 A ledger-backed synthetic provider smoke records the exact accepted model/API, schema support, bounded usage and reconciled cost without raw prompt/response logs.
+- [x] 4.5 `npm run pdf:evaluate -- --self-test` independently detects every compared field mutation and accepts only unchanged or whitespace-normalized controls; offline replay reports precise differences without provider calls.
+- [x] 4.6 `npm run test:pdf` proves geometry reaches the adapter input, shared context preserves ownership, and post-context byte/token bounds reject oversize input without truncation or dispatch.
+- [x] 4.7 `npm run test:pdf` proves separate quantity/unit and unlabelled-group conventions, required versus optional omission handling, strict provenance, deterministic reconciliation and version-bound canonical digests.
+- [x] 4.8 Offline runner and database checks prove truthful exit status, immutable private run artifacts, hash/argument preflight, retained rejection/partial-failure evidence, one import deadline and preservation of historical spending; lint, Astro checks and build pass.
+- [ ] 4.9 One bounded ledger-backed attempt on the repaired fixed configuration passes exact golden comparison for all four summer and five pasta recipes, with no unresolved invalid/incomplete/conflicting candidates and complete run/accounting evidence.
+- [ ] 4.10 `npm run test:pdf` proves contradicted or provenance-verified omission reasons are dropped with warnings, an unlabelled group among several is a warning, and unknown reasons, schema and provenance failures stay invalid.
+- [ ] 4.11 `npm run pdf:acceptance -- --self-test` detects every planted blocking failure and passes the variant and form-only controls; re-scoring saved lunchboxy runs reproduces the frame verdicts.
+- [ ] 4.12 `npm run test:pdf` proves requests use `reasoning.effort=low` and `max_output_tokens` 16,384 and reservations use 147,456,000 nano-USD per call; lint, Astro check and build pass.
+- [ ] 4.13 Three ledger-backed summer + lunchboxy runs on one frozen configuration pass the blocking tier 3/3 per ebook in `pdf:acceptance`, with reported-tier counts, tokens and cost recorded.
 
 #### Manual
 
 - [ ] 4.4 With golden results approved, summer and pasta extraction are compared with source pages; every discrepancy is documented and resolved before claiming a passing extraction configuration.
+- [ ] 4.14 The user reviews the reported-tier differences of the measured runs and the updated PRD, roadmap and fixtures variant wording, and accepts them.
 
 ### Phase 5: Real Persistence and the Feasibility Screen
 

@@ -1,5 +1,7 @@
 # F-01 evaluation record
 
+Current status (2026-10-03): Phase 4 offline repairs verified (63 tests); the latest two-fixture attempt with visual line hints still fails golden acceptance. Current cumulative ledger spend is USD 0.75889125, held USD 0. See the final section for run 403bc33a-7139-4f78-b9a2-8bb8ce56a3c4. Earlier sections preserve historical evidence.
+
 Date: 2026-09-30. State: Phase 1 and Phase 2 criteria completed. **Paid execution waits for durable spending controls.**
 This is a prerequisite/evidence record, not an extraction benchmark or a successful F-01 verdict.
 
@@ -112,3 +114,173 @@ Paid generation calls in Phase 2: **0**. Phone/Firefox, AI extraction accuracy, 
 - PASS: npm run lint, npm run test:deployment (12 tests), npm run test:deploy-config (7 tests), npm run check:deploy -- production.
 - Type checking and lint initially found integration/type-style issues; they were corrected without suppressing rules or weakening assertions. The standalone inspection uses a separate Vite cache to avoid conflicts with Astro.
 - No deployment, paid API call or phone benchmark was performed. The auth smoke was not repeated for this browser-only phase; Phase 1 evidence remains above.
+
+## Phase 4 repair and bounded acceptance attempt (2026-10-03)
+
+Current result: **offline repair gates pass; golden acceptance fails**. Progress 4.5–4.8 are complete. Manual 4.4 and live accuracy gate 4.9 remain pending; Phase 5 and F-01 completion are not claimed.
+
+### Implemented repair
+
+- Shared batches and provider input use v2 and retain page dimensions, rotation, item transforms, widths/heights, direction, line endings and stable source anchors. The source/reader identity remains v1.
+- First-three-page document context and adjacent context are assembled centrally, with distinct ownership roles. Repeated context counts toward byte/token limits. A full-input token preflight reduces core windows from 8 to 4 to 2 to 1 pages when necessary; irreducible oversized input fails before any paid reservation/dispatch.
+- Recipe schema v2 has typed omission reasons: required content omissions prevent automatic completeness, optional absent servings/footnotes do not, and unknown/inconsistent reasons are invalid. Rejected candidates retain exact validation conditions and field paths.
+- Comparison reports exact field paths and preserves the approved whitespace-only acceptance rule. Null, missing fields, array boundaries/order and non-whitespace text changes remain significant.
+- Each attempt has an immutable private run directory with prompt/schema/code/input hashes, exact requests, provider responses, candidate dispositions, per-batch evidence, report hashes and accounting. Raw content remains ignored and private (0600 files inside 0700 run directories). CLI output contains aggregate diagnostics; nonmatching/failed runs exit nonzero.
+- The 270-second processing deadline is shared across token preparation and all batches of an import. Individual provider calls remain bounded by 60 seconds and the remaining import time.
+- Database tests now use an independently named temporary local Supabase project with copied migrations and separate ports. The primary database is never reset; the temporary project is cleaned up after testing.
+
+### Verification
+
+| Gate | Result |
+| --- | --- |
+| PDF offline suite | PASS — 60 tests |
+| Evaluator self-test | PASS — 39 independent mutation cases, 2 passing controls |
+| Original fixtures/references | PASS — all three PDF identities and both approved reference hashes unchanged |
+| Isolated real-database suite | PASS — 6 tests, including concurrent budgets, access isolation and unknown charges |
+| Deliberate-break check | PASS — replacing serialized page width with zero made the geometry test fail; staged implementation restored unconditionally and the test passed again |
+| Lint | PASS after correcting global declarations and literal-type inference; no rule suppressions |
+| Astro sync/check | PASS — zero errors, warnings or hints after the literal-type correction |
+| Build and production configuration | PASS — existing sitemap/site warning only |
+| Deployment tests / configuration tests | PASS — 12 / 7 tests |
+| Actual run replay | PASS as a diagnostic check — reproduces both failed outcomes offline and exits 1, with no provider/ledger activity |
+
+### Actual acceptance attempt
+
+Private run ID: 46fd1556-9117-4af8-a48b-85e67c3d6326.
+
+Artifacts: evaluation/validate-pdf-processing/local/extraction-review/46fd1556-9117-4af8-a48b-85e67c3d6326/.
+The immutable run.json identifies the evaluated dirty-tree code fingerprint, provider configuration, references and starting ledger snapshot; result.json pins the fixture reports. Earlier fixed-name artifacts remain intact. No raw recipe text is included in this record.
+
+| Fixture | Outcome | Evidence |
+| --- | --- | --- |
+| summer | FAIL before generation | Eight counting attempts exhausted 8/4/2/1-page splitting. Even the one-core-page window at page 4 plus required context exceeded 32,768 tokens. Zero paid calls/reservations, no candidates; four golden recipes missing because extraction did not run. Elapsed 24.678 s. |
+| pasta | FAIL golden comparison | Six two-core-page batches completed and reconciled. Six candidates retained (four complete, two incomplete), nine rejected for context-only source starts, one duplicate title, no reconciliation conflicts. All five golden titles occur, but exact content comparison fails. Elapsed 39.738 s. |
+
+Pasta has 136 detailed comparison records, including one duplicate-title record. They include 47 quantity and 53 unit field mismatches, five sourceCategory mismatches, two sourceText mismatches and structural/instruction/serving/footnote/category/page differences. All nine rejected candidates have the precise condition context-only-anchor-is-not-owned; this is now evidence rather than an inferred explanation. One incomplete candidate starts on page 3 without ingredients/instructions; another on page 9 lacks a mapped category.
+
+The comparator intentionally does not select a more favorable duplicate to hide failure. Consequently field totals describe the actual retained output and exact matching policy; they are not a claim that every duplicated candidate has the same errors. No golden values were changed or copied into runtime output.
+
+This attempt used 118,936 input and 8,661 output tokens across six paid generation calls, all for pasta. Incremental cost: **128,176,500 nano-USD = USD 0.1281765**. Historical F-01 spend before the attempt was 271,532,250 nano-USD; after it is **399,708,750 nano-USD = USD 0.39970875**, with **zero held unknown charges**. The accounting history survived isolated database testing. This is application-ledger evidence, not an independent billing-console balance check.
+
+No automatic retry or second configuration was run. The next repair must address input representation/context overhead and the now-observed source ownership/content failures before another acceptance attempt. These extraction-only timings do not establish the browser → AI → confirmed-save benchmark or phone/actual-host feasibility.
+
+Offline reproduction:
+
+    npm run pdf:extract-review -- --replay evaluation/validate-pdf-processing/local/extraction-review/46fd1556-9117-4af8-a48b-85e67c3d6326
+
+Exit code 1 is expected while these immutable results fail golden acceptance. It must not be changed to a success or waived through semantic review.
+
+## User-approved input-cap increase (2026-10-03)
+
+The user explicitly requested increasing the cap to unblock summer. Before changing it, the counting endpoint measured the original two standard batches at **60,886 and 80,950 input tokens**; the previously rejected single-core-page-4 window measured **34,625**. Numeric-only evidence is stored privately in local/token-counts-2d6a1264-21f8-4c55-a247-8914d4ba5be7.json. These measurements did not generate recipes.
+
+The application cap is now **98,304 input tokens**. Output stays 8,192; the maximum per-call reservation is **110,592,000 nano-USD (USD 0.110592)**. USD 0.50/import and USD 5 cumulative F-01 caps and prior spending remain unchanged. The [official model page](https://developers.openai.com/api/docs/models/gpt-5.4-mini), rechecked on 2026-10-03, documents a 400,000-token context window and unchanged standard input/output rates. The adapter now records exact counts before accepting or rejecting them; private count-result artifacts include the active limit.
+
+Validation: **61 PDF tests pass**, including summer-sized inputs, the inclusive 98,304 boundary, rejection at 98,305 and exact diagnostic capture. Lint, Astro check (zero errors/warnings/hints), build and diff whitespace checks pass. No database schema or accounting-history reset occurred.
+
+One bounded summer-only verification was run under the amended configuration: **f8d03470-e4f1-469d-a422-20dfca70395d**. Both original batches passed input admission and generation and reconciled in 18.760 s; recorded input counts are 60,886 and 80,950. Total input is 141,836 tokens; output is 4,512 tokens. Incremental cost is **USD 0.126681**; cumulative F-01 spend is **USD 0.52638975**, with zero held unknown charges.
+
+**Input-limit problem resolved; golden quality still fails.** Five candidates were returned: one retained complete candidate and four rejected. Three expected recipes remain missing, and the report contains 21 detailed comparison records. Category/page comparison passes for the retained candidate; ingredient and structure comparison do not. No additional retries followed and pasta was not rerun under this amended configuration. Progress 4.4/4.9 remain pending.
+
+The private run directory under local/extraction-review/ pins exact code/config/reference hashes and contains requests, responses, numeric count results and rejection evidence. Prior run directories are unchanged.
+
+## Visual line hints and field-convention repair (2026-10-03)
+
+The user requested continuing after the input-cap change. Diagnosis used saved responses and the unchanged reader/goldens before making another paid attempt. The previous summer run rejected three candidates for missing variant labels and one for a context-only source start. Its retained candidate omitted two variants and notes. Raw source ordering places some titles and section headings after their bodies; the available coordinates locate them correctly. Pasta also exposed an instruction defect: equivalent household and metric quantities had been treated like ambiguous alternatives.
+
+### Changes and offline evidence
+
+- Added a deterministic, source-derived visualLines index before raw page items in the shared model input. It groups horizontal LTR fragments into spatial rows/cells, separates column gaps and retains original anchors. All original items and geometry remain unchanged and canonical; unsupported orientations remain available there. No fixture identities, expected recipe content or golden lookup are used by this helper.
+- Clarified explicitly stated metric quantities versus household equivalents, removal of list bullets, continuation lines, descriptive versus measurement parentheses, calorie headings as variant labels, shared preparation paragraphs and substitution notes. Dedicated meal headings remain verbatim; where a book only states a meal type in its title/introduction, the instruction requests that meal noun in the source language. These are extraction conventions; the comparator and approved references are unchanged.
+- PASS: 63 PDF tests, lint, Astro check (zero errors/warnings/hints), build, original fixture/reference validation and diff whitespace checks. The existing sitemap warning remains. The deliberate-break check reversed spatial ordering, observed the title-order test fail, restored the staged implementation unconditionally and verified both new layout tests pass.
+- No database schema or accounting logic changed. Existing isolated database evidence remains applicable; the primary ledger was not reset.
+
+### One fixed-configuration acceptance attempt
+
+Private run: **403bc33a-7139-4f78-b9a2-8bb8ce56a3c4** under local/extraction-review/. All four generation batches completed and reconciled; there were no provider, input-limit or output-limit failures. Both fixtures used two batches on the same code/configuration. Exact requests, responses, validations, input counts, hashes and comparisons remain private and immutable.
+
+| Fixture | Input / output tokens | Extraction time | Result | Actual cost |
+| --- | --- | --- | --- | --- |
+| summer | 169,274 / 3,189 | 17.308 s | FAIL: 2 retained complete candidates, 3 invalid; 2 expected recipes missing; 26 detailed differences | USD 0.141306 |
+| pasta | 89,902 / 5,282 | 17.824 s | FAIL: all 5 titles retained, 3 complete and 2 incomplete; 1 invalid context candidate; 63 detailed differences | USD 0.0911955 |
+
+Summer's per-call input counts were 71,945 and 97,329, both below the 98,304 cap. The rejected candidates have three distinct conditions: an absence reason contradicts present notes, a source start belongs only to context, and a multi-group result lacks a required label. Retained candidates still omit ingredient variants and continuations. Their exact instruction, note, category and page fields match; their ingredient fields do not. Correct title anchors improve in the raw output, but that does not establish completeness or a passing recipe.
+
+Pasta has 25 quantity and 29 unit differences in the final two recipes, four category differences and five sourceCategory differences. All instruction, note, serving and sourceText fields match in this attempt. Two candidates still declare missing source metadata; one extra context-only candidate is rejected. No invented or duplicate titles and no reconciliation conflicts occur for either fixture. Counts describe this run's retained output, not an overall accuracy percentage.
+
+Incremental cost: **USD 0.2325015**. Cumulative F-01 spend rose from USD 0.52638975 to **USD 0.75889125**, with **zero held unknown charges** and USD 4.24110875 remaining under the USD 5 ledger cap. This is ledger evidence, not billing-console balance verification.
+
+Offline replay reproduced both failures and exited 1 without provider or ledger calls:
+
+    npm run pdf:extract-review -- --replay evaluation/validate-pdf-processing/local/extraction-review/403bc33a-7139-4f78-b9a2-8bb8ce56a3c4
+
+**GATE 4.9: FAIL.** Progress 4.4/4.9 stay pending; no Phase 5, commit or successful F-01 claim follows. No further paid retry was run. The evidence shows that adding spatial hints and more explicit instructions is insufficient on this configuration; it does not by itself prove that the model cannot perform the task. The next repair should investigate a shorter, lossless representation and stronger source-block constraints, with offline equivalence tests first. Increasing the token cap again would not address any observed failure in this run.
+
+## Dietetyka diagnostic excerpt and lunchboxy fixture (2026-10-05)
+
+### Dietetyka excerpt — invalid fixture
+
+Run **f78525c2-29ba-4ace-bc29-a07ca72dce41** (1 batch, 12,331 counted input tokens, USD 0.01199775). The excerpt's CropBox (595×500) hides the upper half of the MediaBox from PDF.js, while the golden was prepared with Poppler from the full page. Two of three expected recipes never reached the model, and the visible "PROTEINOWA PASTA Z ZIELONEGO GROSZKU" was absent from the golden. The result therefore measures the fixture, not extraction. Genuine model errors were still visible: the visible sauce recipe was omitted, the "SKŁADNIKI DO PRZYGOTOWANIA 2 PORCJI:" heading became a group label, and household measures were chosen over the adjacent gram column. The excerpt is retired.
+
+Rejected candidate: `1600-1 (1).pdf` is an image-only Photoshop export with no text layer (OCR is out of scope).
+
+### Lunchboxy fixture (user amendment)
+
+The user replaced pasta/low-gi with pages 1–12 of `8. Klaudia MIx Fit - Lunchboxy.pdf` as the second acceptance fixture. The golden contains five recipes: one unlabelled group each, the explicit gram/ml amount as quantity/unit, null scalar fields for non-metric amounts, except an unambiguous count, one preparation paragraph, no servings/notes (nutrition summaries are not notes), `category: null` and `sourceCategory: null`. The user approved it on 2026-10-05. The built browser reader read the file in 504 ms into two batches without external requests or remaining workers.
+
+Offline gates: 66 PDF tests pass. Evaluator self-test: 42 mutation cases and 6 passing controls, including four allowed inferred categories and rejection of an invalid/null category or an invented sourceCategory. Fixture validation passes for all five manifest entries.
+
+### Lunchboxy attempt — FAIL
+
+Run **8b771929-148c-40c7-a324-62d1bcbfb77a**: 2 batches (25,931 + 25,078 input, 1,287 + 704 output tokens), 13.9 s. Incremental cost **USD 0.04721625**. Cumulative F-01 spend **USD 0.81810525**, zero held.
+
+All 5 recipes were found, with no invented, duplicate, invalid, incomplete or conflicting candidates, and all quantities/units and pages correct. Exact golden comparison fails with 14 field differences in three categories:
+
+| Error | Recipes | Cause |
+| --- | --- | --- |
+| "Składniki:" / "Składniki" returned as group label | 3/5 | A section heading treated as a variant label despite the explicit prompt rule |
+| One paragraph split into 2 instructions | 3/5 | Split at a visual line that ends with a full stop — mid-paragraph breaks in the source |
+| Ingredient name changed | 2/5 | "makaronu" → "makaron" (grammatical normalization); the "(dowolny smak)" continuation dropped from the name (sourceText remained correct) |
+
+Categories inferred by AI: dinner, dinner, breakfast, dinner, lunch, all allowed. **GATE 4.9: FAIL**; 4.4/4.9 remain pending and no automatic retry was made. All three error classes are deterministic and source-structural. They are candidates for deterministic post-processing (dropping a single group's "Składniki" heading label and merging non-numbered instruction lines into one paragraph), which plan section 5 does not yet authorize.
+
+## Deterministic normalization and summer + lunchboxy acceptance attempt (2026-10-05)
+
+### Implemented (user-approved plan amendment)
+
+`src/lib/pdf-processing/normalize.ts` is applied once inside `validateRecipeCandidate`, before the canonical digest. It uses only the candidate plus the supplied source text and geometry, and reports every change as a warning. It sets a single group's ingredient-section heading label to null, restores the ingredient name verbatim from sourceText after the metric amount (dropping only household-measure parentheticals), and merges an unnumbered instruction whose first source line directly continues the previous entry's last line in the same column.
+
+Offline gates: PASS for 70 PDF tests, including 4 new synthetic normalization tests. Two deliberate breaks (removing the column-overlap condition and the numbered-step guard) turned the tests red, and the code was restored. Also PASS: evaluator self-test, fixtures, lint, Astro check (0/0/0), build and preflight. **Golden invariance:** normalizing all 14 approved golden recipes (summer, pasta, lunchboxy) against their source geometry changes nothing. **Saved-response revalidation without provider calls:** lunchboxy run 8b771929 went from 14 differences to **0 (exact match)**. Summer run 403bc33a remained at 26 differences; its failures are outside the normalization's scope.
+
+### Bounded attempt — FAIL
+
+Run **cdf946c5-d899-48c3-a5b1-d3172c44b8a5**: all 4 batches completed and reconciled, with no automatic retry. Offline replay reproduces the result (exit 1).
+
+| Fixture | Tokens (input / output) | Time | Result |
+| --- | --- | --- | --- |
+| summer | 169,274 / 3,276 | 17.3 s | FAIL: 0 retained, 5 invalid; all 4 recipes missing |
+| lunchboxy | 51,009 / 2,064 | 13.2 s | FAIL: 5/5 retained and complete, 28 differences in 2 of 5 recipes plus the nutrition line as a footnote in 3 of 5 |
+
+Incremental cost **USD 0.18924225**. Cumulative F-01 spend **USD 1.0073475**, zero held.
+
+Summer rejection causes:
+
+- 3 of 5 candidates declared `absent-footnotes` while returning 3–5 notes (a self-contradiction that the validator rejects by design).
+- 1 candidate started on a context-only page.
+- 1 candidate had two groups, the first without a label.
+
+The model again failed to separate the three kcal variants: every candidate had only one group.
+
+Lunchboxy errors in this sample were different from the previous run:
+
+- the "Całość: … kcal B/T/W" nutrition line was returned as a footnote (3 recipes);
+- an ingredient from another recipe was added ("2g oleju" in the pasta recipe);
+- continuation lines were split into separate ingredients ("(dowolny smak)", "wędzononego").
+
+The heading, paragraph and name fixes applied correctly where they fit.
+
+**GATE 4.9: FAIL.** 4.4/4.9 stay pending. Conclusion: the deterministic repair removes one class of systematic errors, but the model's output varies between identical requests (lunchboxy 14 → 28 differences with an unchanged request). For summer, the dominant problem is validation rejection of entire recipes and lost kcal variants. Further prompt or normalization changes would continue an open-ended tuning loop. Under the plan, the next step requires an evidence-based decision (frame/plan review) rather than another attempt.
+
+## Frame verification: lunchboxy repeatability (2026-10-05)
+
+The user ran `/10x-frame` and then requested verification before planning: three lunchboxy runs with unchanged code/prompt/model (**eaa6c74b, 5ea356b0, ba2d31c8**), each 2 batches, about 11–14 s, no automatic retry. All failed exact golden comparison (9 / 8 / 32 differences). Scored by the proposed product-relevant blocking tier (read-only script `.cache/frame-blocking-tier.mjs`), 1 of 5 lunchboxy runs passes (8b771929). The failures are: spurious `missing-source-metadata` making 3 recipes incomplete; 2 recipes rejected for contradictory `absent-footnotes`; and twice, a "2g oleju" ingredient added from another area plus wrapped continuation lines split into separate ingredients. Incremental cost **USD 0.142504** (3 runs). Cumulative F-01 **USD 1.14985125**, held 0. See [frame.md](frame.md). Gate 4.9 remains FAIL and 4.4/4.9 pending.
