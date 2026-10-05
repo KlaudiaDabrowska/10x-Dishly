@@ -106,19 +106,30 @@ test("byte limit rejects before allocation/load; fingerprint survives transferre
   assert.equal(f.calls.destroy, 1);
   assert.equal(f.calls.cleanup, 1);
 });
-test("page gate rejects 101/113 before text access, accepts 100; developer selection is separate", async () => {
-  for (const count of [101, 113]) {
+test("page gate accepts 113/115 and rejects 116 before text access; developer selection stays separate", async () => {
+  for (const count of [116, 130]) {
     const f = fake({ count });
     await assert.rejects(readWithEngine(file(), f.engine), { code: "too-many-pages" });
     assert.deepEqual(f.calls.pages, []);
     assert.equal(f.calls.destroy, 1);
   }
-  const f = fake({ count: 100 });
-  assert.equal((await readWithEngine(file(), f.engine)).pages.length, 100);
-  const selection = await readWithEngine(file(), fake({ count: 113 }).engine, {}, [7, 13]);
+  for (const count of [113, 115]) {
+    const f = fake({ count });
+    const result = await readWithEngine(file(), f.engine);
+    assert.equal(result.pages.length, count);
+    assert.deepEqual(result.pages.at(-1).items[0].anchor, { page: count, itemIndex: 0 });
+    const batches = createTextBatches(result.source, result.pages);
+    assert.deepEqual(
+      batches.flatMap((entry) => entry.corePages),
+      Array.from({ length: count }, (_, index) => index + 1),
+    );
+    assert.equal(f.calls.cleanup, count);
+    assert.equal(f.calls.destroy, 1);
+  }
+  const selection = await readWithEngine(file(), fake({ count: 116 }).engine, {}, [7, 113]);
   assert.deepEqual(
     selection.pages.map((p) => p.page),
-    [7, 13],
+    [7, 113],
   );
   assert.throws(() => createTextBatches(selection.source, selection.pages), { code: "invalid-page-sequence" });
 });
@@ -197,17 +208,27 @@ test("core ownership is unique; adjacent pages overlap deterministically across 
     batches.map((b) => b.pages.map((p) => p.page)),
     [
       [1, 2, 3, 4, 5, 6, 7, 8, 9],
-      [8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-      [16, 17],
+      [1, 2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+      [1, 2, 3, 16, 17],
     ],
   );
   assert.equal(new Set(batches.flatMap((b) => b.corePages)).size, 17);
+  assert.ok(batches.every((b) => new Set(b.pages.map((p) => p.page)).size === b.pages.length));
+  assert.deepEqual(batches[1].documentContextPages, [1, 2, 3]);
+  assert.deepEqual(batches[1].adjacentContextPages, [8, 17]);
   assert.deepEqual(batches, createTextBatches(result.source, result.pages));
 });
 test("batch boundaries count UTF-8 JSON and repeated context, shrink core ranges, reject oversized pages", async () => {
-  const result = await readWithEngine(file(), fake({ count: 8, items: [item("ą".repeat(40_000))] }).engine);
+  const result = await readWithEngine(file(), fake({ count: 8, items: [item("ą".repeat(33_000))] }).engine);
   const batches = createTextBatches(result.source, result.pages);
   assert.ok(batches.length > 1);
+  const split = createTextBatches(result.source, result.pages, { corePagesPerBatch: 2 });
+  assert.ok(split.length > 1);
+  assert.ok(split.every((b) => b.corePages.length <= 2));
+  assert.throws(
+    () => createTextBatches(result.source, result.pages, { corePagesPerBatch: 9 }),
+    /invalid-core-page-limit/,
+  );
   assert.ok(batches.every((b) => batchBodyBytes(b) <= PDF_LIMITS.maxBatchBodyBytes));
   assert.deepEqual(
     batches.flatMap((b) => b.corePages),
@@ -215,7 +236,9 @@ test("batch boundaries count UTF-8 JSON and repeated context, shrink core ranges
   );
   const huge = await readWithEngine(file(), fake({ items: [item("ą".repeat(270_000))] }).engine);
   assert.throws(() => createTextBatches(huge.source, huge.pages), { code: "batch-too-large" });
-  const many = await readWithEngine(file(), fake({ count: 20, items: [item("x".repeat(100_000))] }).engine);
+  const contextual = await readWithEngine(file(), fake({ count: 8, items: [item("ą".repeat(50_000))] }).engine);
+  assert.throws(() => createTextBatches(contextual.source, contextual.pages), { code: "batch-too-large" });
+  const many = await readWithEngine(file(), fake({ count: 30, items: [item("x".repeat(60_000))] }).engine);
   assert.throws(() => createTextBatches(many.source, many.pages), { code: "text-too-large" });
 });
 

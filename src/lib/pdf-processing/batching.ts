@@ -3,10 +3,12 @@ import { PDF_LIMITS } from "./limits.ts";
 import { PdfReadError } from "./reader-core.ts";
 
 export interface PdfTextBatch {
-  version: 1;
+  version: 2;
   index: number;
   source: PdfSource;
   corePages: number[];
+  adjacentContextPages: number[];
+  documentContextPages: number[];
   pages: PageText[];
 }
 export function batchBodyBytes(batch: PdfTextBatch): number {
@@ -15,7 +17,18 @@ export function batchBodyBytes(batch: PdfTextBatch): number {
 
 // Deterministic contiguous core ranges; context is read-only provenance, never a second owner.
 // The returned value is the entire canonical body. Any later envelope must be counted again.
-export function createTextBatches(source: PdfSource, pages: readonly PageText[]): PdfTextBatch[] {
+export function createTextBatches(
+  source: PdfSource,
+  pages: readonly PageText[],
+  options: { corePagesPerBatch?: number } = {},
+): PdfTextBatch[] {
+  const corePagesPerBatch = options.corePagesPerBatch ?? PDF_LIMITS.corePagesPerBatch;
+  if (
+    !Number.isSafeInteger(corePagesPerBatch) ||
+    corePagesPerBatch < 1 ||
+    corePagesPerBatch > PDF_LIMITS.corePagesPerBatch
+  )
+    throw new Error("invalid-core-page-limit");
   if (
     source.pageCount > PDF_LIMITS.maxPages ||
     pages.length !== source.pageCount ||
@@ -28,18 +41,24 @@ export function createTextBatches(source: PdfSource, pages: readonly PageText[])
   let start = 0;
   let totalBytes = 0;
   while (start < pages.length) {
-    let end = Math.min(start + PDF_LIMITS.corePagesPerBatch, pages.length);
+    let end = Math.min(start + corePagesPerBatch, pages.length);
     let batch: PdfTextBatch;
     for (;;) {
+      const corePages = pages.slice(start, end).map((page) => page.page);
+      const adjacentPages = pages.slice(
+        Math.max(0, start - PDF_LIMITS.contextPagesPerSide),
+        Math.min(pages.length, end + PDF_LIMITS.contextPagesPerSide),
+      );
+      const documentPages = pages.slice(0, 3);
+      const includedPages = new Set([...adjacentPages, ...documentPages].map((page) => page.page));
       batch = {
-        version: 1,
+        version: 2,
         index: batches.length,
         source,
-        corePages: pages.slice(start, end).map((page) => page.page),
-        pages: pages.slice(
-          Math.max(0, start - PDF_LIMITS.contextPagesPerSide),
-          Math.min(pages.length, end + PDF_LIMITS.contextPagesPerSide),
-        ),
+        corePages,
+        adjacentContextPages: adjacentPages.filter((page) => !corePages.includes(page.page)).map((page) => page.page),
+        documentContextPages: documentPages.map((page) => page.page),
+        pages: pages.filter((page) => includedPages.has(page.page)),
       };
       if (batchBodyBytes(batch) <= PDF_LIMITS.maxBatchBodyBytes) break;
       if (end === start + 1) throw new PdfReadError("batch-too-large");

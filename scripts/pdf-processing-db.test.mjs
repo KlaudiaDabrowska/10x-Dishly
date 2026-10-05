@@ -5,24 +5,26 @@ import { randomUUID } from "node:crypto";
 import { URL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { calculateCostNanoUsd } from "../src/lib/pdf-processing/budget.ts";
+import { verifyIsolatedDbProject, isolatedSupabaseEnv } from "./pdf-processing-db-runner.mjs";
+
+// Deliberately refuse direct execution against the developer's paid-usage ledger.
+const isolated = verifyIsolatedDbProject(process.env);
 
 function supabase(...args) {
-  return execFileSync("npx", ["--no-install", "supabase", ...args], {
+  return execFileSync("npx", ["--no-install", "supabase", "--workdir", isolated.workdir, ...args], {
     cwd: new URL("..", import.meta.url),
+    env: isolatedSupabaseEnv(isolated.projectId),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
 }
 
-try {
-  supabase("db", "reset", "--local");
-} catch (error) {
-  const detail = error?.stderr?.toString().trim() || error?.message;
-  throw new Error(`Local Supabase must be running before test:pdf:db. ${detail}`, { cause: error });
-}
-
 const local = JSON.parse(supabase("status", "-o", "json"));
 const url = local.API_URL;
+assert.equal(url, `http://127.0.0.1:${isolated.apiPort}`, "Refusing a non-isolated API endpoint");
+const databaseUrl = new URL(local.DB_URL);
+assert.equal(databaseUrl.hostname, "127.0.0.1", "Refusing a non-local database");
+assert.equal(databaseUrl.port, String(isolated.dbPort), "Refusing a non-isolated database port");
 const publicKey = local.PUBLISHABLE_KEY ?? local.ANON_KEY;
 const secretKey = local.SECRET_KEY ?? local.SERVICE_ROLE_KEY;
 if (!url || !publicKey || !secretKey) throw new Error("Local Supabase status did not expose test credentials");
@@ -231,6 +233,45 @@ test("expiry, timeout, crash and cancellation never free a dispatch-claimed rese
   const after = await scope(`import:${importId}`);
   assert.equal(after.held_nano_usd, before.held_nano_usd);
   assert.equal(after.held_nano_usd, 10);
+});
+
+test("ledger accepts pages 113 through 115 and rejects page 116 without reserving budget", async () => {
+  const pageOwner = await createUser(`pdf-pages-${randomUUID()}@example.test`);
+  const allowed = request(pageOwner.id, {
+    p_core_page_start: 113,
+    p_core_page_end: 115,
+    p_accounting_time: "2032-01-01T00:00:00Z",
+  });
+  const accepted = await reserve(admin(), allowed);
+  assert.ifError(accepted.error);
+  assert.equal(accepted.data[0].claimed, true);
+
+  const acceptedState = await admin().rpc("get_pdf_import_state", {
+    p_owner_id: pageOwner.id,
+    p_import_id: allowed.p_import_id,
+  });
+  assert.ifError(acceptedState.error);
+  assert.equal(acceptedState.data[0].batches[0].corePageStart, 113);
+  assert.equal(acceptedState.data[0].batches[0].corePageEnd, 115);
+  const budgetBefore = await scope("f01");
+
+  for (const pageStart of [113, 116]) {
+    const invalid = request(pageOwner.id, {
+      p_core_page_start: pageStart,
+      p_core_page_end: 116,
+      p_accounting_time: "2032-01-01T00:00:00Z",
+    });
+    const rejected = await reserve(admin(), invalid);
+    assert.ok(rejected.error);
+    assert.equal(rejected.error.message, "invalid reservation");
+    const rejectedState = await admin().rpc("get_pdf_import_state", {
+      p_owner_id: pageOwner.id,
+      p_import_id: invalid.p_import_id,
+    });
+    assert.ifError(rejectedState.error);
+    assert.deepEqual(rejectedState.data, []);
+  }
+  assert.deepEqual(await scope("f01"), budgetBefore);
 });
 
 test("the cumulative F-01 cap remains atomic across imports and months", async () => {

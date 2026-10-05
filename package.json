@@ -18,8 +18,11 @@
     "format": "prettier --write .",
     "smoke": "node scripts/smoke.mjs",
     "pdf:fixtures": "node scripts/pdf-fixtures.mjs",
-    "test:pdf": "node --test scripts/pdf-contracts.test.mjs scripts/pdf-fixtures.test.mjs scripts/pdf-reader.test.mjs scripts/pdf-budget.test.mjs",
-    "test:pdf:db": "node --test scripts/pdf-processing-db.test.mjs",
+    "test:pdf": "node --test scripts/pdf-contracts.test.mjs scripts/pdf-fixtures.test.mjs scripts/pdf-reader.test.mjs scripts/pdf-budget.test.mjs scripts/pdf-processing.test.mjs scripts/pdf-evaluate.test.mjs scripts/pdf-extract-review.test.mjs scripts/pdf-token-batching.test.mjs scripts/pdf-layout.test.mjs scripts/pdf-normalize.test.mjs",
+    "test:pdf:db": "node scripts/pdf-processing-db-runner.mjs",
+    "pdf:evaluate": "node scripts/pdf-evaluate.mjs",
+    "pdf:provider-smoke": "node scripts/pdf-provider-smoke.mjs",
+    "pdf:extract-review": "node scripts/pdf-extract-review.mjs",
     "build:pdf-reader": "vite build --config scripts/pdf-reader.vite.config.mjs"
   },
   "dependencies": {

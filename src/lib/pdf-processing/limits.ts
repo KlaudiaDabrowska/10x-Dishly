@@ -1,11 +1,11 @@
 // Decimal product size limit; independent backend resource limits use binary KiB/MiB.
 export const PDF_LIMITS = Object.freeze({
   maxFileBytes: 20_000_000,
-  maxPages: 100,
+  maxPages: 115,
   maxBatchBodyBytes: 512 * 1024,
   maxImportInputBytes: 2 * 1024 * 1024,
   maxFinalizationBodyBytes: 2 * 1024 * 1024,
-  maxInputTokens: 32_768,
+  maxInputTokens: 98_304,
   candidateCount: 1,
   maxOutputTokens: 8_192,
   reasoningEffort: "none", // OpenAI output limit includes non-visible tokens.

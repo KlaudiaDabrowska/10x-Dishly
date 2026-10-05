@@ -1,4 +1,30 @@
 export const PDF_CONTRACT_VERSION = 1 as const;
+export const PDF_RECIPE_CONTRACT_VERSION = 2 as const;
+export const PDF_OMISSION_RULES = {
+  "missing-title": { fieldPath: "title", required: true, explanation: "Brakuje tytułu przepisu." },
+  "missing-ingredients": { fieldPath: "ingredientGroups", required: true, explanation: "Brakuje składników." },
+  "missing-instructions": { fieldPath: "instructions", required: true, explanation: "Brakuje przygotowania." },
+  "missing-category": { fieldPath: "category", required: true, explanation: "Brakuje kategorii." },
+  "missing-source-metadata": { fieldPath: "pages", required: true, explanation: "Metadane źródła są niepełne." },
+  "missing-ingredient-content": {
+    fieldPath: "ingredientGroups",
+    required: true,
+    explanation: "Lista składników jest niepełna.",
+  },
+  "missing-variant-content": {
+    fieldPath: "ingredientGroups",
+    required: true,
+    explanation: "Brakuje części wariantu przepisu.",
+  },
+  "missing-continuation": { fieldPath: "$", required: true, explanation: "Brakuje dalszej części przepisu." },
+  "absent-servings": { fieldPath: "servings", required: false, explanation: "Źródło nie podaje liczby porcji." },
+  "absent-footnotes": { fieldPath: "footnotes", required: false, explanation: "Źródło nie zawiera przypisów." },
+} as const;
+export type OmissionCode = keyof typeof PDF_OMISSION_RULES;
+export interface OmissionReason {
+  code: OmissionCode;
+  fieldPath: string;
+}
 export const RECIPE_CATEGORIES = ["breakfast", "lunch", "dinner", "dessert"] as const;
 export type RecipeCategory = (typeof RECIPE_CATEGORIES)[number];
 
@@ -62,7 +88,7 @@ export function hasValidGroupLabels(groups: IngredientGroup[]): boolean {
   return labels.every(Boolean) && new Set(labels).size === groups.length;
 }
 export interface RecipeCandidate {
-  version: typeof PDF_CONTRACT_VERSION;
+  version: typeof PDF_RECIPE_CONTRACT_VERSION;
   sourceStart: SourceItemAnchor;
   pages: number[];
   title: string | null;
@@ -72,7 +98,7 @@ export interface RecipeCandidate {
   instructions: string[];
   servings: string | null;
   footnotes: string[];
-  missingFieldReasons: string[];
+  missingFieldReasons: OmissionReason[];
 }
 export type ImportStatus = "created" | "processing" | "ready" | "committed" | "failed" | "cancelled";
 export type AccountingStatus = "not-dispatched" | "reserved" | "confirmed" | "unknown";

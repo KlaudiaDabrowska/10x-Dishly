@@ -92,6 +92,16 @@ test("anchors validate actual page text occurrences independently of runtime rea
   assert.doesNotThrow(() => assertAnchors(r, fixture, pages));
   r.recipes.push({ ...r.recipes[0], id: "another" });
   assert.throws(() => assertAnchors(r, fixture, pages), /Duplicate recipe source anchor/);
+
+  const multiple = reference();
+  multiple.recipes.push({
+    ...recipe(),
+    id: "another",
+    title: "Another dish",
+    anchors: [{ page: 7, text: "Another dish", occurrence: 1 }],
+  });
+  pages[6] += " Another dish";
+  assert.doesNotThrow(() => assertAnchors(multiple, fixture, pages));
 });
 
 function fixtureSet(t) {
@@ -102,7 +112,9 @@ function fixtureSet(t) {
   const records = [
     { id: "summer", pageCount: 16, recipePages: [7, 9, 11, 13] },
     { id: "pasta", pageCount: 12, recipePages: [4, 6, 8, 9, 11] },
-    { id: "low-gi", pageCount: 113, recipePages: [] },
+    { id: "low-gi", pageCount: 116, recipePages: [] },
+    { id: "dietetyka-diagnostic", pageCount: 1, recipePages: [1] },
+    { id: "lunchboxy", pageCount: 12, recipePages: [4, 6, 8, 10, 12] },
   ];
   const fixtures = records.map((record) => {
     const filename = record.id + ".pdf";
@@ -149,11 +161,36 @@ function fixtureSet(t) {
 test("fixture validation checks all three hashes, schemas, page counts, anchors and expected rejection", (t) => {
   const f = fixtureSet(t);
   const result = validateFixtures(f.root, f.inspect);
-  assert.equal(result.length, 3);
+  assert.equal(result.length, 5);
   assert.equal(result[0].recipes, 4);
   assert.equal(result[1].recipes, 5);
   assert.equal(result[2].expectedRejection, "too-many-pages");
   assert.equal(result[0].review, "pending");
+  assert.equal(result[3].recipes, 1);
+  assert.equal(result[4].recipes, 5);
+});
+
+test("a null reference category is allowed only without source meal evidence", (t) => {
+  const f = fixtureSet(t);
+  const id = "lunchboxy";
+  const entry = f.manifest.fixtures.find((fixture) => fixture.id === id);
+  const file = path.join(f.root, entry.referencePath);
+  const r = JSON.parse(readFileSync(file, "utf8"));
+  const write = () => {
+    const bytes = JSON.stringify(r);
+    writeFileSync(file, bytes);
+    entry.referenceSha256 = sha256(bytes);
+    f.save();
+  };
+  r.recipes.forEach((item) => {
+    item.category = null;
+    item.sourceCategory = null;
+  });
+  write();
+  assert.doesNotThrow(() => validateFixtures(f.root, f.inspect));
+  r.recipes[0].sourceCategory = "Obiad";
+  write();
+  assert.throws(() => validateFixtures(f.root, f.inspect), /Null category requires absent source category/);
 });
 
 test("missing local files fail explicitly without weakening the offline prerequisite", (t) => {

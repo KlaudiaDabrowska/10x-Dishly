@@ -144,6 +144,10 @@ export function assertAnchors(reference, fixture, pages) {
       "Recipe pages must be ordered",
     );
     requireThat(hasValidGroupLabels(recipe.ingredientGroups), "Variants require distinct nonempty labels");
+    requireThat(
+      recipe.category !== null || recipe.sourceCategory === null,
+      "Null category requires absent source category",
+    );
     requireThat(recipe.anchors[0].page === recipe.pages[0], "First anchor must locate recipe start");
     const start = recipe.anchors[0];
     const key = JSON.stringify([start.page, normalizeText(start.text), start.occurrence]);
@@ -160,7 +164,7 @@ export function assertAnchors(reference, fixture, pages) {
       }
     }
   }
-  const actualPages = reference.recipes.map((recipe) => recipe.pages[0]).sort((a, b) => a - b);
+  const actualPages = [...new Set(reference.recipes.map((recipe) => recipe.pages[0]))].sort((a, b) => a - b);
   requireThat(
     JSON.stringify(actualPages) === JSON.stringify([...fixture.recipePages].sort((a, b) => a - b)),
     "Expected recipe pages/count differ",
@@ -183,13 +187,13 @@ const string = { type: "string", minLength: 1 };
 const nullableString = { anyOf: [string, { type: "null" }] };
 const hash = { type: "string", pattern: "^[0-9a-f]{64}$" };
 const properties = {
-  id: { enum: ["summer", "pasta", "low-gi"] },
+  id: { enum: ["summer", "pasta", "low-gi", "dietetyka-diagnostic", "lunchboxy"] },
   filename: string,
   localPath: string,
   sha256: hash,
   byteLength: { type: "integer", minimum: 1 },
   pageCount: { type: "integer", minimum: 1 },
-  expectation: { enum: ["accept", "reject-page-limit"] },
+  expectation: { enum: ["accept", "accept-pending-reference", "reject-page-limit"] },
   recipePages: { type: "array", items: { type: "integer", minimum: 1 }, uniqueItems: true },
   referencePath: nullableString,
   referenceSha256: { anyOf: [hash, { type: "null" }] },
@@ -208,6 +212,21 @@ const manifestSchema = {
   },
 };
 
+const observedRecipePages = {
+  summer: [7, 9, 11, 13],
+  pasta: [4, 6, 8, 9, 11],
+  "low-gi": [
+    [8, 22],
+    [24, 38],
+    [40, 69],
+    [71, 85],
+    [87, 101],
+    [103, 112],
+  ].flatMap(([first, last]) => Array.from({ length: last - first + 1 }, (_, index) => first + index)),
+  "dietetyka-diagnostic": [1],
+  lunchboxy: [4, 6, 8, 10, 12],
+};
+
 export function validateFixtures(root = evaluationRoot, inspect = inspectPdf) {
   let manifest, schema;
   try {
@@ -218,8 +237,12 @@ export function validateFixtures(root = evaluationRoot, inspect = inspectPdf) {
   }
   assertSchema(manifest, manifestSchema);
   requireThat(
-    manifest.fixtures.length === 3 && new Set(manifest.fixtures.map((fixture) => fixture.id)).size === 3,
-    "Expected exactly summer, pasta and low-gi fixtures",
+    manifest.fixtures.length === 5 &&
+      new Set(manifest.fixtures.map((fixture) => fixture.id)).size === 5 &&
+      ["summer", "pasta", "low-gi", "dietetyka-diagnostic", "lunchboxy"].every((id) =>
+        manifest.fixtures.some((fixture) => fixture.id === id),
+      ),
+    "Expected summer, pasta, low-gi, dietetyka-diagnostic and lunchboxy fixtures",
   );
   const results = [];
   for (const fixture of manifest.fixtures) {
@@ -234,26 +257,44 @@ export function validateFixtures(root = evaluationRoot, inspect = inspectPdf) {
     requireThat(inspected.pageCount === fixture.pageCount, "Source page count mismatch: " + fixture.id);
     const limit = fileLimitFailure(bytes.length, inspected.pageCount);
     if (fixture.expectation === "reject-page-limit") {
-      requireThat(
-        fixture.id === "low-gi" && fixture.pageCount === 113 && limit === "too-many-pages",
-        "Expected 113-page rejection",
-      );
+      requireThat(limit === "too-many-pages", "Expected page-limit rejection");
       requireThat(
         fixture.referencePath === null && fixture.referenceSha256 === null && fixture.recipePages.length === 0,
         "Rejected fixture cannot be an accepted recipe reference",
       );
-      results.push({ id: fixture.id, pageCount: fixture.pageCount, expectedRejection: limit });
+      results.push({
+        id: fixture.id,
+        pageCount: fixture.pageCount,
+        expectedRejection: limit,
+        readyForExtraction: false,
+      });
       continue;
     }
-    requireThat(fixture.id !== "low-gi" && limit === null, "Accepted fixture exceeds product limits");
-    requireThat(
-      fixture.referencePath !== null && fixture.referenceSha256 !== null,
-      "Accepted fixture requires reference and hash",
-    );
-    const expectedPages = fixture.id === "summer" ? [7, 9, 11, 13] : [4, 6, 8, 9, 11];
+    requireThat(limit === null, "Accepted fixture exceeds product limits");
+    const expectedPages = observedRecipePages[fixture.id];
     requireThat(
       JSON.stringify(fixture.recipePages) === JSON.stringify(expectedPages),
       "Recipe-page observation changed; resolve against source before updating the contract",
+    );
+    if (fixture.expectation === "accept-pending-reference") {
+      requireThat(
+        fixture.referencePath === null && fixture.referenceSha256 === null,
+        "Pending-reference fixture cannot claim a reference or hash",
+      );
+      results.push({
+        id: fixture.id,
+        pageCount: fixture.pageCount,
+        observedRecipePages: fixture.recipePages.length,
+        review: "pending",
+        referenceStatus: "missing",
+        referenceSha256: null,
+        readyForExtraction: false,
+      });
+      continue;
+    }
+    requireThat(
+      fixture.referencePath !== null && fixture.referenceSha256 !== null,
+      "Accepted fixture requires reference and hash",
     );
     const referenceBytes = readFileSync(localFile(root, fixture.referencePath));
     requireThat(sha256(referenceBytes) === fixture.referenceSha256, "Reference hash mismatch: " + fixture.id);
@@ -281,7 +322,9 @@ export function validateFixtures(root = evaluationRoot, inspect = inspectPdf) {
       pageCount: fixture.pageCount,
       recipes: reference.recipes.length,
       review: reference.review.status,
+      referenceStatus: "validated",
       referenceSha256: fixture.referenceSha256,
+      readyForExtraction: reference.review.status === "approved",
     });
   }
   return results;
@@ -294,7 +337,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         {
           status: "valid",
           fixtures: validateFixtures(),
-          note: "Structural integrity only; pending user review still blocks live ebook extraction.",
+          note: "Structural integrity only; missing references or pending user approval block live ebook extraction and accuracy acceptance.",
         },
         null,
         2,

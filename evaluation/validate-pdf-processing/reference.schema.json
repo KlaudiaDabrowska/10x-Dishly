@@ -80,7 +80,7 @@
             "pattern": "\\S"
           },
           "category": {
-            "enum": ["breakfast", "lunch", "dinner", "dessert"]
+            "enum": ["breakfast", "lunch", "dinner", "dessert", null]
           },
           "sourceCategory": {
             "anyOf": [
