@@ -13,6 +13,7 @@ import {
   OPENAI_PRICING,
   recognizePdfBatch,
 } from "../src/lib/pdf-processing/openai.ts";
+import { PDF_LIMITS } from "../src/lib/pdf-processing/limits.ts";
 import { PDF_RECIPE_SCHEMA_NAME } from "../src/lib/pdf-processing/prompt.ts";
 
 if (!process.env.OPENAI_API_KEY) loadEnvFile(".env");
@@ -132,7 +133,7 @@ assert.equal(ledgerBatch?.status, "reconciled");
 assert.equal(ledgerBatch?.reservedCostNanoUsd, OPENAI_MAXIMUM_COST_NANO_USD);
 assert.equal(ledgerBatch?.inputTokens, result.value.countedInputTokens);
 assert.ok(Number.isSafeInteger(ledgerBatch?.outputTokens));
-assert.ok(ledgerBatch.outputTokens <= 8_192);
+assert.ok(ledgerBatch.outputTokens <= PDF_LIMITS.maxOutputTokens);
 assert.deepEqual(ledgerBatch.pricingSnapshot, OPENAI_PRICING);
 assert.equal(
   ledgerBatch.actualCostNanoUsd,

@@ -7,8 +7,8 @@ export const PDF_LIMITS = Object.freeze({
   maxFinalizationBodyBytes: 2 * 1024 * 1024,
   maxInputTokens: 98_304,
   candidateCount: 1,
-  maxOutputTokens: 8_192,
-  reasoningEffort: "none", // OpenAI output limit includes non-visible tokens.
+  maxOutputTokens: 16_384,
+  reasoningEffort: "low", // OpenAI output limit includes non-visible tokens.
   corePagesPerBatch: 8,
   contextPagesPerSide: 1,
   maxBatches: 32,

@@ -68,7 +68,7 @@ export function createRunDirectory(root, runId = randomUUID()) {
   mkdirSync(directory, { mode: 0o700 });
   return { runId, directory };
 }
-function privateFile(root, relative) {
+export function privateFile(root, relative) {
   requireThat(typeof relative === "string" && relative.startsWith("local/"), "invalid-fixture-path");
   const local = realpathSync(path.join(root, "local"));
   const resolved = realpathSync(path.resolve(root, relative));

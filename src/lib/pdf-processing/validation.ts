@@ -156,19 +156,23 @@ export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): Cand
     return invalid("invalid-provenance", "sourceStart", "anchor-not-supplied");
   if (!batch.corePages.includes(sourceStart.page))
     return invalid("invalid-provenance", "sourceStart.page", "context-only-anchor-is-not-owned");
+  const warnings: string[] = [];
   if (groups.length > 0 && !hasValidGroupLabels(groups)) {
+    // A missing label among several groups loses no content; duplicate or blank single labels stay invalid.
     const seen = new Set<string>();
     const index = groups.findIndex((group) => {
       const label = group.label?.trim() ?? "";
-      const bad = !label || seen.has(label);
+      const bad = groups.length === 1 ? true : label !== "" && seen.has(label);
       seen.add(label);
       return bad;
     });
-    return invalid(
-      "invalid-group-labels",
-      `ingredientGroups[${index}].label`,
-      "distinct-nonempty-variant-label-required",
-    );
+    if (index >= 0)
+      return invalid(
+        "invalid-group-labels",
+        `ingredientGroups[${index}].label`,
+        "distinct-nonempty-variant-label-required",
+      );
+    warnings.push("unlabelled-variant-group");
   }
   for (const [groupIndex, group] of groups.entries()) {
     for (const [ingredientIndex, ingredient] of group.ingredients.entries()) {
@@ -190,7 +194,6 @@ export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): Cand
     if (index >= 0) return invalid("invalid-empty-value", `${field}[${index}]`, "nonempty-string-required");
   }
 
-  const warnings: string[] = [];
   const sourceCategory = raw.sourceCategory?.trim() ? raw.sourceCategory : null;
   const mappedCategory = categoryFromSource(sourceCategory);
   let category = raw.category;
@@ -211,17 +214,23 @@ export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): Cand
   if (instructions.length === 0) requiredMissing.add("missing-instructions");
   if (category === null) requiredMissing.add("missing-category");
   if (sourceCategory === null) warnings.push("source-category-absent");
-  for (const [index, reason] of missingReasons.entries()) {
+  // Code owns verified field presence and source metadata: contradicted model reasons are dropped, not trusted.
+  const reasons: OmissionReason[] = [];
+  for (const reason of missingReasons) {
+    // pages and sourceStart have already passed provenance validation above.
     const contradictory =
       (reason.code === "absent-servings" && raw.servings !== null) ||
       (reason.code === "absent-footnotes" && footnotes.length > 0) ||
+      reason.code === "missing-source-metadata" ||
       (["missing-title", "missing-ingredients", "missing-instructions", "missing-category"].includes(reason.code) &&
         !requiredMissing.has(reason.code));
-    if (contradictory)
-      return invalid("invalid-omission-reason", `missingFieldReasons[${index}]`, "reason-conflicts-with-present-field");
+    if (contradictory) {
+      warnings.push(`dropped-contradictory-reason:${reason.code}`);
+      continue;
+    }
     if (PDF_OMISSION_RULES[reason.code].required) requiredMissing.add(reason.code);
+    reasons.push(reason);
   }
-  const reasons = [...missingReasons];
   for (const code of requiredMissing) {
     if (!reasons.some((reason) => reason.code === code))
       reasons.push({ code, fieldPath: PDF_OMISSION_RULES[code].fieldPath });

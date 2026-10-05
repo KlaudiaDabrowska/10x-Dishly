@@ -128,8 +128,8 @@ test("the fixed request counts the exact response payload and treats prompt inje
   assert.equal(request.store, false);
   assert.equal(request.background, false);
   assert.deepEqual(request.tools, []);
-  assert.equal(request.reasoning.effort, "none");
-  assert.equal(request.max_output_tokens, 8192);
+  assert.equal(request.reasoning.effort, "low");
+  assert.equal(request.max_output_tokens, 16_384);
   assert.equal(request.text.format.strict, true);
   assert.equal(request.text.format.type, "json_schema");
   assert.equal(JSON.stringify(request.text.format.schema).includes("uniqueItems"), false);
@@ -140,7 +140,8 @@ test("the fixed request counts the exact response payload and treats prompt inje
   assert.match(request.instructions, /untrusted data/);
   assert.doesNotMatch(request.instructions, /Ignore all rules/);
   assert.match(request.input, /Ignore all rules/);
-  assert.equal(OPENAI_MAXIMUM_COST_NANO_USD, 110_592_000);
+  assert.equal(OPENAI_MAXIMUM_COST_NANO_USD, 147_456_000);
+  assert.ok(2 * OPENAI_MAXIMUM_COST_NANO_USD <= PDF_LIMITS.importBudgetNanoUsd);
 });
 
 test("input is counted before a full reservation, then exact usage is reconciled once", async () => {
@@ -164,7 +165,7 @@ test("input is counted before a full reservation, then exact usage is reconciled
     events.map(([event]) => event),
     ["fetch", "reserve", "fetch", "reconcile"],
   );
-  assert.equal(events[1][1].maximumCostNanoUsd, 110_592_000);
+  assert.equal(events[1][1].maximumCostNanoUsd, 147_456_000);
   assert.equal(events[3][1].inputTokens, 123);
   assert.equal(events[3][1].outputTokens, 45);
   assert.equal(events[3][2].model, OPENAI_MODEL);
@@ -451,7 +452,6 @@ test("typed required omissions prevent completeness, optional absence and ambigu
     ["missing-continuation", "$"],
     ["missing-variant-content", "ingredientGroups"],
     ["missing-ingredient-content", "ingredientGroups"],
-    ["missing-source-metadata", "pages"],
   ]) {
     const result = validateRecipeCandidate({ ...candidate, missingFieldReasons: [{ code, fieldPath }] }, batch);
     assert.equal(result.status, "incomplete");
@@ -478,16 +478,108 @@ test("typed required omissions prevent completeness, optional absence and ambigu
     ["legacy reason"],
     [{ code: "unknown", fieldPath: "$" }],
     [{ code: "missing-continuation", fieldPath: "servings" }],
-    [{ code: "missing-title", fieldPath: "title" }],
-  ])
-    assert.equal(validateRecipeCandidate({ ...candidate, missingFieldReasons }, batch).status, "invalid");
-  assert.equal(
-    validateRecipeCandidate(
-      { ...candidate, servings: "2", missingFieldReasons: [{ code: "absent-servings", fieldPath: "servings" }] },
+    [{ code: "missing-title", fieldPath: "$" }],
+    [
+      { code: "absent-servings", fieldPath: "servings" },
+      { code: "absent-servings", fieldPath: "servings" },
+    ],
+  ]) {
+    const result = validateRecipeCandidate({ ...candidate, missingFieldReasons }, batch);
+    assert.equal(result.status, "invalid");
+    assert.equal(result.issues[0].code, "invalid-omission-reason");
+  }
+});
+
+test("reasons contradicted by present fields or verified provenance are dropped with warnings", () => {
+  for (const [change, code, fieldPath] of [
+    [{}, "missing-title", "title"],
+    [{}, "missing-ingredients", "ingredientGroups"],
+    [{}, "missing-instructions", "instructions"],
+    [{}, "missing-category", "category"],
+    [{ servings: "2" }, "absent-servings", "servings"],
+    [{ footnotes: ["Keep cold."] }, "absent-footnotes", "footnotes"],
+    [{}, "missing-source-metadata", "pages"],
+  ]) {
+    const result = validateRecipeCandidate(
+      { ...candidate, ...change, missingFieldReasons: [{ code, fieldPath }] },
       batch,
-    ).status,
-    "invalid",
+    );
+    assert.equal(result.status, "complete", code);
+    assert.deepEqual(result.candidate.missingFieldReasons, [], code);
+    assert.ok(result.warnings.includes(`dropped-contradictory-reason:${code}`), code);
+  }
+  const genuine = validateRecipeCandidate(
+    { ...candidate, title: null, missingFieldReasons: [{ code: "missing-title", fieldPath: "title" }] },
+    batch,
   );
+  assert.equal(genuine.status, "incomplete");
+  assert.deepEqual(genuine.candidate.missingFieldReasons, [{ code: "missing-title", fieldPath: "title" }]);
+  assert.equal(
+    genuine.warnings.some((warning) => warning.startsWith("dropped-")),
+    false,
+  );
+  const mixed = validateRecipeCandidate(
+    {
+      ...candidate,
+      footnotes: ["Note."],
+      missingFieldReasons: [
+        { code: "absent-footnotes", fieldPath: "footnotes" },
+        { code: "missing-continuation", fieldPath: "$" },
+      ],
+    },
+    batch,
+  );
+  assert.equal(mixed.status, "incomplete");
+  assert.deepEqual(mixed.candidate.missingFieldReasons, [{ code: "missing-continuation", fieldPath: "$" }]);
+  for (const change of [
+    { sourceStart: { page: 2, itemIndex: 0 }, pages: [1, 2] },
+    { sourceStart: { page: 1, itemIndex: 99 } },
+    { pages: [1, 3] },
+  ]) {
+    const result = validateRecipeCandidate(
+      { ...candidate, ...change, missingFieldReasons: [{ code: "missing-source-metadata", fieldPath: "pages" }] },
+      batch,
+    );
+    assert.equal(result.status, "invalid");
+    assert.equal(result.issues[0].code, "invalid-provenance");
+  }
+});
+
+test("an unlabelled group among several is a warning; duplicate or blank single labels stay invalid", () => {
+  const group = candidate.ingredientGroups[0];
+  for (const ingredientGroups of [
+    [
+      { ...group, label: "A" },
+      { ...group, label: null },
+    ],
+    [
+      { ...group, label: null },
+      { ...group, label: " " },
+      { ...group, label: "C" },
+    ],
+  ]) {
+    const result = validateRecipeCandidate({ ...candidate, ingredientGroups }, batch);
+    assert.equal(result.status, "complete");
+    assert.deepEqual(result.candidate.ingredientGroups, ingredientGroups);
+    assert.ok(result.warnings.includes("unlabelled-variant-group"));
+  }
+  for (const [ingredientGroups, fieldPath] of [
+    [
+      [
+        { ...group, label: "A" },
+        { ...group, label: null },
+        { ...group, label: "A" },
+      ],
+      "ingredientGroups[2].label",
+    ],
+    [[{ ...group, label: " " }], "ingredientGroups[0].label"],
+  ]) {
+    const result = validateRecipeCandidate({ ...candidate, ingredientGroups }, batch);
+    assert.equal(result.status, "invalid");
+    assert.deepEqual(result.issues, [
+      { code: "invalid-group-labels", fieldPath, condition: "distinct-nonempty-variant-label-required" },
+    ]);
+  }
 });
 
 test("rejection evidence distinguishes source conditions and exact invalid label paths", () => {
