@@ -418,3 +418,7 @@ Reported-tier (non-blocking) differences across the three runs:
 Cost of the three runs: USD 0.8590695. Cumulative spent **USD 4.03048275**, held **USD 0.147456** (the 4.18 timeout), with USD 2.82206125 available under USD 7. That covers the phase 6 final-matrix headroom of USD 2.359296.
 
 Gate status: **4.20 PASS**. 4.9, 4.13 and 4.16 described earlier configurations and stay as failed historical gates. 4.4 and 4.14 (manual) await the user.
+
+### Manual approval (2026-10-06)
+
+The user reviewed the reported-tier differences of runs e4e7a786, e6e3150c and 066f4d67 (dropped household parentheticals in names, "pół szklanki" as quantity/unit, a duplicated word in one sourceText, "sos:" prefix variations, and the nutrition line as a footnote). The user also reviewed the PRD/roadmap/fixtures variant wording, and accepted both on 2026-10-06. Progress 4.4 and 4.14 are checked. 4.9, 4.13, 4.16 and 4.18 remain as superseded, failed historical gates of earlier configurations; the accepted configuration is the one measured in 4.20.

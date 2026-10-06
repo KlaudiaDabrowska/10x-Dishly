@@ -27,6 +27,8 @@ Reasoning medium (2026-10-06): 4.17 done (332aa84); F-01 budget raised to USD 6 
 
 4.20 PASS (2026-10-06): F-01 budget USD 7 (3d72e8d). Three runs on one frozen config (medium, 120 s) pass the blocking tier — summer 3/3, lunchboxy 3/3. Spent USD 4.03048275, held USD 0.147456. Pending: manual 4.4/4.14, and documentation of the summer variant change in PRD/roadmap/fixtures.
 
+Phase 4 complete (2026-10-06): user approved the reported-tier differences (4.4, 4.14); superseded gates 4.9/4.13/4.16/4.18 checked with a note. Next: Phase 5.
+
 ## Notes
 
 F-01 in context/foundation/roadmap.md. Provider, budget and retention accepted on 2026-09-28. Research requested before implementation planning.

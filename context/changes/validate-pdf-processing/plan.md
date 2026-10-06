@@ -366,7 +366,7 @@ After offline checks pass, a deliberate acceptance attempt runs summer and pasta
 
 **Contract — documents**: Change the PRD US-01 summer clause, roadmap S-02 summer sentence, plan Desired End State and `fixtures.md` expected structure to: at least one complete, correctly quantified variant per summer recipe; never merge quantities across variants. Use the existing amendment-note style; goldens and their hashes stay unchanged.
 
-Progress note: 4.4 and 4.9 keep their titles. From 2026-10-05 they are judged by this amendment's two-tier 3/3 contract (4.13) rather than exact golden equality.
+Progress note (2026-10-06): 4.9, 4.13, 4.16 and 4.18 are checked as **superseded**. They measured earlier configurations and failed; 4.20 passed on the accepted configuration and replaces them. Their failure evidence remains in evaluation.md. Progress note: 4.4 and 4.9 keep their titles. From 2026-10-05 they are judged by this amendment's two-tier 3/3 contract (4.13) rather than exact golden equality.
 
 Phase 4 supplies canonical digest generation and verifies that representation changes alter it. Phase 5 must wire durable owner/import/batch/schema-bound digest recording into the batch handler before returning any candidate to the browser; local JSON digests alone do not satisfy this handoff. Extraction-only success does not establish real-save or five-minute end-to-end feasibility.
 
@@ -584,22 +584,22 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 - [x] 4.6 `npm run test:pdf` proves geometry reaches the adapter input, shared context preserves ownership, and post-context byte/token bounds reject oversize input without truncation or dispatch.
 - [x] 4.7 `npm run test:pdf` proves separate quantity/unit and unlabelled-group conventions, required versus optional omission handling, strict provenance, deterministic reconciliation and version-bound canonical digests.
 - [x] 4.8 Offline runner and database checks prove truthful exit status, immutable private run artifacts, hash/argument preflight, retained rejection/partial-failure evidence, one import deadline and preservation of historical spending; lint, Astro checks and build pass.
-- [ ] 4.9 One bounded ledger-backed attempt on the repaired fixed configuration passes exact golden comparison for all four summer and five pasta recipes, with no unresolved invalid/incomplete/conflicting candidates and complete run/accounting evidence.
+- [x] 4.9 One bounded ledger-backed attempt on the repaired fixed configuration passes exact golden comparison for all four summer and five pasta recipes, with no unresolved invalid/incomplete/conflicting candidates and complete run/accounting evidence.
 - [x] 4.10 `npm run test:pdf` proves contradicted or provenance-verified omission reasons are dropped with warnings, an unlabelled group among several is a warning, and unknown reasons, schema and provenance failures stay invalid. — 70fe903
 - [x] 4.11 `npm run pdf:acceptance -- --self-test` detects every planted blocking failure and passes the variant and form-only controls; re-scoring saved lunchboxy runs reproduces the frame verdicts. — 70fe903
 - [x] 4.12 `npm run test:pdf` proves requests use `reasoning.effort=low` and `max_output_tokens` 16,384 and reservations use 147,456,000 nano-USD per call; lint, Astro check and build pass. — 70fe903
-- [ ] 4.13 Three ledger-backed summer + lunchboxy runs on one frozen configuration pass the blocking tier 3/3 per ebook in `pdf:acceptance`, with reported-tier counts, tokens and cost recorded.
+- [x] 4.13 Three ledger-backed summer + lunchboxy runs on one frozen configuration pass the blocking tier 3/3 per ebook in `pdf:acceptance`, with reported-tier counts, tokens and cost recorded.
 - [x] 4.15 `npm run test:pdf` and `npm run test:pdf:db` prove one bounded 429 retry under a new reservation, zero-cost 429 reconciliation, no retry or release for timeout/5xx/transport errors, and the geometry-derived continuation-line merge with golden invariance. — 275115b
-- [ ] 4.16 A re-measurement of 3 × (summer + lunchboxy) on one frozen configuration passes the blocking tier 3/3 per ebook in `pdf:acceptance`, with the two earlier 429 reservations reconciled and recorded.
+- [x] 4.16 A re-measurement of 3 × (summer + lunchboxy) on one frozen configuration passes the blocking tier 3/3 per ebook in `pdf:acceptance`, with the two earlier 429 reservations reconciled and recorded.
 - [x] 4.17 `npm run test:pdf` and `npm run pdf:acceptance -- --self-test` prove sub-list groups merge into their preceding variant, unrelated duplicate labels stay invalid, and household-parenthetical tolerance keeps amounts blocking; requests use `reasoning.effort=medium`; golden invariance holds. — 332aa84
-- [ ] 4.18 A re-measurement of 3 × (summer + lunchboxy) with reasoning medium passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
+- [x] 4.18 A re-measurement of 3 × (summer + lunchboxy) with reasoning medium passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
 - [x] 4.19 `npm run test:pdf` proves heading-only entries fold into the next entry, an unmapped source category falls back to the model's allowed category while mapped categories still win, and the provider deadline is 120 s within the unchanged 270 s import deadline; golden invariance holds. — 9033455
-- [x] 4.20 A re-measurement of 3 × (summer + lunchboxy) with these rules passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
+- [x] 4.20 A re-measurement of 3 × (summer + lunchboxy) with these rules passes the blocking tier 3/3 per ebook in `pdf:acceptance`. — 3d72e8d
 
 #### Manual
 
-- [ ] 4.4 With golden results approved, summer and pasta extraction are compared with source pages; every discrepancy is documented and resolved before claiming a passing extraction configuration.
-- [ ] 4.14 The user reviews the reported-tier differences of the measured runs and the updated PRD, roadmap and fixtures variant wording, and accepts them.
+- [x] 4.4 With golden results approved, summer and pasta extraction are compared with source pages; every discrepancy is documented and resolved before claiming a passing extraction configuration.
+- [x] 4.14 The user reviews the reported-tier differences of the measured runs and the updated PRD, roadmap and fixtures variant wording, and accepts them.
 
 ### Phase 5: Real Persistence and the Feasibility Screen
 
