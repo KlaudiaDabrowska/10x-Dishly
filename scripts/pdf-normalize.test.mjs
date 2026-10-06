@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isIngredientSectionHeading,
+  mergeSubListGroups,
   normalizeCandidate,
   sourceIngredientName,
 } from "../src/lib/pdf-processing/normalize.ts";
@@ -213,4 +214,52 @@ test("validation applies the normalization once and reports it as warnings", () 
   assert.equal(result.status, "complete");
   assert.equal(result.candidate.ingredientGroups[0].label, null);
   assert.ok(result.warnings.includes("normalized-section-heading-label"));
+});
+
+test("repeated sub-list heading groups merge into their preceding variant before label validation", () => {
+  const item = (sourceText, name, quantity = null, unit = null) => ({ name, quantity, unit, sourceText });
+  const variant = (label, amount) => ({ label, ingredients: [item(`${amount} g oats`, "oats", amount, "g")] });
+  const sauce = (first = "20 g mustard (2 tsp)") => ({
+    label: "sauce:",
+    ingredients: [item(first, "mustard", "20", "g"), item("10 ml water", "water", "10", "ml")],
+  });
+  const ingredientGroups = [
+    variant("300 kcal", "40"),
+    sauce(),
+    variant("350 kcal", "50"),
+    sauce("SAUCE:  20 g mustard"),
+  ];
+  const result = validateRecipeCandidate(recipe({ ingredientGroups }), batch([line(0, "Soup", 10, 500)]));
+  assert.equal(result.status, "complete");
+  assert.deepEqual(result.candidate.ingredientGroups, [
+    {
+      label: "300 kcal",
+      ingredients: [
+        ...variant("300 kcal", "40").ingredients,
+        item("sauce: 20 g mustard (2 tsp)", "mustard", "20", "g"),
+        item("10 ml water", "water", "10", "ml"),
+      ],
+    },
+    {
+      label: "350 kcal",
+      ingredients: [...variant("350 kcal", "50").ingredients, ...sauce("SAUCE:  20 g mustard").ingredients],
+    },
+  ]);
+  assert.deepEqual(
+    result.warnings.filter((warning) => warning.startsWith("merged-sub-list-group")),
+    ["merged-sub-list-group:1", "merged-sub-list-group:3"],
+  );
+
+  for (const groups of [
+    [sauce(), variant("300 kcal", "40"), sauce(), variant("350 kcal", "50")],
+    [variant("300 kcal", "40"), sauce(), sauce(), variant("350 kcal", "50")],
+    [variant("300 kcal", "40"), sauce(), variant("300 kcal", "50"), sauce()],
+    [variant("300 kcal", "40"), variant("300 kcal", "50")],
+    [variant("300 kcal", "40"), sauce(), variant("350 kcal", "50"), { ...sauce(), label: "dressing:" }, sauce()],
+  ]) {
+    assert.deepEqual(mergeSubListGroups(groups), { groups, changes: [] });
+    const rejected = validateRecipeCandidate(recipe({ ingredientGroups: groups }), batch([line(0, "Soup", 10, 500)]));
+    assert.equal(rejected.status, "invalid");
+    assert.equal(rejected.issues[0].code, "invalid-group-labels");
+  }
 });

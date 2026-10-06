@@ -128,7 +128,7 @@ test("the fixed request counts the exact response payload and treats prompt inje
   assert.equal(request.store, false);
   assert.equal(request.background, false);
   assert.deepEqual(request.tools, []);
-  assert.equal(request.reasoning.effort, "low");
+  assert.equal(request.reasoning.effort, "medium");
   assert.equal(request.max_output_tokens, 16_384);
   assert.equal(request.text.format.strict, true);
   assert.equal(request.text.format.type, "json_schema");

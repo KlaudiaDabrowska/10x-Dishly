@@ -8,6 +8,7 @@ import { fileURLToPath, URL } from "node:url";
 import {
   acceptanceSelfTest,
   acceptanceVerdict,
+  compareEntries,
   compareRecipeIngredients,
   loadRun,
   parseAcceptanceArgs,
@@ -58,8 +59,23 @@ const report = (recipes, status = "complete") => ({
 test("self-test detects every planted blocking failure and passes variant and form-only controls", () => {
   const result = acceptanceSelfTest();
   assert.equal(result.ok, true);
-  assert.ok(result.counts.plantedFailures >= 12);
-  assert.ok(result.counts.passingControls >= 4);
+  assert.ok(result.counts.plantedFailures >= 16);
+  assert.ok(result.counts.passingControls >= 6);
+});
+
+test("a dropped trailing household parenthetical still matches; amounts stay blocking", () => {
+  const expected = [entry("PRIVATE_TEA (pół szklanki)", "100", "ml", "100 ml PRIVATE_TEA (pół szklanki)")];
+  const actual = (quantity, name = "PRIVATE_TEA") => [entry(name, quantity, "ml", `${quantity} ml ${name}`)];
+  assert.deepEqual(compareEntries(expected, actual("100")), []);
+  assert.deepEqual(
+    compareEntries(expected, actual("10")).map((reason) => reason.code),
+    ["ingredient-amount"],
+  );
+  const inner = [entry("PRIVATE (pół) TEA", "100", "ml", "100 ml PRIVATE (pół) TEA")];
+  assert.deepEqual(
+    compareEntries(inner, actual("100", "PRIVATE TEA")).map((reason) => reason.code),
+    ["ingredient-missing", "ingredient-added"],
+  );
 });
 
 test("ingredient entries match on contained name and exact golden amounts, one-to-one", () => {

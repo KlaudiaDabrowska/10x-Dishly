@@ -34,7 +34,14 @@ const entryText = (value) =>
     .toLowerCase();
 const amount = (value) => (typeof value === "string" ? value.trim() : value);
 
-const containsName = (golden, actual) => entryText(actual.sourceText).includes(entryText(golden.name));
+// Dropped household text: only a single trailing parenthetical group of the golden name may be absent.
+const TRAILING_PARENTHETICAL = /\s*\([^()]*\)$/u;
+const containsName = (golden, actual) => {
+  const text = entryText(actual.sourceText);
+  const name = entryText(golden.name);
+  const shortened = name.replace(TRAILING_PARENTHETICAL, "");
+  return text.includes(name) || (shortened !== name && shortened !== "" && text.includes(shortened));
+};
 function entryMatches(golden, actual) {
   if (!containsName(golden, actual)) return false;
   if (golden.quantity !== null && amount(actual.quantity) !== amount(golden.quantity)) return false;
@@ -409,6 +416,29 @@ export function acceptanceSelfTest() {
     const result = score(recipes);
     assert.deepEqual(result.blocking, { ok: true, reasons: [] }, name);
   }
+  const household = (name) => [{ name, quantity: "100", unit: "ml", sourceText: `100 ml ${name}` }];
+  const dropped = (name, quantity = "100") => [{ name, quantity, unit: "ml", sourceText: `- ${quantity} ml ${name}` }];
+  const householdCases = [
+    ["dropped household parenthetical", household("napar z herbaty (pół szklanki)"), dropped("napar z herbaty"), []],
+    [
+      "dropped household parenthetical, wrong quantity",
+      household("napar z herbaty (pół szklanki)"),
+      dropped("napar z herbaty", "10"),
+      ["ingredient-amount"],
+    ],
+    [
+      "non-trailing parenthetical is not loosened",
+      household("napar (pół szklanki) z herbaty"),
+      dropped("napar z herbaty"),
+      ["ingredient-missing", "ingredient-added"],
+    ],
+  ];
+  for (const [name, goldenEntries, actualEntries, codes] of householdCases)
+    assert.deepEqual(
+      compareEntries(goldenEntries, actualEntries).map((reason) => reason.code),
+      codes,
+      name,
+    );
   const run = (runId, ok = true, configDigest = "c") => ({
     runId,
     configDigest,
@@ -426,8 +456,9 @@ export function acceptanceSelfTest() {
   return {
     ok: true,
     counts: {
-      plantedFailures: planted.length + statusPlants.length,
-      passingControls: controls.length,
+      plantedFailures:
+        planted.length + statusPlants.length + householdCases.filter(([, , , codes]) => codes.length > 0).length,
+      passingControls: controls.length + householdCases.filter(([, , , codes]) => codes.length === 0).length,
       verdictCases: verdicts.length + 1,
     },
   };

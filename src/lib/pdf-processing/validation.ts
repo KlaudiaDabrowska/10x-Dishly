@@ -15,7 +15,7 @@ import type {
   SourceItemAnchor,
 } from "./contracts.ts";
 import { categoryFromSource } from "./categories.ts";
-import { normalizeCandidate } from "./normalize.ts";
+import { mergeSubListGroups, normalizeCandidate } from "./normalize.ts";
 import { PDF_RECIPE_SCHEMA_NAME } from "./prompt.ts";
 import { PDF_LIMITS } from "./limits.ts";
 
@@ -111,7 +111,7 @@ function parseStringArray(value: unknown, maximumItems: number, maximumLength: n
 export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): CandidateValidation {
   if (!isRecord(raw) || !exactKeys(raw, CANDIDATE_KEYS)) return invalid("invalid-schema", "$", "exact-candidate-keys");
   const sourceStart = parseAnchor(raw.sourceStart);
-  const groups = parseGroups(raw.ingredientGroups);
+  const parsedGroups = parseGroups(raw.ingredientGroups);
   const instructions = parseStringArray(raw.instructions, 100, 8_000);
   const footnotes = parseStringArray(raw.footnotes, 100, 4_000);
   const missingReasons = parseReasons(raw.missingFieldReasons);
@@ -126,7 +126,7 @@ export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): Cand
     return invalid("invalid-schema", "category", "allowed-category-required");
   if (!boundedString(raw.sourceCategory, 2_000, true))
     return invalid("invalid-schema", "sourceCategory", "nullable-bounded-string-required");
-  if (!groups) return invalid("invalid-schema", "ingredientGroups", "bounded-ingredient-groups-required");
+  if (!parsedGroups) return invalid("invalid-schema", "ingredientGroups", "bounded-ingredient-groups-required");
   if (!instructions) return invalid("invalid-schema", "instructions", "bounded-string-array-required");
   if (!boundedString(raw.servings, 2_000, true))
     return invalid("invalid-schema", "servings", "nullable-bounded-string-required");
@@ -156,7 +156,9 @@ export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): Cand
     return invalid("invalid-provenance", "sourceStart", "anchor-not-supplied");
   if (!batch.corePages.includes(sourceStart.page))
     return invalid("invalid-provenance", "sourceStart.page", "context-only-anchor-is-not-owned");
-  const warnings: string[] = [];
+  const subLists = mergeSubListGroups(parsedGroups);
+  const groups = subLists.groups;
+  const warnings: string[] = [...subLists.changes];
   if (groups.length > 0 && !hasValidGroupLabels(groups)) {
     // A missing label among several groups loses no content; duplicate or blank single labels stay invalid.
     const seen = new Set<string>();

@@ -1,5 +1,6 @@
 import type { PdfTextBatch } from "./batching.ts";
-import type { Ingredient, PageText, PageTextItem, RecipeCandidate } from "./contracts.ts";
+import { hasValidGroupLabels } from "./contracts.ts";
+import type { Ingredient, IngredientGroup, PageText, PageTextItem, RecipeCandidate } from "./contracts.ts";
 
 // Deterministic, source-derived corrections of recurring model representation errors.
 // Inputs are only the validated candidate and the supplied source text/geometry: never
@@ -11,6 +12,38 @@ const SECTION_HEADING = /^(składniki|ingredients)(\s+(na|do przygotowania|for)(
 
 export function isIngredientSectionHeading(label: string): boolean {
   return SECTION_HEADING.test(collapse(label));
+}
+
+const isSubListLabel = (label: string | null) => label !== null && collapse(label).endsWith(":");
+
+// A repeated sub-list heading (e.g. "sos:") emitted as its own group after each variant is part of
+// that variant. Applies only to the exact alternating pattern whose merged labels are then distinct.
+export function mergeSubListGroups(groups: IngredientGroup[]): { groups: IngredientGroup[]; changes: string[] } {
+  const unchanged = { groups, changes: [] };
+  const labels = groups.map((group) => collapse(group.label ?? ""));
+  const subLists = groups.flatMap((group, index) => (isSubListLabel(group.label) ? [index] : []));
+  if (groups.length < 2 || subLists.length < 2) return unchanged;
+  const label = labels[subLists[0]];
+  if (subLists.some((index) => labels[index] !== label)) return unchanged;
+  if (subLists.some((index) => index === 0 || labels[index - 1] === "" || isSubListLabel(labels[index - 1])))
+    return unchanged;
+  const merged: IngredientGroup[] = [];
+  const changes: string[] = [];
+  for (const [index, group] of groups.entries()) {
+    if (!subLists.includes(index)) {
+      merged.push(group);
+      continue;
+    }
+    const appended = group.ingredients.map((ingredient, position) =>
+      position > 0 || collapse(ingredient.sourceText).toLowerCase().startsWith(label.toLowerCase())
+        ? ingredient
+        : { ...ingredient, sourceText: `${label} ${ingredient.sourceText}` },
+    );
+    const previous = merged[merged.length - 1];
+    merged[merged.length - 1] = { ...previous, ingredients: [...previous.ingredients, ...appended] };
+    changes.push(`merged-sub-list-group:${index}`);
+  }
+  return hasValidGroupLabels(merged) ? { groups: merged, changes } : unchanged;
 }
 
 const HOUSEHOLD_PARENTHETICAL =
