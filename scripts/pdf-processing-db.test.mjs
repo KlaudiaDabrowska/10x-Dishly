@@ -198,7 +198,7 @@ test("usage reconciliation is exactly once and stays in the reserved UTC period"
   assert.equal(february.period_end, "2026-03-01T00:00:00+00:00");
 
   const global = await scope("f01");
-  assert.equal(global.limit_nano_usd, 5_000_000_000);
+  assert.equal(global.limit_nano_usd, 6_000_000_000);
 });
 
 test("expiry, timeout, crash and cancellation never free a dispatch-claimed reservation", async () => {
@@ -418,5 +418,5 @@ test("the cumulative F-01 cap remains atomic across imports and months", async (
   assert.equal([left, right].filter((result) => !result.error).length, 1);
   assert.equal([left, right].filter((result) => result.error).length, 1);
   const full = await scope("f01");
-  assert.equal(full.spent_nano_usd + full.held_nano_usd, 5_000_000_000);
+  assert.equal(full.spent_nano_usd + full.held_nano_usd, 6_000_000_000);
 });
