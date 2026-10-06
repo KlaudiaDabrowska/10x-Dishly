@@ -14,7 +14,15 @@
   },
   "vars": { "DEPLOYMENT_ENV": "production" },
   "secrets": {
-    "required": ["SUPABASE_URL", "SUPABASE_KEY", "DEPLOY_PROBE_TOKEN"],
+    "required": [
+      "SUPABASE_URL",
+      "SUPABASE_KEY",
+      "DEPLOY_PROBE_TOKEN",
+      "SUPABASE_SECRET_KEY",
+      "OPENAI_API_KEY",
+      "PDF_VALIDATION_ENABLED",
+      "PDF_VALIDATION_EVALUATOR_IDS",
+    ],
   },
   "r2_buckets": [
     { "binding": "PDF_BUCKET", "bucket_name": "dishly-pdf-imports-eu", "jurisdiction": "eu" },

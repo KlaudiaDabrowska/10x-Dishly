@@ -7,10 +7,12 @@ for (const path of [
   "/auth/signin",
   "/auth/signup",
   "/dashboard",
+  "/dashboard/pdf-validation",
   "/api/auth/signin",
   "/api/auth/signup",
   "/api/auth/signout",
   "/api/ops/deployment-probe",
+  "/api/pdf-validation/imports",
 ]) {
   const api = path.startsWith("/api/");
   const response = await fetch(base + path, {
@@ -18,7 +20,7 @@ for (const path of [
     headers: { Origin: base },
     redirect: "manual",
   });
-  const expected = api || path === "/dashboard" ? 503 : 200;
+  const expected = api || path.startsWith("/dashboard") ? 503 : 200;
   assert.equal(response.status, expected, path);
   if (path !== "/api/ops/deployment-probe") {
     const directives = (response.headers.get("cache-control") ?? "")
@@ -28,6 +30,9 @@ for (const path of [
     assert.ok(directives.includes("private"), `${path}: private cache directive`);
     assert.ok(directives.includes("no-store"), `${path}: no-store cache directive`);
   }
-  if (expected === 503) assert.deepEqual(await response.json(), { error: "infrastructure_unavailable" });
+  if (expected === 503)
+    assert.deepEqual(await response.json(), {
+      error: path.startsWith("/api/pdf-validation/") ? "experiment_unavailable" : "infrastructure_unavailable",
+    });
   console.log(`PASS ${path}: ${expected}`);
 }

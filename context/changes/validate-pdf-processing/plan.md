@@ -605,14 +605,14 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 
 #### Automated
 
-- [ ] 5.1 `npm run test:pdf:db` proves all-or-nothing finalization, two-account isolation, altered-payload rejection, request replay safety, concurrent finalize/cancel ordering and recovery after a lost commit response.
-- [ ] 5.2 `npm run test:pdf:db` proves importing identical bytes again, including a renamed file, skips existing recipes and preserves test-edited content; another account remains independent.
-- [ ] 5.3 `npm run lint`, `npx --no-install astro check`, `npm run test:pdf`, `npm run test:deployment` and `npm run test:deploy-config` pass.
-- [ ] 5.4 Production and preview builds pass their existing `check:deploy` checks; preview remains isolated and the local Worker/Supabase auth smoke passes.
+- [x] 5.1 `npm run test:pdf:db` proves all-or-nothing finalization, two-account isolation, altered-payload rejection, request replay safety, concurrent finalize/cancel ordering and recovery after a lost commit response.
+- [x] 5.2 `npm run test:pdf:db` proves importing identical bytes again, including a renamed file, skips existing recipes and preserves test-edited content; another account remains independent.
+- [x] 5.3 `npm run lint`, `npx --no-install astro check`, `npm run test:pdf`, `npm run test:deployment` and `npm run test:deploy-config` pass.
+- [x] 5.4 Production and preview builds pass their existing `check:deploy` checks; preview remains isolated and the local Worker/Supabase auth smoke passes.
 
 #### Manual
 
-- [ ] 5.5 On the feasibility screen, complete results save automatically and read back correctly; incomplete results remain unsaved with warnings, complete failure saves nothing, and cancellation/retry reports confirmed outcomes honestly.
+- [x] 5.5 On the feasibility screen, complete results save automatically and read back correctly; incomplete results remain unsaved with warnings, complete failure saves nothing, and cancellation/retry reports confirmed outcomes honestly.
 
 ### Phase 6: Measurements and F-01 Verdict
 

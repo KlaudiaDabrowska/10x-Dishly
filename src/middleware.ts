@@ -21,7 +21,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
     (context.url.pathname.startsWith("/api/") ||
       PROTECTED_ROUTES.some((route) => context.url.pathname.startsWith(route)))
   ) {
-    return privateResponse(Response.json({ error: "infrastructure_unavailable" }, { status: 503 }));
+    // Preview and unconfigured environments cannot reach the model or privileged database.
+    const error = context.url.pathname.startsWith("/api/pdf-validation/")
+      ? "experiment_unavailable"
+      : "infrastructure_unavailable";
+    return privateResponse(Response.json({ error }, { status: 503 }));
   }
 
   if (supabase) {

@@ -422,3 +422,17 @@ Gate status: **4.20 PASS**. 4.9, 4.13 and 4.16 described earlier configurations 
 ### Manual approval (2026-10-06)
 
 The user reviewed the reported-tier differences of runs e4e7a786, e6e3150c and 066f4d67 (dropped household parentheticals in names, "pół szklanki" as quantity/unit, a duplicated word in one sourceText, "sos:" prefix variations, and the nutrition line as a footnote). The user also reviewed the PRD/roadmap/fixtures variant wording, and accepted both on 2026-10-06. Progress 4.4 and 4.14 are checked. 4.9, 4.13, 4.16 and 4.18 remain as superseded, failed historical gates of earlier configurations; the accepted configuration is the one measured in 4.20.
+
+## Phase 5 — feasibility screen manual check (2026-10-06)
+
+Local built Worker (`preview:worker`) against the local Supabase ledger, with migration 20261007090000 applied and one dedicated local evaluator account in the allowlist. Real OpenAI calls through the screen; no deployment.
+
+- First import of `lunchboxy-1-12.pdf`: committed, 5 newly saved / 0 already saved / 0 not saved, owner read-back confirmed. The saved recipes start on pages 4, 6, 8, 10 and 12, as in the golden; category was inferred (4 lunch, 1 breakfast) because lunchboxy states no meal type. Import created → committed in 72 s.
+- Second import of the identical file: committed, nothing duplicated (still 5 recipes for the account).
+- Scanned PDF without a text layer: `unreadable-document` before any provider call; nothing saved.
+- Cancellation during recognition: import `cancelled`, nothing saved.
+- Fix found during the check: Workers rejects `fetch(..., { redirect: "error" })`, which was caught locally as `provider-transport-error` before any request left the Worker. The adapter now uses `redirect: "manual"` (a 3xx still fails as `provider-http-error`), with a regression test.
+
+Cost of the screen checks: USD 0.198175 (three imports, including the cancelled one). Cumulative spent **USD 4.2286575**, held **USD 0.147456**, with USD 2.6238865 available under USD 7, which still covers the phase 6 final-matrix headroom of USD 2.359296.
+
+Progress 5.5 is checked on the user's confirmation.

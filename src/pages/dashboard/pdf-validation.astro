@@ -1,0 +1,34 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import PdfValidationPanel from "@/components/pdf-processing/PdfValidationPanel";
+import { isEvaluator } from "@/lib/pdf-validation";
+
+const { user } = Astro.locals;
+const allowed = isEvaluator(user?.id);
+---
+
+<Layout title="PDF validation | Dishly">
+  <main class="bg-cosmic min-h-screen px-4 py-8 text-white sm:px-6 sm:py-12">
+    <div class="mx-auto w-full max-w-4xl">
+      <header class="flex flex-col gap-2">
+        <a href="/dashboard" class="text-sm text-purple-200 hover:underline">
+          Back to your recipes
+        </a>
+        <h1 class="bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent sm:text-4xl">
+          PDF import feasibility check
+        </h1>
+        <p class="text-sm text-blue-100/70">
+          Restricted evaluation screen. It does not offer the full import workflow.
+        </p>
+      </header>
+      {allowed ? (
+        <PdfValidationPanel client:load />
+      ) : (
+        <section class="mt-8 rounded-2xl border border-white/10 bg-white/10 px-5 py-10 text-center backdrop-blur-xl">
+          <h2 class="text-xl font-semibold">Experiment unavailable</h2>
+          <p class="mt-2 text-sm text-blue-100/70">This evaluation is disabled or not available for this account.</p>
+        </section>
+      )}
+    </div>
+  </main>
+</Layout>

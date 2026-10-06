@@ -3,7 +3,14 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
-export const requiredSecrets = ["DEPLOY_PROBE_TOKEN", "SUPABASE_KEY", "SUPABASE_URL"];
+// The F-01 experiment secrets are server-only; PDF_VALIDATION_ENABLED defaults off unless exactly "true".
+export const experimentSecrets = [
+  "OPENAI_API_KEY",
+  "PDF_VALIDATION_ENABLED",
+  "PDF_VALIDATION_EVALUATOR_IDS",
+  "SUPABASE_SECRET_KEY",
+];
+export const requiredSecrets = ["DEPLOY_PROBE_TOKEN", ...experimentSecrets, "SUPABASE_KEY", "SUPABASE_URL"].sort();
 
 export function checkConfig(config, target) {
   assert.ok(["production", "preview"].includes(target), "Expected production or preview");

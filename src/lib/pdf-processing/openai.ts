@@ -177,7 +177,8 @@ async function providerPost(
   try {
     const response = await (options.fetch ?? fetch)(BASE_URL + path, {
       method: "POST",
-      redirect: "error",
+      // Workers rejects redirect "error"; a manual 3xx is not ok and fails as provider-http-error.
+      redirect: "manual",
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
       body: JSON.stringify(body),
       signal: controller.signal,

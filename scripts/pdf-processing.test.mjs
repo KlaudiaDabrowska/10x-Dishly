@@ -266,6 +266,27 @@ test("paid response failures remain held and never retry or reconcile", async ()
   }
 });
 
+test("provider requests use a Workers-supported redirect mode and reject redirects", async () => {
+  const modes = [];
+  await assert.rejects(
+    recognizePdfBatch({
+      apiKey: "secret",
+      fetch: async (url, init) => {
+        modes.push(init.redirect);
+        return url.endsWith("/input_tokens")
+          ? responseJson({ object: "response.input_tokens", input_tokens: 123 })
+          : new globalThis.Response(null, { status: 302, headers: { location: "https://example.test/" } });
+      },
+      batch,
+      state: ledger([]),
+      reservation,
+    }),
+    (error) => error instanceof OpenAiPdfError && error.code === "provider-http-error",
+  );
+  assert.ok(modes.length >= 2);
+  assert.ok(modes.every((mode) => mode === "manual"));
+});
+
 test("server errors and oversized bodies are explicit and sanitized", async () => {
   for (const [reply, code] of [
     [() => new globalThis.Response("private provider body", { status: 500 }), "provider-server-error"],

@@ -4,7 +4,11 @@ import test from "node:test";
 import { randomUUID } from "node:crypto";
 import { URL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { createTextBatches } from "../src/lib/pdf-processing/batching.ts";
 import { calculateCostNanoUsd } from "../src/lib/pdf-processing/budget.ts";
+import { dispatchWithSpendingControl } from "../src/lib/pdf-processing/import-state.ts";
+import { batchFromManifest } from "../src/lib/pdf-processing/manifest.ts";
+import { createValidationService } from "../src/lib/pdf-processing/service.ts";
 import { verifyIsolatedDbProject, isolatedSupabaseEnv } from "./pdf-processing-db-runner.mjs";
 
 // Deliberately refuse direct execution against the developer's paid-usage ledger.
@@ -392,6 +396,354 @@ test("zero-cost reconciliation applies only to dispatch-claimed reservations", a
   const reopened = await reserve(admin(), { ...expiredImport, p_accounting_time: "2035-01-01T00:00:00.5Z" });
   assert.ifError(reopened.error);
   assert.equal(reopened.data[0].claimed, false);
+});
+
+const sha = () => randomUUID().replaceAll("-", "").repeat(2);
+const textItem = (page, itemIndex, text, y) => ({
+  anchor: { page, itemIndex },
+  text,
+  transform: [10, 0, 0, 10, 50, y],
+  width: 80,
+  height: 10,
+  direction: "ltr",
+  hasEOL: true,
+});
+function sourceDocument(fingerprint, filename) {
+  return {
+    source: { version: 1, sha256: fingerprint, filename, byteLength: 1000, pageCount: 2 },
+    pages: [
+      {
+        page: 1,
+        width: 600,
+        height: 800,
+        rotation: 0,
+        items: [
+          textItem(1, 0, "Pancakes", 700),
+          textItem(1, 1, "100 g flour", 600),
+          textItem(1, 2, "Mix and fry.", 500),
+        ],
+      },
+      {
+        page: 2,
+        width: 600,
+        height: 800,
+        rotation: 0,
+        items: [textItem(2, 0, "Soup", 700), textItem(2, 1, "200 ml water", 600)],
+      },
+    ],
+  };
+}
+const modelRecipes = {
+  1: {
+    version: 2,
+    sourceStart: { page: 1, itemIndex: 0 },
+    pages: [1],
+    title: "Pancakes",
+    category: "breakfast",
+    sourceCategory: null,
+    ingredientGroups: [
+      { label: null, ingredients: [{ name: "flour", quantity: "100", unit: "g", sourceText: "100 g flour" }] },
+    ],
+    instructions: ["Mix and fry."],
+    servings: null,
+    footnotes: [],
+    missingFieldReasons: [],
+  },
+  // Incomplete: no preparation in the source. It must never enter the collection.
+  2: {
+    version: 2,
+    sourceStart: { page: 2, itemIndex: 0 },
+    pages: [2],
+    title: "Soup",
+    category: "lunch",
+    sourceCategory: null,
+    ingredientGroups: [
+      { label: null, ingredients: [{ name: "water", quantity: "200", unit: "ml", sourceText: "200 ml water" }] },
+    ],
+    instructions: [],
+    servings: null,
+    footnotes: [],
+    missingFieldReasons: [{ code: "missing-instructions", fieldPath: "instructions" }],
+  },
+};
+// Mocked provider behind the real reservation/dispatch/reconciliation ledger: no network, no paid call.
+function mockRecognize({ fail = false, calls = [], title } = {}) {
+  return (options) => {
+    calls.push(options.batch.index);
+    return dispatchWithSpendingControl({
+      state: options.state,
+      reservation: { ...options.reservation, maximumCostNanoUsd: 1000, pricing },
+      dispatch: async () => {
+        if (fail) throw new Error("provider-transport-error");
+        return {
+          value: {
+            recipes: options.batch.corePages
+              .map((page) => modelRecipes[page])
+              .filter(Boolean)
+              .map((recipe) => (title ? { ...recipe, title } : recipe)),
+          },
+          usage: { inputTokens: 10, outputTokens: 10 },
+          outputDigest: digest("o"),
+          reportId: randomUUID(),
+        };
+      },
+    });
+  };
+}
+function service(ownerId, options = {}) {
+  return createValidationService({
+    client: admin(),
+    ownerId,
+    apiKey: "unused-test-key",
+    prepareBatches: async (source, pages) => createTextBatches(source, pages, { corePagesPerBatch: 1 }),
+    recognize: mockRecognize(options),
+  });
+}
+const roundTrip = (value) => JSON.parse(JSON.stringify(value));
+// Drives the same request bodies the browser panel sends.
+async function processAll(svc, document) {
+  const created = roundTrip(await svc.createImport(roundTrip(document)));
+  const candidates = [];
+  for (const entry of created.manifest.batches) {
+    const batch = batchFromManifest(document.source, document.pages, entry);
+    const result = roundTrip(await svc.processBatch(created.importId, roundTrip(batch)));
+    candidates.push(...result.candidates);
+  }
+  const body = {
+    manifestDigest: created.manifestDigest,
+    candidates: candidates.map(({ batchIndex, candidateIndex, candidate }) => ({
+      batchIndex,
+      candidateIndex,
+      candidate,
+    })),
+  };
+  return { created, candidates, body };
+}
+async function signedIn(user) {
+  const client = publicClient();
+  const login = await client.auth.signInWithPassword({ email: user.email, password: user.password });
+  assert.ifError(login.error);
+  return client;
+}
+async function ownRecipes(user) {
+  const { data, error } = await (await signedIn(user)).from("recipes").select("*").order("source_start_page");
+  assert.ifError(error);
+  return data;
+}
+function sql(statement) {
+  return supabase("db", "query", "--db-url", local.DB_URL, statement);
+}
+
+test("browser roles cannot call finalization RPCs or mutate recipes", async () => {
+  const user = await createUser(`pdf-recipes-browser-${randomUUID()}@example.test`);
+  const client = await signedIn(user);
+  for (const caller of [publicClient(), client]) {
+    for (const [name, parameters] of [
+      ["create_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      ["record_pdf_batch_result", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      ["finalize_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      ["cancel_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      ["get_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
+    ])
+      assert.ok((await caller.rpc(name, parameters)).error, name);
+    const insert = await caller.from("recipes").insert({
+      owner_id: user.id,
+      file_fingerprint: sha(),
+      source_start_page: 1,
+      source_start_item: 0,
+      import_id: randomUUID(),
+      source_filename: "x.pdf",
+      source_pages: [1],
+      title: "x",
+      category: "lunch",
+      ingredient_groups: [{}],
+      instructions: ["x"],
+    });
+    assert.ok(insert.error);
+  }
+});
+
+test("finalization saves only complete candidates atomically, reads back per owner and replays safely", async () => {
+  const user = await createUser(`pdf-recipes-a-${randomUUID()}@example.test`);
+  const other = await createUser(`pdf-recipes-b-${randomUUID()}@example.test`);
+  const svc = service(user.id);
+  const document = sourceDocument(sha(), "summer.pdf");
+  const { created, candidates, body } = await processAll(svc, document);
+  assert.deepEqual(
+    candidates.map((item) => [item.batchIndex, item.status]),
+    [
+      [0, "complete"],
+      [1, "incomplete"],
+    ],
+  );
+  // One active import per evaluator.
+  await assert.rejects(svc.createImport(roundTrip(sourceDocument(sha(), "other.pdf"))), {
+    code: "active-import-exists",
+  });
+
+  // Altered content, a missing candidate and a cross-account submission are rejected without writes.
+  const altered = roundTrip(body);
+  altered.candidates[0].candidate.ingredientGroups[0].ingredients[0].quantity = "1000";
+  await assert.rejects(svc.finalize(created.importId, altered), { code: "payload-digest-mismatch" });
+  await assert.rejects(svc.finalize(created.importId, { ...body, candidates: body.candidates.slice(0, 1) }), {
+    code: "payload-digest-mismatch",
+  });
+  await assert.rejects(svc.finalize(created.importId, { ...body, manifestDigest: digest("x") }), {
+    code: "manifest-mismatch",
+  });
+  await assert.rejects(service(other.id).finalize(created.importId, body), { code: "import-not-found" });
+  assert.deepEqual(await ownRecipes(user), []);
+
+  const first = await svc.finalize(created.importId, roundTrip(body));
+  assert.equal(first.status, "committed");
+  assert.deepEqual([first.saved, first.alreadySaved, first.pending], [1, 0, 1]);
+  const rows = await ownRecipes(user);
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    first.savedIds,
+  );
+  assert.equal(rows[0].title, "Pancakes");
+  assert.equal(rows[0].source_filename, "summer.pdf");
+  assert.deepEqual(rows[0].source_pages, [1]);
+  assert.equal(rows[0].ingredient_groups[0].ingredients[0].quantity, "100");
+  assert.deepEqual(await ownRecipes(other), []);
+
+  // A repeated request and a cancel after commit return the committed outcome; nothing is duplicated.
+  assert.deepEqual(await svc.finalize(created.importId, roundTrip(body)), first);
+  assert.deepEqual(await svc.cancel(created.importId), first);
+  const status = await svc.status(created.importId);
+  assert.equal(status.status, "committed");
+  assert.deepEqual(status.outcome.savedIds, first.savedIds);
+  assert.equal((await ownRecipes(user)).length, 1);
+  await assert.rejects(service(other.id).status(created.importId), { code: "import-not-found" });
+
+  // Another import's payload cannot replace this import's server-recorded validated result.
+  const otherResult = service(user.id, { title: "Different pancakes" });
+  const second = await processAll(otherResult, document);
+  await assert.rejects(otherResult.finalize(second.created.importId, { ...second.body, candidates: body.candidates }), {
+    code: "payload-digest-mismatch",
+  });
+  await otherResult.cancel(second.created.importId);
+});
+
+test("tampered batch input is rejected before any reservation", async () => {
+  const user = await createUser(`pdf-recipes-tamper-${randomUUID()}@example.test`);
+  const calls = [];
+  const svc = service(user.id, { calls });
+  const document = sourceDocument(sha(), "tamper.pdf");
+  const created = roundTrip(await svc.createImport(roundTrip(document)));
+  const batch = roundTrip(batchFromManifest(document.source, document.pages, created.manifest.batches[0]));
+  const changedText = roundTrip(batch);
+  changedText.pages[0].items[1].text = "900 g flour";
+  await assert.rejects(svc.processBatch(created.importId, changedText), { code: "page-digest-mismatch" });
+  const extraPage = roundTrip(batch);
+  extraPage.corePages = [1, 2];
+  await assert.rejects(svc.processBatch(created.importId, extraPage), { code: "invalid-batch-context" });
+  assert.deepEqual(calls, []);
+  const state = await admin().rpc("get_pdf_import_state", { p_owner_id: user.id, p_import_id: created.importId });
+  assert.ifError(state.error);
+  assert.deepEqual(state.data[0].batches, []);
+  await svc.cancel(created.importId);
+});
+
+test("a complete extraction failure writes no recipes and keeps the possible charge held", async () => {
+  const user = await createUser(`pdf-recipes-fail-${randomUUID()}@example.test`);
+  const svc = service(user.id, { fail: true });
+  const document = sourceDocument(sha(), "fail.pdf");
+  const created = roundTrip(await svc.createImport(roundTrip(document)));
+  const batch = batchFromManifest(document.source, document.pages, created.manifest.batches[0]);
+  await assert.rejects(svc.processBatch(created.importId, roundTrip(batch)));
+  const outcome = await svc.finalize(created.importId, { manifestDigest: created.manifestDigest, candidates: [] });
+  assert.equal(outcome.status, "failed");
+  assert.deepEqual([outcome.saved, outcome.alreadySaved, outcome.pending], [0, 0, 0]);
+  assert.deepEqual(await ownRecipes(user), []);
+  assert.equal((await scope(`import:${created.importId}`)).held_nano_usd, 1000);
+});
+
+test("concurrent finalize and cancel serialize on the import row", async () => {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const user = await createUser(`pdf-recipes-race-${randomUUID()}@example.test`);
+    const svc = service(user.id);
+    const { created, body } = await processAll(svc, sourceDocument(sha(), "race.pdf"));
+    const [finalized, cancelled] = await Promise.allSettled([
+      svc.finalize(created.importId, body),
+      svc.cancel(created.importId),
+    ]);
+    assert.equal(finalized.status, "fulfilled");
+    assert.equal(cancelled.status, "fulfilled");
+    const status = await svc.status(created.importId);
+    const rows = await ownRecipes(user);
+    if (status.status === "committed") {
+      assert.equal(rows.length, 1);
+      assert.deepEqual(
+        cancelled.value.savedIds,
+        rows.map((row) => row.id),
+      );
+      assert.equal(finalized.value.status, "committed");
+    } else {
+      assert.equal(status.status, "cancelled");
+      assert.equal(finalized.value.status, "cancelled");
+      assert.deepEqual(rows, []);
+    }
+  }
+});
+
+test("a lost commit response is recovered by status without another model call", async () => {
+  const user = await createUser(`pdf-recipes-lost-${randomUUID()}@example.test`);
+  const calls = [];
+  const svc = service(user.id, { calls });
+  const { created, body } = await processAll(svc, sourceDocument(sha(), "lost.pdf"));
+  const callsBefore = calls.length;
+  await svc.finalize(created.importId, body); // Response "lost" by the client.
+  const recovered = await svc.status(created.importId);
+  assert.equal(recovered.status, "committed");
+  assert.equal(recovered.outcome.saved, 1);
+  assert.deepEqual(
+    (await ownRecipes(user)).map((row) => row.id),
+    recovered.outcome.savedIds,
+  );
+  assert.equal(calls.length, callsBefore);
+});
+
+test("identical bytes under a renamed file skip saved recipes and keep edits; other owners stay independent", async () => {
+  const user = await createUser(`pdf-recipes-dedup-${randomUUID()}@example.test`);
+  const other = await createUser(`pdf-recipes-dedup-other-${randomUUID()}@example.test`);
+  const fingerprint = sha();
+  const svc = service(user.id);
+  const first = await processAll(svc, sourceDocument(fingerprint, "original.pdf"));
+  const committed = await svc.finalize(first.created.importId, first.body);
+  assert.equal(committed.saved, 1);
+  const [saved] = committed.savedIds;
+  sql(`update public.recipes set title = 'Edited pancakes' where id = '${saved}'`);
+
+  const renamed = await processAll(svc, sourceDocument(fingerprint, "renamed copy.pdf"));
+  const again = await svc.finalize(renamed.created.importId, renamed.body);
+  assert.deepEqual([again.saved, again.alreadySaved, again.pending], [0, 1, 1]);
+  assert.deepEqual(again.existingIds, [saved]);
+  const rows = await ownRecipes(user);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].title, "Edited pancakes");
+  assert.equal(rows[0].source_filename, "original.pdf");
+
+  // A later failed attempt on the same file never deletes earlier rows.
+  const failing = service(user.id, { fail: true });
+  const document = sourceDocument(fingerprint, "original.pdf");
+  const failed = roundTrip(await failing.createImport(roundTrip(document)));
+  await assert.rejects(
+    failing.processBatch(
+      failed.importId,
+      roundTrip(batchFromManifest(document.source, document.pages, failed.manifest.batches[0])),
+    ),
+  );
+  assert.equal((await ownRecipes(user)).length, 1);
+
+  const independent = service(other.id);
+  const otherImport = await processAll(independent, sourceDocument(fingerprint, "original.pdf"));
+  const otherOutcome = await independent.finalize(otherImport.created.importId, otherImport.body);
+  assert.deepEqual([otherOutcome.saved, otherOutcome.alreadySaved], [1, 0]);
+  assert.notDeepEqual(otherOutcome.savedIds, [saved]);
+  assert.equal((await ownRecipes(other))[0].title, "Pancakes");
+  assert.equal((await ownRecipes(user))[0].title, "Edited pancakes");
 });
 
 test("the cumulative F-01 cap remains atomic across imports and months", async () => {
