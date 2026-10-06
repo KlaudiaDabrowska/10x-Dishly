@@ -374,3 +374,22 @@ The preflight refused 4.18 by USD 0.138 while keeping maximum final-matrix headr
 - Read-only what-if (`.cache/whatif-medium.mjs`, nothing written) with two form rules: fold an amount-less heading entry ending in ":" into the next entry, and treat an unmapped sourceCategory as absent so the AI category is used. All completed medium runs then pass the blocking tier (5d4423be and 0043e87b summer; 66488a98 lunchboxy). The remaining failures are representational, not lost recipes or wrong amounts.
 
 Cost: USD 0.711945 confirmed plus 0.147456 held. Cumulative spent **USD 2.90127825**, held **USD 0.147456**, with USD 2.95126575 available under USD 6. Phase 6 final-matrix headroom (USD 2.359296) still fits. 4.18 remains FAIL; 4.4/4.9/4.13/4.16 are pending. A next decision is required.
+
+## Heading entries, unmapped category, 120 s deadline (2026-10-06)
+
+### 4.19 — PASS (commit 9033455)
+
+- Amount-less sub-list heading entries (e.g. "sos:") fold into the next entry of the same group.
+- An unmapped sourceCategory (e.g. "Posiłki") is treated as absent, so the model's allowed category applies. Mapped meal headings still win.
+- Provider deadline is 120 s; the import deadline stays 270 s.
+- Gates: PDF 92/92, golden invariance, acceptance/evaluator self-tests, fixtures, lint, Astro check, build and deployment tests pass. Deliberate breaks (any entry treated as a heading; unmapped category clearing the category) turned the tests red, and the code was restored.
+- Offline revalidation with current code: summer passes in 5/6 saved runs, including both completed medium runs (5d4423be, 0043e87b). The only failure is a low-reasoning variant merge (5296e8f5). Lunchboxy passes in 6/6 saved runs, including 66488a98, which was previously incomplete.
+
+### 4.20 — live, stopped by the budget preflight
+
+- **Run 10798fa8: summer PASS, lunchboxy PASS** (exact golden match). Summer took 94 s with a 11,998-token batch that finished inside the 120 s deadline. All calls reconciled; cost USD 0.27012.
+- **Runs 2 and 3 were refused before any reservation** with `f01-budget-insufficient`. After run 1, available capacity is USD 2.6811405 (USD 6 − 3.1714035 spent − 0.147456 held from the 4.18 timeout). One more run requires USD 0.589824 at maximum reservations plus the unchanged phase 6 headroom of USD 2.359296, which leaves USD 0.268 short. No call was made. The control worked as designed.
+
+The held USD 0.147456 is the 4.18 summer batch-2 timeout (an unknown outcome). It cannot be released without trusted billing evidence.
+
+**4.20: 1 of the 3 required runs completed (passed); not accepted.** Cumulative spent **USD 3.1714035**, held **USD 0.147456**.

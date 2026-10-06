@@ -23,6 +23,8 @@ Re-measurement (2026-10-06): 4.15 done (429 handling, line merge; 275115b). Live
 
 Reasoning medium (2026-10-06): 4.17 done (332aa84); F-01 budget raised to USD 6 (55fa6df). Live 4.18: summer 0/3 ("sos:" emitted as an entry; one provider timeout), lunchboxy 2/3 (unmapped category → incomplete). A read-only what-if with two form rules passes all completed runs. Spent USD 2.90127825, held USD 0.147456. Awaiting decision.
 
+4.19 done (9033455). 4.20: run 10798fa8 passes summer and lunchboxy; runs 2–3 refused by the budget preflight (short USD 0.268 against phase 6 headroom). Spent USD 3.1714035, held USD 0.147456. Awaiting a budget/headroom decision.
+
 ## Notes
 
 F-01 in context/foundation/roadmap.md. Provider, budget and retention accepted on 2026-09-28. Research requested before implementation planning.
