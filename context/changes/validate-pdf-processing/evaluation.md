@@ -345,3 +345,32 @@ The ingredient-membership and line-join failures seen earlier in lunchboxy did n
 Cost of this measurement: USD 0.611845. Cumulative spent **USD 2.18933325**, held 0, with USD 2.81066675 remaining under USD 5. The phase 6 final-matrix headroom check still passes.
 
 4.13/4.16 remain FAIL, and 4.4/4.9 are pending. Further work on summer needs a user decision: a stronger model (`gpt-5.4`, not approved), reasoning `medium`, or a scorer/validation change for the "sos:" sub-list and household parentheses.
+
+## Sub-list merge, budget USD 6 and reasoning medium (2026-10-06)
+
+### 4.17 — PASS (commit 332aa84)
+
+- Repeated sub-list groups (`347 kcal`, `sos:`, `403 kcal`, `sos:` …) are merged into their preceding variant before the label check. Unrelated duplicate labels stay invalid.
+- The scorer tolerates a dropped trailing household parenthetical in the golden name; amounts stay blocking.
+- `reasoning.effort=medium`.
+- Gates: PDF 89/89, acceptance self-test (16 failures / 6 controls), golden invariance, lint, Astro check and build pass. Deliberate breaks (treating any label as a sub-list heading; ignoring amounts) turned the tests red, and the code was restored.
+- Offline re-scoring of the saved low-reasoning summer runs: 3/4 now pass (f9efbc7f recovered). The variant-merge run (5296e8f5) still fails.
+
+### Budget amendment (commit 55fa6df)
+
+The preflight refused 4.18 by USD 0.138 while keeping maximum final-matrix headroom. The user raised the F-01 budget to USD 6. Migration 20261006090000 updates the existing scope; spend and holds are preserved. The deliberate break (old limit in the migration) made 2 DB tests fail, and the code was restored. Isolated DB 10/10.
+
+### 4.18 — live 3 × (summer + lunchboxy), reasoning medium: FAIL
+
+| Run | summer | lunchboxy |
+| --- | --- | --- |
+| 5d4423be | FAIL — salad: the model now separates all three variants correctly, but emits the sub-list heading "sos:" as its own amount-less ingredient entry → 3 `ingredient-added` | PASS, 0 differences |
+| 66488a98 | ABORTED — batch 2 `provider-timeout` (60 s provider deadline exceeded; the call is held) | FAIL — 3 recipes `incomplete`: the model wrote a non-meal sourceCategory, the deterministic mapping returned none, so `missing-category` |
+| 0043e87b | FAIL — same "sos:" heading-entry pattern as 5d4423be | PASS (6 reported differences) |
+
+`pdf:acceptance`: summer 0/3, lunchboxy 2/3 → **FAIL**.
+
+- Medium reasoning more than doubled output (4,457–9,535 tokens; up to 5,773 reasoning tokens) and latency (summer about 85 s, lunchboxy about 70 s per import). The 9,535-token summer batch approaches the 60 s provider deadline, which caused the timeout. A timeout is an unknown outcome: **USD 0.147456 stays held** by design.
+- Read-only what-if (`.cache/whatif-medium.mjs`, nothing written) with two form rules: fold an amount-less heading entry ending in ":" into the next entry, and treat an unmapped sourceCategory as absent so the AI category is used. All completed medium runs then pass the blocking tier (5d4423be and 0043e87b summer; 66488a98 lunchboxy). The remaining failures are representational, not lost recipes or wrong amounts.
+
+Cost: USD 0.711945 confirmed plus 0.147456 held. Cumulative spent **USD 2.90127825**, held **USD 0.147456**, with USD 2.95126575 available under USD 6. Phase 6 final-matrix headroom (USD 2.359296) still fits. 4.18 remains FAIL; 4.4/4.9/4.13/4.16 are pending. A next decision is required.

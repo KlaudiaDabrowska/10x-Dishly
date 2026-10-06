@@ -21,6 +21,8 @@ Acceptance measurement (2026-10-05): 4.10–4.12 done offline. Live 3×(summer+l
 
 Re-measurement (2026-10-06): 4.15 done (429 handling, line merge; 275115b). Live 3×: lunchboxy 3/3 exact match, summer 1/3 (variant merge, "sos:" sub-list group, dropped household text). Spent USD 2.18933325, held 0. Awaiting user decision on summer.
 
+Reasoning medium (2026-10-06): 4.17 done (332aa84); F-01 budget raised to USD 6 (55fa6df). Live 4.18: summer 0/3 ("sos:" emitted as an entry; one provider timeout), lunchboxy 2/3 (unmapped category → incomplete). A read-only what-if with two form rules passes all completed runs. Spent USD 2.90127825, held USD 0.147456. Awaiting decision.
+
 ## Notes
 
 F-01 in context/foundation/roadmap.md. Provider, budget and retention accepted on 2026-09-28. Research requested before implementation planning.

@@ -10,6 +10,10 @@ The user requested raising the application input cap after summer exceeded it. E
 
 User-approved per the acceptance-contract amendment in plan.md: `reasoning.effort=low` and `max_output_tokens=16,384` (reasoning tokens count within output). Model, pricing (USD 0.75 / 4.50 per million) and the 98,304 input cap are unchanged. Maximum reservation per call = 98,304 × 0.75 + 16,384 × 4.50 per million = **147,456,000 nano-USD (USD 0.147456)**; a two-batch import reserves USD 0.294912 ≤ USD 0.50/import. A switch to `gpt-5.4` is not approved and needs a separate decision.
 
+## F-01 budget amendment — 2026-10-06
+
+The user raised the cumulative F-01 budget from USD 5 to USD 6 (migration 20261006090000, applied locally). It is needed because measurement 4.18 must fit under maximum reservations together with full phase 6 final-matrix headroom. The USD 0.50/import and USD 10/month limits, pricing and reservation arithmetic are unchanged.
+
 ## Account evidence
 
 OPENAI_API_KEY is present in ignored local configuration. Authenticated GET /v1/models/gpt-5.4-mini returned HTTP 200 with the requested model ID on 2026-09-30. No key, account identifier or raw API response was logged. Billing setup is user-reported; balance and project identity were not independently inspected. Metadata visibility does not prove generation entitlement, quota, schema support or quality. Generation requests: 0. The first paid synthetic smoke still waits for Phase 3's tested ledger.

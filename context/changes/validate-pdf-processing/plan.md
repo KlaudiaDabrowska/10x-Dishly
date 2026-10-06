@@ -47,6 +47,19 @@ Measurement 4.13 failed on infrastructure (two summer calls were rejected with H
 - **Continuation-line merge.** A deterministic, geometry-derived normalization joins an ingredient entry with no amount or bullet that is the next visual line, in the same column, directly below the preceding ingredient. Examples are "(dowolny smak)" and "wędzononego". The goldens must stay invariant.
 - **Re-measurement:** the same 3 × (summer + lunchboxy) gate as 4.13, with the 4.13 failure retained as evidence.
 
+## Approved F-01 budget amendment — 2026-10-06
+
+The user raised the cumulative F-01 budget from **USD 5 to USD 6** (6,000,000,000 nano-USD). The preflight before measurement 4.18 refused the 3 × (summer + lunchboxy) run by USD 0.138 under maximum reservations while keeping the full final-matrix headroom. All historical spend and holds stay; the per-import (USD 0.50) and monthly (USD 10) limits, preflight headroom rule and reservation arithmetic are unchanged. Wherever this plan says "USD 5" for F-01, read USD 6. A new migration updates the existing `f01` scope limit and the default used when the scope is first created.
+
+## Approved summer sub-list and reasoning-medium amendment — 2026-10-06
+
+Re-measurement 4.16 passed lunchboxy 3/3 and failed summer 1/3. The user approved:
+
+- **Sub-list groups.** A deterministic normalization applies when groups alternate between variant labels and a repeated sub-list heading label ending in ":" (e.g. `347 kcal`, `sos:`, `403 kcal`, `sos:`). Each sub-list group is appended to the preceding variant group, and its label is prefixed to the first appended entry's sourceText when the source line shows the heading only as a separate item. Validation then sees distinct labels. Golden invariance is required; unrelated duplicate labels stay invalid.
+- **Scorer tolerance for dropped household text.** An actual ingredient entry also matches when its sourceText contains the golden name with the golden's trailing parenthetical removed. Quantity and unit must still match exactly where the golden has them. Ingredient membership and amounts stay blocking.
+- **Reasoning medium.** `reasoning.effort=medium`; output cap, input cap, model, pricing and reservation (147,456,000 nano-USD/call) are unchanged.
+- **Re-measurement** 3 × (summer + lunchboxy) under the same 3/3 gate, with offline re-scoring of saved runs reported first.
+
 ## Overview
 
 F-01 will establish whether Dishly can read the accepted ebooks locally, recognize recipes through the authenticated backend and OpenAI, validate them, and persist complete recipes correctly within five minutes. It delivers a restricted feasibility screen, reusable processing modules and an evidence report; S-02 still owns the normal product import experience.
@@ -367,6 +380,8 @@ Phase 4 supplies canonical digest generation and verifies that representation ch
 - The user reviews the reported-tier differences of the measured runs and the updated PRD, roadmap and fixtures variant wording, and accepts them.
 - `npm run test:pdf` and `npm run test:pdf:db` prove one bounded 429 retry under a new reservation, zero-cost 429 reconciliation, no retry or release for timeout/5xx/transport errors, and the geometry-derived continuation-line merge with golden invariance.
 - A re-measurement of 3 × (summer + lunchboxy) on one frozen configuration passes the blocking tier 3/3 per ebook in `pdf:acceptance`, with the two earlier 429 reservations reconciled and recorded.
+- `npm run test:pdf` and `npm run pdf:acceptance -- --self-test` prove sub-list groups merge into their preceding variant, unrelated duplicate labels stay invalid, and household-parenthetical tolerance keeps amounts blocking; requests use `reasoning.effort=medium`; golden invariance holds.
+- A re-measurement of 3 × (summer + lunchboxy) with reasoning medium passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
 
 ## Phase 5: Real Persistence and the Feasibility Screen
 
@@ -561,6 +576,8 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 - [ ] 4.13 Three ledger-backed summer + lunchboxy runs on one frozen configuration pass the blocking tier 3/3 per ebook in `pdf:acceptance`, with reported-tier counts, tokens and cost recorded.
 - [x] 4.15 `npm run test:pdf` and `npm run test:pdf:db` prove one bounded 429 retry under a new reservation, zero-cost 429 reconciliation, no retry or release for timeout/5xx/transport errors, and the geometry-derived continuation-line merge with golden invariance. — 275115b
 - [ ] 4.16 A re-measurement of 3 × (summer + lunchboxy) on one frozen configuration passes the blocking tier 3/3 per ebook in `pdf:acceptance`, with the two earlier 429 reservations reconciled and recorded.
+- [x] 4.17 `npm run test:pdf` and `npm run pdf:acceptance -- --self-test` prove sub-list groups merge into their preceding variant, unrelated duplicate labels stay invalid, and household-parenthetical tolerance keeps amounts blocking; requests use `reasoning.effort=medium`; golden invariance holds. — 332aa84
+- [ ] 4.18 A re-measurement of 3 × (summer + lunchboxy) with reasoning medium passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
 
 #### Manual
 

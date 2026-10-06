@@ -41,7 +41,7 @@ A repeat of the identical PDF skips existing recipes without overwriting edits, 
 | Reimport       | Skip saved source recipes for identical bytes on the same account                                | Avoid duplicates and preserve corrections                                | Plan: 5A        |
 | Inputs         | Summer/pasta full imports; 113-page book rejection/local analysis                                | Use the accepted representative set and unchanged 20 MB / 100-page limit | Research / PRD  |
 | AI | OpenAI API Paid, gpt-5.4-mini | User-approved replacement on 2026-09-30 | Provider amendment |
-| Spending       | USD 5 total F-01; bounded imports; tested later USD 10/month global and USD 0.50/import controls | Reserve before dispatch, including concurrency and uncertain charges     | Research / Plan |
+| Spending       | USD 6 total F-01 (raised from 5 on 2026-10-06); bounded imports; tested later USD 10/month global and USD 0.50/import controls | Reserve before dispatch, including concurrency and uncertain charges     | Research / Plan |
 | Storage        | Supabase metadata/accounting and saved recipes; unsaved content in browser/request memory        | Reuse the stack and avoid retaining temporary input                      | Plan            |
 
 ## Scope
@@ -76,7 +76,7 @@ Stable owner/file/source-item identity prevents duplicate writes. Unknown provid
 - Recurring blocking failures: an ingredient added from another area and continuation lines split into entries. Reasoning low may not fix them; then a gpt-5.4 decision (cost unverified) is needed.
 - The 3+3 measurement costs about USD 0.6–0.9; the preflight keeps final-matrix headroom. Failure stops with evidence; no automatic retries or ledger reset.
 - Workers Free suitability is unproven. Measure the actual path; a failure does not authorize a paid hosting upgrade.
-- Final matrix: two ebooks × Chrome/Firefox × desktop/real phone = eight clean imports on a fixed configuration. Tuning and smoke calls also count toward USD 5.
+- Final matrix: two ebooks × Chrome/Firefox × desktop/real phone = eight clean imports on a fixed configuration. Tuning and smoke calls also count toward the USD 6 F-01 budget.
 - App cleanup and the OpenAI provider retention described in provider-decision.md are separate. Preview intentionally has no live model/database access.
 
 ## Success Criteria (Summary)
