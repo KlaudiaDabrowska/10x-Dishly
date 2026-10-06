@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { FileText, Loader2, XCircle } from "lucide-react";
+import { ClipboardCopy, Download, FileText, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { RecipeCandidate } from "@/lib/pdf-processing/contracts";
 import { batchFromManifest } from "@/lib/pdf-processing/manifest";
@@ -83,6 +83,150 @@ function seconds(milliseconds: number): string {
   return (milliseconds / 1000).toFixed(1) + " s";
 }
 
+type Unavailable = "unavailable";
+
+// Non-content benchmark record (Phase 6): identifiers, counts, timings and device metrics only.
+// Never add filenames, source text or recipe content here.
+interface RunRecord {
+  kind: "dishly-pdf-run-record";
+  version: 1;
+  recordedAt: string;
+  importId: string | null;
+  stage: Stage;
+  error: string | null;
+  source: { sha256: string; byteLength: number; pageCount: number } | null;
+  batchCount: number | null;
+  timings: {
+    readingMs: number | null;
+    recognizingMs: number | null;
+    savingMs: number | null;
+    totalMs: number;
+    batchMs: number[];
+  };
+  outcome: Outcome | null;
+  client: {
+    userAgent: string;
+    userAgentData: { brands: { brand: string; version: string }[]; mobile: boolean; platform: string } | Unavailable;
+    viewport: { width: number; height: number; devicePixelRatio: number };
+    deviceMemoryGb: number | Unavailable;
+    hardwareConcurrency: number | Unavailable;
+    jsHeap: { maxUsedBytes: number; totalBytes: number; limitBytes: number } | Unavailable;
+    longTasks: { count: number; maxMs: number; totalMs: number } | Unavailable;
+  };
+  build: Unavailable;
+}
+
+interface RunMetrics {
+  startedAt: number;
+  readAt: number | null;
+  recognizedAt: number | null;
+  source: RunRecord["source"];
+  batchCount: number | null;
+  batchMs: number[];
+  heap: { maxUsedBytes: number; totalBytes: number; limitBytes: number } | null;
+  longTasks: { count: number; maxMs: number; totalMs: number } | null;
+  observer: PerformanceObserver | null;
+}
+
+interface ChromeMemory {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
+}
+
+// Chromium-only, non-standard: absent elsewhere (all iOS browsers), recorded as unavailable, never 0.
+function sampleHeap(metrics: RunMetrics) {
+  const memory = (performance as Performance & { memory?: ChromeMemory }).memory;
+  if (!memory || !(memory.usedJSHeapSize > 0)) return;
+  metrics.heap = {
+    maxUsedBytes: Math.max(metrics.heap?.maxUsedBytes ?? 0, memory.usedJSHeapSize),
+    totalBytes: memory.totalJSHeapSize,
+    limitBytes: memory.jsHeapSizeLimit,
+  };
+}
+
+function observeLongTasks(metrics: RunMetrics) {
+  // Chromium only; Safari/WebKit (every iOS browser) and Firefox do not report long tasks.
+  if (
+    typeof PerformanceObserver === "undefined" ||
+    !(PerformanceObserver.supportedEntryTypes as readonly string[] | undefined)?.includes("longtask")
+  )
+    return;
+  const longTasks = { count: 0, maxMs: 0, totalMs: 0 };
+  metrics.longTasks = longTasks;
+  metrics.observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) {
+      longTasks.count++;
+      longTasks.maxMs = Math.max(longTasks.maxMs, entry.duration);
+      longTasks.totalMs += entry.duration;
+    }
+  });
+  metrics.observer.observe({ type: "longtask" });
+}
+
+function positiveOr(value: unknown): number | Unavailable {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : "unavailable";
+}
+
+function buildRunRecord(
+  metrics: RunMetrics,
+  finishedAt: number,
+  details: { importId: string | null; stage: Stage; error: string | null; outcome: Outcome | null },
+): RunRecord {
+  metrics.observer?.disconnect();
+  metrics.observer = null;
+  const navigatorInfo = navigator as Navigator & {
+    deviceMemory?: number;
+    userAgentData?: { brands?: { brand: string; version: string }[]; mobile?: boolean; platform?: string };
+  };
+  const uaData = navigatorInfo.userAgentData;
+  const round = (value: number) => Math.round(value);
+  const readingMs = metrics.readAt === null ? null : round(metrics.readAt - metrics.startedAt);
+  const recognizingMs =
+    metrics.readAt === null || metrics.recognizedAt === null ? null : round(metrics.recognizedAt - metrics.readAt);
+  return {
+    kind: "dishly-pdf-run-record",
+    version: 1,
+    recordedAt: new Date().toISOString(),
+    importId: details.importId,
+    stage: details.stage,
+    error: details.error,
+    source: metrics.source,
+    batchCount: metrics.batchCount,
+    timings: {
+      readingMs,
+      recognizingMs,
+      savingMs: metrics.recognizedAt === null ? null : round(finishedAt - metrics.recognizedAt),
+      totalMs: round(finishedAt - metrics.startedAt),
+      batchMs: metrics.batchMs.map(round),
+    },
+    outcome: details.outcome,
+    client: {
+      userAgent: navigator.userAgent,
+      userAgentData: uaData
+        ? {
+            brands: (uaData.brands ?? []).map(({ brand, version }) => ({ brand, version })),
+            mobile: Boolean(uaData.mobile),
+            platform: uaData.platform ?? "",
+          }
+        : "unavailable",
+      viewport: { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio },
+      deviceMemoryGb: positiveOr(navigatorInfo.deviceMemory),
+      hardwareConcurrency: positiveOr(navigator.hardwareConcurrency),
+      jsHeap: metrics.heap ?? "unavailable",
+      longTasks: metrics.longTasks
+        ? {
+            count: metrics.longTasks.count,
+            maxMs: round(metrics.longTasks.maxMs),
+            totalMs: round(metrics.longTasks.totalMs),
+          }
+        : "unavailable",
+    },
+    // No build identifier is exposed to the browser; the operator records the deployed commit.
+    build: "unavailable",
+  };
+}
+
 export default function PdfValidationPanel() {
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -91,6 +235,8 @@ export default function PdfValidationPanel() {
   const [pending, setPending] = useState<ReturnedCandidate[]>([]);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [importId, setImportId] = useState<string | null>(null);
+  const [runRecord, setRunRecord] = useState<RunRecord | null>(null);
+  const [copied, setCopied] = useState<"copied" | "copy-failed" | null>(null);
   const controller = useRef<AbortController | null>(null);
   const activeImport = useRef<string | null>(null);
   // An id whose create may still complete after a cancel; closed before the next import starts.
@@ -117,6 +263,34 @@ export default function PdfValidationPanel() {
     setPending([]);
     setElapsedMs(null);
     setImportId(null);
+    setRunRecord(null);
+    setCopied(null);
+  }
+
+  async function copyRunRecord() {
+    if (!runRecord) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(runRecord, null, 2));
+      setCopied("copied");
+    } catch {
+      setCopied("copy-failed");
+    }
+  }
+
+  function downloadRunRecord() {
+    if (!runRecord) return;
+    const url = URL.createObjectURL(
+      new Blob([JSON.stringify(runRecord, null, 2) + "\n"], { type: "application/json" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `pdf-run-record-${runRecord.importId ?? "no-import"}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
   }
 
   async function recoverStatus(id: string): Promise<Outcome | null> {
@@ -137,17 +311,51 @@ export default function PdfValidationPanel() {
   async function run(file: File) {
     reset();
     const startedAt = performance.now(); // Before hashing/reading; stops after commit read-back.
+    let id: string | null = null;
+    const metrics: RunMetrics = {
+      startedAt,
+      readAt: null,
+      recognizedAt: null,
+      source: null,
+      batchCount: null,
+      batchMs: [],
+      heap: null,
+      longTasks: null,
+      observer: null,
+    };
+    observeLongTasks(metrics);
+    sampleHeap(metrics);
+    // Ends timing at the confirmed outcome and keeps a non-content record for the benchmark.
+    const finish = (stageReached: Stage, outcomeReached: Outcome | null, errorCode: string | null) => {
+      const finishedAt = performance.now();
+      sampleHeap(metrics);
+      setElapsedMs(finishedAt - startedAt);
+      setRunRecord(
+        buildRunRecord(metrics, finishedAt, {
+          importId: id,
+          stage: stageReached,
+          error: errorCode,
+          outcome: outcomeReached,
+        }),
+      );
+    };
     const abort = new AbortController();
     controller.current = abort;
     const previous = unconfirmedImport.current;
     unconfirmedImport.current = null;
     if (previous) await api(`/api/pdf-validation/imports/${previous}`, { method: "DELETE" }).catch(() => undefined);
-    let id: string | null = null;
     let candidates: ReturnedCandidate[] = [];
     try {
       setStage("reading");
       const { readPdf } = await import("@/lib/pdf-processing/browser-reader");
       let read: Awaited<ReturnType<typeof readPdf>> | null = await readPdf(file, { signal: abort.signal });
+      metrics.readAt = performance.now();
+      metrics.source = {
+        sha256: read.source.sha256,
+        byteLength: read.source.byteLength,
+        pageCount: read.source.pageCount,
+      };
+      sampleHeap(metrics);
       setStage("recognizing");
       // Chosen before sending, so cancel and status lookup work even if the create response is lost.
       id = crypto.randomUUID();
@@ -160,19 +368,24 @@ export default function PdfValidationPanel() {
       );
       if (created.importId !== id) throw new RequestFailure("invalid-response");
       const total = created.manifest.batches.length;
+      metrics.batchCount = total;
       setProgress({ done: 0, total });
       for (const entry of created.manifest.batches) {
         if (abort.signal.aborted) throw new RequestFailure("cancelled");
+        const batchStartedAt = performance.now();
         const batch = batchFromManifest(read.source, read.pages, entry);
         const result = await api<{ candidates: ReturnedCandidate[] }>(
           `/api/pdf-validation/imports/${id}/batch`,
           { method: "POST", body: JSON.stringify(batch) },
           abort.signal,
         );
+        metrics.batchMs.push(performance.now() - batchStartedAt);
+        sampleHeap(metrics);
         candidates = [...candidates, ...result.candidates];
         setProgress({ done: entry.batchIndex + 1, total });
       }
       read = null; // Release source text once recognition has finished.
+      metrics.recognizedAt = performance.now();
       setStage("saving");
       let finalized: Outcome;
       try {
@@ -199,24 +412,27 @@ export default function PdfValidationPanel() {
         finalized = recovered;
       }
       activeImport.current = null;
-      setElapsedMs(performance.now() - startedAt);
       setOutcome(finalized);
       if (finalized.status === "committed") {
+        finish("done", finalized, null);
         setPending(candidates.filter((item) => item.status !== "complete"));
         setStage("done");
       } else {
-        setStage(finalized.status === "cancelled" ? "cancelled" : "failed");
+        const terminal = finalized.status === "cancelled" ? "cancelled" : "failed";
+        finish(terminal, finalized, null);
+        setStage(terminal);
       }
     } catch (failure) {
       const code =
         failure instanceof RequestFailure || failure instanceof Error ? (failure as { code?: string }).code : null;
       setError(code ?? "unexpected-error");
+      let recovered: Outcome | null = null;
       if (id) {
-        const recovered = await recoverStatus(id);
+        recovered = await recoverStatus(id);
         if (recovered) setOutcome(recovered);
         if (recovered?.status === "committed") {
           activeImport.current = null;
-          setElapsedMs(performance.now() - startedAt);
+          finish("done", recovered, code ?? "unexpected-error");
           setStage("done");
           return;
         }
@@ -226,8 +442,9 @@ export default function PdfValidationPanel() {
         if (!recovered) unconfirmedImport.current = id;
       }
       activeImport.current = null;
-      setElapsedMs(performance.now() - startedAt);
-      setStage(code === "cancelled" ? "cancelled" : "failed");
+      const terminal = code === "cancelled" ? "cancelled" : "failed";
+      finish(terminal, recovered, code ?? "unexpected-error");
+      setStage(terminal);
     } finally {
       controller.current = null;
     }
@@ -293,6 +510,27 @@ export default function PdfValidationPanel() {
         {error && <p className="mt-2 text-sm text-red-200">Error: {error}</p>}
         {importId && <p className="mt-1 text-xs break-all text-blue-100/50">Import {importId}</p>}
         {elapsedMs !== null && <p className="mt-1 text-xs text-blue-100/70">Elapsed: {seconds(elapsedMs)}</p>}
+        {runRecord && !busy && (
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button type="button" variant="secondary" className="min-h-11" onClick={() => void copyRunRecord()}>
+              <ClipboardCopy /> Copy run record
+            </Button>
+            <Button type="button" variant="secondary" className="min-h-11" onClick={downloadRunRecord}>
+              <Download /> Download run record
+            </Button>
+            {copied && (
+              <span className="text-xs text-blue-100/70" role="status">
+                {copied === "copied" ? "Run record copied." : "Copy failed; use Download instead."}
+              </span>
+            )}
+          </div>
+        )}
+        {runRecord && !busy && (
+          <p className="mt-2 text-xs text-blue-100/50">
+            The run record contains timings, counts, the file fingerprint and device details only; no PDF text or recipe
+            content.
+          </p>
+        )}
       </section>
 
       {outcome && (

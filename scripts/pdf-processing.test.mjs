@@ -15,6 +15,7 @@ import {
 import { PDF_LIMITS } from "../src/lib/pdf-processing/limits.ts";
 import { reconcileCandidates } from "../src/lib/pdf-processing/reconcile.ts";
 import { createPersistence } from "../src/lib/pdf-processing/persistence.ts";
+import { createValidationService } from "../src/lib/pdf-processing/service.ts";
 import { digestValidatedCandidate, validateRecipeCandidate } from "../src/lib/pdf-processing/validation.ts";
 
 const source = {
@@ -917,4 +918,49 @@ test("deterministic finalization RPC rejections map to client codes; unknown err
     rejecting("connection reset").cancelImport(owner),
     (error) => error.code === "import-cancel-failed" && !error.message.includes("connection"),
   );
+});
+
+test("oversized and over-page-limit imports are rejected before any token count, reservation or provider call", async () => {
+  const fetchCalls = [];
+  const rpcCalls = [];
+  let prepared = 0;
+  let recognized = 0;
+  const service = createValidationService({
+    client: {
+      async rpc(name) {
+        rpcCalls.push(name);
+        return { data: null, error: { message: "unexpected" } };
+      },
+    },
+    ownerId: "00000000-0000-4000-8000-000000000001",
+    apiKey: "unused-test-key",
+    fetch: async (url) => {
+      fetchCalls.push(String(url));
+      throw new Error("must not fetch");
+    },
+    prepareBatches: async () => {
+      prepared++;
+      throw new Error("must not prepare");
+    },
+    recognize: async () => {
+      recognized++;
+      throw new Error("must not recognize");
+    },
+  });
+  const page = (number) => ({ page: number, width: 10, height: 10, rotation: 0, items: [item(number, 0, "Dish")] });
+  const body = (byteLength, pageCount) => ({
+    importId: "00000000-0000-4000-8000-000000000002",
+    source: { ...source, byteLength, pageCount },
+    pages: Array.from({ length: pageCount }, (_unused, index) => page(index + 1)),
+  });
+  for (const [byteLength, pageCount] of [
+    [PDF_LIMITS.maxFileBytes + 1, 2],
+    [100, PDF_LIMITS.maxPages + 1],
+  ])
+    await assert.rejects(service.createImport(body(byteLength, pageCount)), { code: "invalid-request" });
+  assert.deepEqual([fetchCalls, rpcCalls, prepared, recognized], [[], [], 0, 0]);
+  // Boundary control: the same request at exactly the limits reaches token preparation.
+  await assert.rejects(service.createImport(body(PDF_LIMITS.maxFileBytes, PDF_LIMITS.maxPages)), /must not prepare/);
+  assert.equal(prepared, 1);
+  assert.deepEqual([fetchCalls, rpcCalls, recognized], [[], [], 0]);
 });

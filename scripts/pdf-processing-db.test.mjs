@@ -830,6 +830,98 @@ test("identical bytes under a renamed file skip saved recipes and keep edits; ot
   assert.equal((await ownRecipes(user))[0].title, "Edited pancakes");
 });
 
+test("benchmark recipe read-back is service-role only and scoped to owner and import", async () => {
+  const user = await createUser(`pdf-benchmark-read-${randomUUID()}@example.test`);
+  const other = await createUser(`pdf-benchmark-read-other-${randomUUID()}@example.test`);
+  const svc = service(user.id);
+  const { created, body } = await processAll(svc, sourceDocument(sha(), "benchmark.pdf"));
+  const outcome = await svc.finalize(created.importId, body);
+  const parameters = { p_owner_id: user.id, p_import_id: created.importId };
+  const own = await admin().rpc("get_pdf_import_recipes", parameters);
+  assert.ifError(own.error);
+  assert.deepEqual(
+    own.data.map((row) => row.id),
+    outcome.savedIds,
+  );
+  assert.equal(own.data[0].ingredient_groups[0].ingredients[0].quantity, "100");
+  const foreign = await admin().rpc("get_pdf_import_recipes", { ...parameters, p_owner_id: other.id });
+  assert.ifError(foreign.error);
+  assert.deepEqual(foreign.data, []);
+  for (const caller of [publicClient(), await signedIn(user)])
+    assert.ok((await caller.rpc("get_pdf_import_recipes", parameters)).error);
+});
+
+test("the f01 carry-over is service-role only, additive, once-only and leaves other scopes untouched", async () => {
+  const carry = {
+    p_spent_nano_usd: 4_228_657_500,
+    p_held_nano_usd: 147_456_000,
+    p_source_limit_nano_usd: 7_000_000_000,
+    p_evidence_digest: digest("e"),
+  };
+  for (const caller of [publicClient(), await signedIn(owner)]) {
+    assert.ok((await caller.rpc("carry_over_pdf_f01_budget", carry)).error);
+    assert.ok((await caller.rpc("get_pdf_budget_carryover", { p_scope_key: "f01" })).error);
+  }
+  for (const invalid of [
+    { ...carry, p_spent_nano_usd: -1 },
+    { ...carry, p_spent_nano_usd: 0, p_held_nano_usd: 0 },
+    { ...carry, p_evidence_digest: "not-a-digest" },
+    { ...carry, p_spent_nano_usd: 7_000_000_001, p_held_nano_usd: 0 },
+  ]) {
+    const rejected = await admin().rpc("carry_over_pdf_f01_budget", invalid);
+    assert.equal(rejected.error?.message, "invalid carry-over");
+  }
+  const none = await admin().rpc("get_pdf_budget_carryover", { p_scope_key: "f01" });
+  assert.ifError(none.error);
+  assert.deepEqual(none.data, []);
+
+  const month = await reserve(
+    admin(),
+    request(owner.id, { p_maximum_cost_nano_usd: 10, p_accounting_time: "2036-01-01T00:00:00Z" }),
+  );
+  assert.ifError(month.error);
+  const otherScopes = [await scope("month:2036-01"), await scope(`import:${month.data[0].import_id}`)];
+  const before = await scope("f01");
+
+  const applied = await admin().rpc("carry_over_pdf_f01_budget", carry);
+  assert.ifError(applied.error);
+  assert.equal(applied.data[0].applied, true);
+  const after = await scope("f01");
+  assert.equal(after.limit_nano_usd, 7_000_000_000);
+  assert.equal(after.spent_nano_usd, before.spent_nano_usd + carry.p_spent_nano_usd);
+  assert.equal(after.held_nano_usd, before.held_nano_usd + carry.p_held_nano_usd);
+  assert.equal(
+    after.limit_nano_usd - after.spent_nano_usd - after.held_nano_usd,
+    before.limit_nano_usd -
+      before.spent_nano_usd -
+      before.held_nano_usd -
+      carry.p_spent_nano_usd -
+      carry.p_held_nano_usd,
+  );
+  assert.deepEqual([await scope("month:2036-01"), await scope(`import:${month.data[0].import_id}`)], otherScopes);
+
+  // The identical replay is a no-op; any different second carry-over is refused.
+  const replay = await admin().rpc("carry_over_pdf_f01_budget", carry);
+  assert.ifError(replay.error);
+  assert.equal(replay.data[0].applied, false);
+  for (const second of [
+    { ...carry, p_spent_nano_usd: 1 },
+    { ...carry, p_evidence_digest: digest("d") },
+  ])
+    assert.equal((await admin().rpc("carry_over_pdf_f01_budget", second)).error?.message, "carry-over already applied");
+  assert.deepEqual(await scope("f01"), after);
+
+  const recorded = await admin().rpc("get_pdf_budget_carryover", { p_scope_key: "f01" });
+  assert.ifError(recorded.error);
+  assert.equal(Number(recorded.data[0].carried_spent_nano_usd), carry.p_spent_nano_usd);
+  assert.equal(Number(recorded.data[0].carried_held_nano_usd), carry.p_held_nano_usd);
+  assert.equal(Number(recorded.data[0].spent_before_nano_usd), before.spent_nano_usd);
+  assert.equal(Number(recorded.data[0].held_before_nano_usd), before.held_nano_usd);
+  assert.equal(recorded.data[0].evidence_digest, carry.p_evidence_digest);
+  // Direct table access stays closed for every API role.
+  assert.ok((await admin().from("pdf_budget_carryovers").select("*")).error);
+});
+
 test("the cumulative F-01 cap remains atomic across imports and months", async () => {
   const current = await scope("f01");
   let remaining = current.limit_nano_usd - current.spent_nano_usd - current.held_nano_usd;

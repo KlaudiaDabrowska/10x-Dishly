@@ -448,3 +448,83 @@ Progress 5.5 is checked on the user's confirmation.
 - Finalize uses a map instead of a nested scan; read-back is chunked; the status call checks the expiry-close result.
 
 Design note: the plan's `processing → ready → committed` sequence is simplified. Finalize accepts a `processing` import directly once every batch is recorded; `ready` is never set. Cancellation and expiry behave as planned. Error codes produced by the shared request guard stay snake_case (`experiment_unavailable` etc.), as the existing middleware and preview checks use them.
+
+## Phase 6 — offline preparation for the final benchmark (2026-10-06)
+
+**F-01 verdict: pending.** This section records offline tooling only. No deployment, remote migration, remote carry-over or paid call was made. Paid calls in this step: 0. The F-01 ledger is unchanged: spent USD 4.2286575, held USD 0.147456 (local).
+
+Binding decisions for the final matrix: second ebook **lunchboxy** (amendment 2026-10-05), F-01 budget **USD 7** (amendment II 2026-10-06), matrix {summer, lunchboxy} × {Chrome, Firefox} × {desktop, real phone} = 8 cells. The procedure is in [manual-tests.md](manual-tests.md).
+
+### Implemented offline
+
+- **Run record on the feasibility screen.** After a terminal outcome the screen offers *Copy run record* / *Download run record*. The non-content JSON holds the import ID, file SHA-256/bytes/page count (no filename), reading/recognizing/saving/total time (start before hashing, stop after commit read-back) with per-batch durations, outcome counts and read-back, user agent (and `userAgentData` where present), viewport, `deviceMemory`/`hardwareConcurrency`, peak JS heap via `performance.memory` and long tasks via `PerformanceObserver('longtask')`. Unsupported metrics are the string `"unavailable"`, never 0. No build identifier reaches the browser, so the operator supplies the evaluated commit.
+- **`npm run pdf:report`** (`scripts/pdf-benchmark-report.mjs`):
+  - `record` combines a run record with the cell metadata. It reads the import's persisted recipes owner- and import-scoped through a new read-only service-role RPC. It scores them with the existing `scoreFixture` (blocking tier) and `evaluateRecipes` (reported tier), and reads tokens, cost and the F-01 snapshot. The result is a private 0600 cell file under the ignored `local/benchmark/`.
+  - `budget` and `record-rejection` prove zero spend for the negative inputs.
+  - `report` (default) exits nonzero unless all 8 cells exist exactly once on one commit/config against the deployed target. Each cell needs the approved fixture hash, a committed import with read-back, a passing blocking tier, saved = golden count, existing 0, elapsed ≤ 300 s, no held charge, a matching browser/device class and no zero memory value. Both rejection checks must pass and F-01 spent + held ≤ USD 7. It prints max/mean elapsed and confirmed versus held cost.
+- **F-01 carry-over** (migration `20261008090000_pdf_processing_f01_carryover.sql`, `npm run pdf:carry-over-f01`), described below.
+- **Benchmark read RPC** (migration `20261008100000_pdf_processing_benchmark_read.sql`): `get_pdf_import_recipes(owner, import)`, service role only, read-only. The service role still has no table grant on `recipes`.
+- **Negative limits:** a new service test proves that a create request over 20,000,000 bytes or over 115 pages is rejected before token counting, any RPC or any fetch (zero dispatches), with an at-limit control. The browser reader tests already proved rejection before the PDF loads or any page text is read.
+
+### F-01 carry-over design
+
+The cumulative F-01 ledger exists only in the local Supabase. Production has none of it, so its `f01` scope would otherwise start at zero and overstate the remaining budget.
+
+- `pdf_budget_carryovers` has one row per scope (primary key, `scope_key = 'f01'` only) with the carried spent and held amounts, the source limit, a SHA-256 evidence digest, and the remote spent/held *before* the carry-over. RLS is enabled and all table privileges are revoked from every API role.
+- `carry_over_pdf_f01_budget(spent, held, source_limit, evidence_digest)` is `security definer` with an empty `search_path`, fully schema-qualified, and executable only by `service_role`. It creates the `f01` scope with the standard USD 7 default if absent, locks it, and adds the carried spent to `spent_nano_usd` and the carried held to `held_nano_usd`. It never subtracts and never touches another scope. The existing `spent + held ≤ limit` check and an explicit check refuse overflow. An identical replay returns `applied = false` without changes; any different second carry-over raises `carry-over already applied`.
+- After the carry-over, remote available = limit − remote spent − remote held − local spent − local held. The carried hold has no reservation of its own, so it stays held: fail-closed, distinguishable from confirmed spend in `spent`/`held`, and recorded separately in the carry-over row.
+- The CLI reads the local snapshot (`localSupabase`/`readBudget`) and targets the remote only through explicit `PDF_TARGET_SUPABASE_URL` + `PDF_TARGET_SUPABASE_SECRET_KEY` (HTTPS, loopback refused). It is a dry run unless `--apply` is given, prints numbers and IDs only, and writes a private evidence file under `local/carry-over/`.
+- Isolated DB tests check service-role-only access, input validation, exact arithmetic, once-only behaviour with an idempotent replay, and untouched month/import scopes.
+
+### Offline verification (this step)
+
+- `npm run test:pdf`: **103/103 pass** (new benchmark/carry-over tests and the zero-dispatch limit test included).
+- `npm run test:pdf:db` (isolated project): **22/22 pass**, including the two new tests for the carry-over and the benchmark read.
+- `npx --no-install astro check`: 0 errors / 0 warnings / 0 hints. ESLint is clean on every touched file.
+- `npm run pdf:report` on the empty benchmark directory exits 1 and lists all 8 cells and both rejection checks as missing, as intended.
+- The full gate stack for the evaluated commit (6.2) is not claimed here; it runs on the merged commit before deployment.
+
+### Matrix status
+
+| Cell | Status |
+| --- | --- |
+| summer / Chrome / desktop | not run |
+| summer / Chrome / phone | not run |
+| summer / Firefox / desktop | not run |
+| summer / Firefox / phone | not run |
+| lunchboxy / Chrome / desktop | not run |
+| lunchboxy / Chrome / phone | not run |
+| lunchboxy / Firefox / desktop | not run |
+| lunchboxy / Firefox / phone | not run |
+
+### Acceptance items
+
+| Item | Status |
+| --- | --- |
+| 6.1 `pdf:report` validates 8 cells, identity, persisted-content comparison, ≤ 300 s, F-01 ≤ USD 7 | tooling implemented and tested offline; **not run** (no cells) |
+| 6.2 offline/DB/auth/deployment/build checks on the evaluated commit; zero-dispatch negative limits | negative-limit tests pass; full stack **not run** on an evaluated commit |
+| 6.3 real-phone Chrome/Firefox, both ebooks | **not run** (user) |
+| 6.4 Cloudflare CPU/outcomes, desktop evidence, network inspection | **not run** (user) |
+| 6.5 supported F-01 verdict and S-02 handoff | **pending** |
+| Rejection of > 115-page and > 20 MB files with zero AI tokens | offline: pass; deployed: **not run** |
+| F-01 history carried to production | migration + CLI ready; **not applied** |
+
+Known failures carried forward: none new. The superseded failed gates 4.9/4.13/4.16/4.18 stay as recorded above.
+
+### Current passing configuration (from 4.20)
+
+`gpt-5.4-mini` via Responses API (`responses-v1`), `store=false`, strict JSON schema `pdf_recipe_candidates_v2`, `reasoning.effort=medium`, `max_output_tokens` 16,384, input cap 98,304 tokens, standard pricing USD 0.75 / 4.50 per million (`standard-2026-10-03`), maximum reservation 147,456,000 nano-USD per call, provider deadline 120 s, import processing deadline 270 s, end-to-end bound 300 s, one paced 429 retry under a new reservation, F-01 USD 7, USD 0.50/import, USD 10/month, 20,000,000 bytes, 115 pages, up to 8 core pages per batch. 4.20 ran at commit 3d72e8d with run config digest a1cf3030…. Later commits changed only persistence, the screen and the ledger guards, not the extraction configuration. The benchmark records its own `runtimeConfiguration` digest (model, API, pricing, limits, prompt and schema digests) for the evaluated commit.
+
+### Reuse points for S-02 / S-03
+
+- Browser reader `src/lib/pdf-processing/browser-reader.ts` (PDF.js, local hashing, limits) and batch builder `batching.ts`/`manifest.ts`, including `batchFromManifest`.
+- Server pipeline `service.ts`: create (server-rebuilt manifest and digests), batch (reservation → dispatch → reconciliation → validation → recorded digests), finalize (digest-checked, atomic, deduplicating by owner + fingerprint + source start), status and cancel.
+- Provider adapter `openai.ts`, prompt/schema `prompt.ts`, validation and normalization `validation.ts`/`normalize.ts`, categories and reconciliation.
+- Ledger and budgets (migrations 2026-09-30…2026-10-07), the `recipes` table with owner-only RLS reads, and `persistence.ts`.
+- Evaluation tooling: `pdf:acceptance` (blocking/reported tiers), `pdf:evaluate`, `pdf:report`.
+
+### Remaining product integration (not done by F-01)
+
+- S-02: the real dashboard import flow for all users (no evaluator allowlist or feature switch), the production UX for progress, errors and incomplete results, and moving the monthly USD 10 scope from test to product use.
+- S-03: keep/discard of incomplete results; S-04–S-07: browsing, filtering, editing and deleting recipes.
+- Retiring or gating the evaluation screen and the evaluator accounts after F-01, and a decision on the held USD 0.147456 (4.18 timeout), which stays held without billing evidence.

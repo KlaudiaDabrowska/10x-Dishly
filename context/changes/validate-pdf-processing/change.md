@@ -1,7 +1,7 @@
 ---
 change_id: validate-pdf-processing
 title: Validate pdf processing
-status: impl_reviewed
+status: implementing
 created: 2026-09-28
 updated: 2026-10-06
 archived_at: null
