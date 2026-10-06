@@ -64,7 +64,7 @@ The creator expects to be the only user initially. Registration remains open to 
 - Kept incomplete recipes can be corrected by their owner after saving through MVP editing of title, ingredients, and preparation instructions; editing within the import flow is excluded.
 
 - The browser reads text with layout/column context and page numbers; the backend alone calls AI and validates the response before saving.
-- For LETNI-DZIEN-PROBNY, the expected result is four recipe cards, each preserving three separately labelled ingredient-quantity variants and shared preparation instructions. Never merge quantities or silently select one variant. This is a source-specific acceptance case in the representative ebook set accepted on 2026-09-28.
+- For LETNI-DZIEN-PROBNY, the expected result is four recipe cards, each with at least one complete, correctly quantified ingredient variant (labelled variants may all be kept) and shared preparation instructions. Never merge quantities across variants. Amended 2026-10-05 by the user: one complete variant is sufficient; previously all three labelled variants were required. This is a source-specific acceptance case in the representative ebook set accepted on 2026-09-28.
 - Progress distinguishes local reading, recipe recognition, and saving. A successful count includes only confirmed saved recipes. Missing fields require a keep-or-discard decision; presence of all fields does not prove extraction accuracy.
 
 Sweet/savory options and calorie values describe sample input; no new filtering requirements have been agreed from this example.

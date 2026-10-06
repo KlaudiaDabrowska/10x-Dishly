@@ -101,7 +101,7 @@ The diagnosis in [frame-2026-10-03.md](frame-2026-10-03.md) establishes these bo
 
 ## Desired End State
 
-An allowlisted signed-in evaluator can select a local PDF on the feasibility screen, observe reading/recognition/saving, and obtain confirmed saved, already-existing and incomplete counts. Summer yields four cards with three labelled ingredient groups each and shared preparation; pasta matches its independently checked reference set, including quantities, units, serving information and footnotes. Complete failure writes no recipes.
+An allowlisted signed-in evaluator can select a local PDF on the feasibility screen, observe reading/recognition/saving, and obtain confirmed saved, already-existing and incomplete counts. Summer yields four cards, each with at least one complete, correctly quantified variant (2026-10-05 amendment) and shared preparation; lunchboxy (replacing pasta) keeps all recipes with exact ingredients and amounts. Complete failure writes no recipes.
 
 Repeated requests and later selection of the identical file by the same account do not duplicate saved recipes or overwrite corrections. Another account cannot see the import, text or recipes. A report compares real persisted content with user-approved references and records cost, stage timings, actual-host CPU and desktop/mobile results.
 

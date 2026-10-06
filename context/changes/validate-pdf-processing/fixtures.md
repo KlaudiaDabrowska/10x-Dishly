@@ -8,7 +8,8 @@ Prepared locally on 2026-09-30. Golden content was **approved by the user on 202
 | ------ | ----------------------------------------- | -------: | --------: | ------------------------------------------------ | -------------- |
 | summer | LETNI-DZIEN-PROBNY.pdf                    | 16593596 |        16 | Full import                                      | 7, 9, 11, 13   |
 | pasta  | MINI-E-BOOK-MAKARONOWY-2kbhp6.pdf         | 12689424 |        12 | Full import                                      | 4, 6, 8, 9, 11 |
-| low-gi | Niski indeks glikemiczny - niska waga.pdf | 10662733 |       113 | Page-limit rejection; local layout analysis only | None required  |
+| low-gi | Niski indeks glikemiczny - niska waga.pdf | 10662733 |       113 | Within the 115-page limit; no golden, not an acceptance fixture | None required  |
+| lunchboxy | lunchboxy-1-12.pdf (pages 1–12 of "8. Klaudia MIx Fit - Lunchboxy.pdf") | 7038572 | 12 | Acceptance (replaces pasta); golden approved 2026-10-05 | 4, 6, 8, 10, 12 |
 
 The [manifest](../../../evaluation/validate-pdf-processing/manifest.json) pins exact file and reference SHA-256 hashes. A filename match alone is insufficient.
 The 113-page ebook stays outside the 100-page product limit. No additional 50-recipe file is required.
@@ -29,7 +30,7 @@ Initial files were copied from the user's existing `/home/klaudia/Pobrane/` dire
 The references were prepared with local Poppler text extraction, using positioned lines to separate columns, and visually compared with all nine rendered recipe pages. No Gemini/API inference was used.
 The user completed the independent review and explicitly approved both references.
 
-- Summer: four dishes, each with exactly three labelled ingredient groups and one shared preparation paragraph. Labels retain the source kcal strings as identifiers; no calorie calculation is performed.
+- Summer: four dishes, each with exactly three labelled ingredient groups in the golden and one shared preparation paragraph. Since the 2026-10-05 acceptance amendment, extraction needs at least one complete variant per dish (any single golden variant, or each returned group matching a distinct one); the golden itself is unchanged. Labels retain the source kcal strings as identifiers; no calorie calculation is performed.
 - Summer source categories are breakfast, second breakfast, lunch and dinner. The second-breakfast dessert maps to breakfast, not dessert.
 - Pasta: five recipes, one unlabelled ingredient group each, all with the explicit two-serving statement. The source's cover/contents identify them as lunches; a page-3 text anchor records this category provenance.
 - Preserve all serving/footnote and substitution text. Alternatives stay notes, not extra required ingredients or new recipe cards.
