@@ -263,3 +263,43 @@ test("repeated sub-list heading groups merge into their preceding variant before
     assert.equal(rejected.issues[0].code, "invalid-group-labels");
   }
 });
+
+test("an amount-less sub-list heading entry folds into the next entry of its group", () => {
+  const entry = (sourceText, quantity = null, unit = null, name = sourceText) => ({ name, quantity, unit, sourceText });
+  const groups = [
+    {
+      label: "300 kcal",
+      ingredients: [
+        entry("40 g awokado", "40", "g", "awokado"),
+        entry("sos:"),
+        entry("20 g musztarda", "20", "g", "musztarda"),
+        entry("10 ml wody", "10", "ml", "wody"),
+      ],
+    },
+    { label: "350 kcal", ingredients: [entry("sos:"), entry("sos: 25 g musztarda", "25", "g", "musztarda")] },
+  ];
+  const result = validateRecipeCandidate(recipe({ ingredientGroups: groups }), batch([line(0, "Soup", 10, 500)]));
+  assert.equal(result.status, "complete");
+  assert.deepEqual(
+    result.candidate.ingredientGroups.map((group) => group.ingredients.map((item) => item.sourceText)),
+    [["40 g awokado", "sos: 20 g musztarda", "10 ml wody"], ["sos: 25 g musztarda"]],
+  );
+  assert.equal(result.candidate.ingredientGroups[0].ingredients[1].quantity, "20");
+  assert.deepEqual(
+    result.warnings.filter((warning) => warning.startsWith("folded-heading-entry")),
+    ["folded-heading-entry:0.1", "folded-heading-entry:1.0"],
+  );
+
+  // Not headings: an amount, a long sentence, a trailing heading with nothing after it.
+  for (const ingredients of [
+    [entry("20 g sos:", "20", "g", "sos:"), entry("10 ml wody", "10", "ml", "wody")],
+    [entry("Wszystkie składniki dokładnie wymieszaj w misce i odstaw:"), entry("10 ml wody", "10", "ml", "wody")],
+    [entry("10 ml wody", "10", "ml", "wody"), entry("sos:")],
+  ]) {
+    const unchanged = validateRecipeCandidate(
+      recipe({ ingredientGroups: [{ label: null, ingredients }] }),
+      batch([line(0, "Soup", 10, 500)]),
+    );
+    assert.deepEqual(unchanged.candidate.ingredientGroups[0].ingredients, ingredients);
+  }
+});

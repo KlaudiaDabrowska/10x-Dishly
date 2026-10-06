@@ -154,6 +154,32 @@ function mergeContinuation(previous: Ingredient, entry: Ingredient): Ingredient 
   return name ? { ...previous, name, sourceText } : null;
 }
 
+// A short amount-less sub-list heading emitted as its own entry (e.g. "sos:") belongs to the next entry.
+const HEADING_ENTRY = /^[^\d:]{1,40}:$/u;
+
+function foldHeadingEntries(group: IngredientGroup, groupIndex: number, changes: string[]): IngredientGroup {
+  const ingredients: Ingredient[] = [];
+  let pending: string | null = null;
+  for (const [index, entry] of group.ingredients.entries()) {
+    const text = collapse(entry.sourceText);
+    const isHeading =
+      entry.quantity === null &&
+      entry.unit === null &&
+      HEADING_ENTRY.test(text) &&
+      index < group.ingredients.length - 1;
+    if (isHeading) {
+      pending = pending ? `${pending} ${text}` : text;
+      changes.push(`folded-heading-entry:${groupIndex}.${index}`);
+      continue;
+    }
+    if (pending && !text.toLowerCase().startsWith(pending.toLowerCase()))
+      ingredients.push({ ...entry, sourceText: `${pending} ${entry.sourceText}` });
+    else ingredients.push(entry);
+    pending = null;
+  }
+  return ingredients.length === group.ingredients.length ? group : { ...group, ingredients };
+}
+
 export function normalizeCandidate(
   candidate: RecipeCandidate,
   batch: PdfTextBatch,
@@ -168,6 +194,7 @@ export function normalizeCandidate(
     ingredientGroups = [{ ...ingredientGroups[0], label: null }];
     changes.push("normalized-section-heading-label");
   }
+  ingredientGroups = ingredientGroups.map((group, groupIndex) => foldHeadingEntries(group, groupIndex, changes));
   const pages = batch.pages.filter((page) => candidate.pages.includes(page.page));
   ingredientGroups = ingredientGroups.map((group, groupIndex) => {
     const ingredients: Ingredient[] = [];

@@ -493,6 +493,26 @@ test("source categories take precedence, including sweet and savory variants", (
   assert.equal(categoryFromSource("unknown heading"), null);
 });
 
+test("an unmapped source category falls back to the model category; a mapped heading still wins", () => {
+  const unmapped = validateRecipeCandidate({ ...candidate, sourceCategory: "Posiłki", category: "lunch" }, batch);
+  assert.equal(unmapped.status, "complete");
+  assert.equal(unmapped.candidate.category, "lunch");
+  assert.equal(unmapped.candidate.sourceCategory, null);
+  assert.ok(unmapped.warnings.includes("unmapped-source-category"));
+  const noCategory = validateRecipeCandidate({ ...candidate, sourceCategory: "Posiłki", category: null }, batch);
+  assert.equal(noCategory.status, "incomplete");
+  assert.ok(noCategory.candidate.missingFieldReasons.some((reason) => reason.code === "missing-category"));
+  const mapped = validateRecipeCandidate({ ...candidate, sourceCategory: "Kolacja", category: "lunch" }, batch);
+  assert.equal(mapped.candidate.category, "dinner");
+  assert.equal(mapped.candidate.sourceCategory, "Kolacja");
+});
+
+test("the provider deadline is 120 s inside the unchanged 270 s import deadline", () => {
+  assert.equal(PDF_LIMITS.providerDeadlineMs, 120_000);
+  assert.equal(PDF_LIMITS.processingDeadlineMs, 270_000);
+  assert.ok(PDF_LIMITS.providerDeadlineMs < PDF_LIMITS.processingDeadlineMs);
+});
+
 test("validation distinguishes complete, incomplete and invalid provenance", () => {
   const valid = validateRecipeCandidate(candidate, batch);
   assert.equal(valid.status, "complete");

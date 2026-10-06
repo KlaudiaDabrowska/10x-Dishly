@@ -12,7 +12,7 @@ export const PDF_LIMITS = Object.freeze({
   corePagesPerBatch: 8,
   contextPagesPerSide: 1,
   maxBatches: 32,
-  providerDeadlineMs: 60_000,
+  providerDeadlineMs: 120_000,
   processingDeadlineMs: 270_000,
   endToEndDeadlineMs: 300_000,
   rateLimitRetries: 1,

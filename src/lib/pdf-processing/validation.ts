@@ -196,13 +196,14 @@ export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): Cand
     if (index >= 0) return invalid("invalid-empty-value", `${field}[${index}]`, "nonempty-string-required");
   }
 
-  const sourceCategory = raw.sourceCategory?.trim() ? raw.sourceCategory : null;
+  let sourceCategory = raw.sourceCategory?.trim() ? raw.sourceCategory : null;
   const mappedCategory = categoryFromSource(sourceCategory);
   let category = raw.category;
   if (sourceCategory !== null) {
     if (mappedCategory === null) {
+      // Not a meal heading: equivalent to no source meal evidence, so the model's allowed category applies.
       warnings.push("unmapped-source-category");
-      category = null;
+      sourceCategory = null;
     } else {
       if (category !== null && category !== mappedCategory) warnings.push("category-conflict");
       category = mappedCategory;
