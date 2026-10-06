@@ -274,6 +274,126 @@ test("ledger accepts pages 113 through 115 and rejects page 116 without reservin
   assert.deepEqual(await scope("f01"), budgetBefore);
 });
 
+test("browser clients cannot call the rate-limit reconciliation", async () => {
+  const payload = { p_owner_id: owner.id, p_reservation_id: randomUUID(), p_usage_report_id: randomUUID() };
+  const anonymousClient = publicClient();
+  assert.ok((await anonymousClient.rpc("reconcile_pdf_rate_limited", payload)).error);
+  const signedIn = publicClient();
+  const login = await signedIn.auth.signInWithPassword({ email: owner.email, password: owner.password });
+  assert.ifError(login.error);
+  assert.ok((await signedIn.rpc("reconcile_pdf_rate_limited", payload)).error);
+});
+
+test("a 429 is reconciled at zero once, frees the hold, and admits exactly one new reservation", async () => {
+  const base = request(owner.id, {
+    p_maximum_cost_nano_usd: 100,
+    p_accounting_time: "2033-01-01T00:00:00Z",
+    p_expires_at: "2099-01-01T00:00:00Z",
+  });
+  const first = await reserve(admin(), base);
+  assert.ifError(first.error);
+  const firstReservation = first.data[0].reservation_id;
+  const importKey = `import:${base.p_import_id}`;
+  const before = await scope(importKey);
+  assert.equal(before.held_nano_usd, 100);
+
+  const zero = { p_owner_id: owner.id, p_reservation_id: firstReservation, p_usage_report_id: randomUUID() };
+  const otherOwnerAttempt = await admin().rpc("reconcile_pdf_rate_limited", { ...zero, p_owner_id: otherOwner.id });
+  assert.ok(otherOwnerAttempt.error);
+  const reconciled = await admin().rpc("reconcile_pdf_rate_limited", zero);
+  assert.ifError(reconciled.error);
+  assert.equal(reconciled.data, true);
+  const repeated = await admin().rpc("reconcile_pdf_rate_limited", zero);
+  assert.ifError(repeated.error);
+  assert.equal(repeated.data, false);
+  assert.ok((await admin().rpc("reconcile_pdf_rate_limited", { ...zero, p_usage_report_id: randomUUID() })).error);
+  const after = await scope(importKey);
+  assert.equal(after.held_nano_usd, 0);
+  assert.equal(after.spent_nano_usd, before.spent_nano_usd);
+
+  const state = await admin().rpc("get_pdf_import_state", { p_owner_id: owner.id, p_import_id: base.p_import_id });
+  assert.ifError(state.error);
+  assert.equal(state.data[0].batches[0].status, "rate-limited");
+  assert.equal(state.data[0].batches[0].reservationState, "rate-limited");
+
+  const retry = await reserve(admin(), base);
+  assert.ifError(retry.error);
+  assert.equal(retry.data[0].claimed, true);
+  assert.notEqual(retry.data[0].reservation_id, firstReservation);
+  assert.equal((await scope(importKey)).held_nano_usd, 100);
+  const duplicate = await reserve(admin(), base);
+  assert.ifError(duplicate.error);
+  assert.equal(duplicate.data[0].claimed, false);
+  assert.equal(duplicate.data[0].reservation_id, retry.data[0].reservation_id);
+
+  // The second 429 also reconciles at zero, but no third reservation is admitted.
+  const second = await admin().rpc("reconcile_pdf_rate_limited", {
+    p_owner_id: owner.id,
+    p_reservation_id: retry.data[0].reservation_id,
+    p_usage_report_id: randomUUID(),
+  });
+  assert.ifError(second.error);
+  assert.equal(second.data, true);
+  const third = await reserve(admin(), base);
+  assert.ifError(third.error);
+  assert.equal(third.data[0].claimed, false);
+  assert.equal((await scope(importKey)).held_nano_usd, 0);
+  assert.equal((await scope(importKey)).spent_nano_usd, before.spent_nano_usd);
+});
+
+test("zero-cost reconciliation applies only to dispatch-claimed reservations", async () => {
+  const usageImport = request(owner.id, { p_maximum_cost_nano_usd: 100, p_accounting_time: "2034-01-01T00:00:00Z" });
+  const admitted = await reserve(admin(), usageImport);
+  assert.ifError(admitted.error);
+  const reservationId = admitted.data[0].reservation_id;
+  const usage = await admin().rpc("reconcile_pdf_usage", {
+    p_owner_id: owner.id,
+    p_reservation_id: reservationId,
+    p_usage_report_id: randomUUID(),
+    p_actual_cost_nano_usd: 40,
+    p_input_tokens: 10,
+    p_output_tokens: 5,
+    p_output_digest: digest("o"),
+  });
+  assert.ifError(usage.error);
+  const importKey = `import:${usageImport.p_import_id}`;
+  const before = await scope(importKey);
+  const rejected = await admin().rpc("reconcile_pdf_rate_limited", {
+    p_owner_id: owner.id,
+    p_reservation_id: reservationId,
+    p_usage_report_id: randomUUID(),
+  });
+  assert.ok(rejected.error);
+  assert.deepEqual(await scope(importKey), before);
+  const retry = await reserve(admin(), usageImport);
+  assert.ifError(retry.error);
+  assert.equal(retry.data[0].claimed, false);
+
+  const expiredImport = request(owner.id, {
+    p_maximum_cost_nano_usd: 10,
+    p_accounting_time: "2035-01-01T00:00:00Z",
+    p_expires_at: "2035-01-01T00:00:01Z",
+  });
+  const expired = await reserve(admin(), expiredImport);
+  assert.ifError(expired.error);
+  const closed = await admin().rpc("close_expired_pdf_import", {
+    p_owner_id: owner.id,
+    p_import_id: expiredImport.p_import_id,
+    p_accounting_time: "2035-01-02T00:00:00Z",
+  });
+  assert.ifError(closed.error);
+  // A rate-limit reconcile after closing frees the hold but never reopens the closed import.
+  const zero = await admin().rpc("reconcile_pdf_rate_limited", {
+    p_owner_id: owner.id,
+    p_reservation_id: expired.data[0].reservation_id,
+    p_usage_report_id: randomUUID(),
+  });
+  assert.ifError(zero.error);
+  const reopened = await reserve(admin(), { ...expiredImport, p_accounting_time: "2035-01-01T00:00:00.5Z" });
+  assert.ifError(reopened.error);
+  assert.equal(reopened.data[0].claimed, false);
+});
+
 test("the cumulative F-01 cap remains atomic across imports and months", async () => {
   const current = await scope("f01");
   let remaining = current.limit_nano_usd - current.spent_nano_usd - current.held_nano_usd;

@@ -18,6 +18,7 @@ import {
   replayReview,
   digest,
 } from "./pdf-extract-review.mjs";
+import { reconcileRateLimited, rateLimitReportId } from "./pdf-reconcile-rate-limited.mjs";
 import { createTextBatches } from "../src/lib/pdf-processing/batching.ts";
 import { recognizePdfBatch, OPENAI_MODEL } from "../src/lib/pdf-processing/openai.ts";
 import { PDF_LIMITS } from "../src/lib/pdf-processing/limits.ts";
@@ -227,6 +228,147 @@ test("a later batch failure preserves raw rejects, successful batch evidence and
   assert.ok(batch.candidates[1].validation.issues[0].fieldPath);
   assert.ok(readFileSync(path.join(directory, "summer/batch-1-input.json")).length);
   assert.ok(readFileSync(path.join(directory, "summer/report.json")).length);
+});
+
+test("live review pauses between fixtures and keeps each 429 attempt's evidence without overwriting", async (t) => {
+  const root = temp(t);
+  fixtureTree(root);
+  const previousKey = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = "test-key";
+  t.after(() => {
+    if (previousKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousKey;
+  });
+  const pauses = [];
+  const order = [];
+  const supabase = {
+    auth: { admin: { createUser: async () => ({ error: null }) } },
+    rpc: async (name, args) => {
+      if (name === "get_pdf_budget_scope")
+        return { error: null, data: args.p_scope_key === "f01" ? [ledgerSnapshot.f01] : [] };
+      return { error: null, data: [{ batches: [] }] };
+    },
+  };
+  const result = await runReview([], {
+    root,
+    localSupabase: () => supabase,
+    pause: async (milliseconds) => {
+      pauses.push(milliseconds);
+      order.push("pause");
+    },
+    prepareBatches: async (source, pages) => createTextBatches(source, pages),
+    recognize: async (options) => {
+      order.push(options.batch.index);
+      options.onProviderAttempt({
+        attempt: 1,
+        reservationId: "r1",
+        error: "provider-rate-limited",
+        retryAfterMs: 5,
+        delayMs: 5,
+      });
+      options.onProviderResponse({ output: "second attempt" }, 2);
+      options.onProviderAttempt({ attempt: 2, reservationId: "r2", error: null, retryAfterMs: null, delayMs: null });
+      return { duplicate: false, claim: { reservation_id: "r2" }, value: { recipes: [] } };
+    },
+  });
+  assert.deepEqual(pauses, [30_000]);
+  assert.deepEqual(order, [0, 1, "pause", 0, 1]);
+  const fixtureDir = path.join(result.evidence, "summer");
+  assert.equal(JSON.parse(readFileSync(path.join(fixtureDir, "batch-0-attempt.json"))).error, "provider-rate-limited");
+  assert.equal(JSON.parse(readFileSync(path.join(fixtureDir, "batch-0-attempt-2-attempt.json"))).reservationId, "r2");
+  assert.deepEqual(JSON.parse(readFileSync(path.join(fixtureDir, "batch-0-attempt-2-response.json"))), {
+    output: "second attempt",
+  });
+});
+
+function rateLimitedRun(root, { failure = "provider-rate-limited", withResponse = false } = {}) {
+  const { directory } = createRunDirectory(root);
+  const fixtureDir = path.join(directory, "summer");
+  mkdirSync(fixtureDir);
+  writePrivateJson(path.join(fixtureDir, "batch-1-input.json"), { batch: { index: 1 }, inputDigest: "d".repeat(64) });
+  if (withResponse) writePrivateJson(path.join(fixtureDir, "batch-1-response.json"), {});
+  const reportPath = path.join(fixtureDir, "report.json");
+  writePrivateJson(reportPath, {
+    fixture: "summer",
+    ownerId: "owner",
+    importId: "import",
+    failure,
+    completedBatches: 1,
+    requiredBatches: 2,
+  });
+  writePrivateJson(path.join(directory, "result.json"), {
+    results: [{ fixture: "summer", failure, reportDigest: digest(readFileSync(reportPath)) }],
+  });
+  return reportPath;
+}
+function heldLedger(calls, batch = {}) {
+  return {
+    rpc: async (name, args) => {
+      calls.push([name, args]);
+      if (name === "reconcile_pdf_rate_limited") return { error: null, data: true };
+      return {
+        error: null,
+        data: [
+          {
+            batches: [
+              {
+                batchIndex: 1,
+                status: "dispatch-claimed",
+                reservationState: "dispatch-claimed",
+                reservationId: "held-reservation",
+                inputDigest: "d".repeat(64),
+                outputDigest: null,
+                ...batch,
+              },
+            ],
+          },
+        ],
+      };
+    },
+  };
+}
+
+test("trusted 429 reconciliation requires saved 429 evidence, no response and a held ledger batch", async (t) => {
+  const root = temp(t);
+  const calls = [];
+  const reportPath = rateLimitedRun(root);
+  const result = await reconcileRateLimited([reportPath, "1"], { root, localSupabase: () => heldLedger(calls) });
+  assert.equal(result.reconciled, true);
+  const reconcile = calls.find(([name]) => name === "reconcile_pdf_rate_limited")[1];
+  assert.equal(reconcile.p_owner_id, "owner");
+  assert.equal(reconcile.p_reservation_id, "held-reservation");
+  assert.equal(reconcile.p_usage_report_id, rateLimitReportId("held-reservation"));
+  assert.match(reconcile.p_usage_report_id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.ok(readFileSync(path.join(path.dirname(reportPath), "batch-1-rate-limit-reconciliation.json")).length);
+  await assert.rejects(reconcileRateLimited([reportPath, "1"], { root, localSupabase: () => heldLedger([]) }), {
+    code: "already-reconciled",
+  });
+
+  for (const [setup, args, code, batch] of [
+    [{ failure: "provider-timeout" }, ["1"], "not-rate-limited"],
+    [{ withResponse: true }, ["1"], "provider-response-present"],
+    [{}, ["0"], "batch-not-failed"],
+    [{}, ["x"], "invalid-arguments"],
+    [{}, ["1"], "ledger-batch-not-held", { status: "reconciled", reservationState: "reconciled" }],
+    [{}, ["1"], "ledger-batch-not-held", { inputDigest: "e".repeat(64) }],
+  ]) {
+    const effects = [];
+    const path0 = rateLimitedRun(root, setup);
+    await assert.rejects(
+      reconcileRateLimited([path0, ...args], { root, localSupabase: () => heldLedger(effects, batch) }),
+      { code },
+    );
+    assert.equal(
+      effects.some(([name]) => name === "reconcile_pdf_rate_limited"),
+      false,
+      code,
+    );
+  }
+  const tampered = rateLimitedRun(root);
+  writeFileSync(tampered, readFileSync(tampered, "utf8") + " ");
+  await assert.rejects(reconcileRateLimited([tampered, "1"], { root, localSupabase: () => heldLedger([]) }), {
+    code: "report-evidence-mismatch",
+  });
 });
 
 test("golden match is insufficient when a candidate is invalid/incomplete or accounting is unconfirmed", () => {

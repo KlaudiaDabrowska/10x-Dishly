@@ -1,5 +1,5 @@
 import type { PdfTextBatch } from "./batching.ts";
-import type { PageText, PageTextItem, RecipeCandidate } from "./contracts.ts";
+import type { Ingredient, PageText, PageTextItem, RecipeCandidate } from "./contracts.ts";
 
 // Deterministic, source-derived corrections of recurring model representation errors.
 // Inputs are only the validated candidate and the supplied source text/geometry: never
@@ -81,6 +81,46 @@ function shouldMerge(pages: PageText[], previousEntry: string, entry: string) {
   return false;
 }
 
+// A continuation never starts a new list item: it starts lowercase or with "(" and has no marker.
+const CONTINUATION_START = /^[\p{Ll}(]/u;
+
+function continuesIngredient(pages: PageText[], previous: Ingredient, entry: Ingredient) {
+  if (entry.quantity !== null || entry.unit !== null) return false;
+  const before = collapse(previous.sourceText);
+  const after = collapse(entry.sourceText);
+  if (!before || !CONTINUATION_START.test(after) || MARKER.test(after)) return false;
+  for (const page of pages) {
+    const items = page.items.filter(isVisibleHorizontal);
+    const ends = items.filter((item) => {
+      const text = collapse(item.text);
+      return text.length >= Math.min(8, before.length) && before.endsWith(text);
+    });
+    for (const start of items) {
+      const text = collapse(start.text);
+      if (!text || text.length < Math.min(8, after.length) || !after.startsWith(text)) continue;
+      if (startsNumberedOrBulleted(page, start)) continue;
+      // Same column: the continuation is left-aligned with the line it continues.
+      if (
+        ends.some(
+          (end) =>
+            end !== start &&
+            continuesLine(end, start) &&
+            Math.abs(end.transform[4] - start.transform[4]) <= Math.min(end.height, start.height),
+        )
+      )
+        return true;
+    }
+  }
+  return false;
+}
+
+function mergeContinuation(previous: Ingredient, entry: Ingredient): Ingredient | null {
+  const sourceText = collapse(previous.sourceText) + " " + collapse(entry.sourceText);
+  if (previous.quantity === null && previous.unit === null) return { ...previous, name: sourceText, sourceText };
+  const name = sourceIngredientName(sourceText, previous.quantity, previous.unit);
+  return name ? { ...previous, name, sourceText } : null;
+}
+
 export function normalizeCandidate(
   candidate: RecipeCandidate,
   batch: PdfTextBatch,
@@ -95,6 +135,22 @@ export function normalizeCandidate(
     ingredientGroups = [{ ...ingredientGroups[0], label: null }];
     changes.push("normalized-section-heading-label");
   }
+  const pages = batch.pages.filter((page) => candidate.pages.includes(page.page));
+  ingredientGroups = ingredientGroups.map((group, groupIndex) => {
+    const ingredients: Ingredient[] = [];
+    for (const entry of group.ingredients) {
+      const previous = ingredients.at(-1);
+      const merged =
+        previous !== undefined && continuesIngredient(pages, previous, entry)
+          ? mergeContinuation(previous, entry)
+          : null;
+      if (merged) {
+        ingredients[ingredients.length - 1] = merged;
+        changes.push(`merged-ingredient-continuation:${groupIndex}.${ingredients.length - 1}`);
+      } else ingredients.push(entry);
+    }
+    return ingredients.length === group.ingredients.length ? group : { ...group, ingredients };
+  });
   ingredientGroups = ingredientGroups.map((group, groupIndex) => ({
     ...group,
     ingredients: group.ingredients.map((ingredient, ingredientIndex) => {
@@ -105,7 +161,6 @@ export function normalizeCandidate(
       return { ...ingredient, name: sourceName };
     }),
   }));
-  const pages = batch.pages.filter((page) => candidate.pages.includes(page.page));
   const instructions: string[] = [];
   for (const entry of candidate.instructions) {
     const previous = instructions.at(-1);

@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { loadEnvFile } from "node:process";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, URL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { createTextBatches } from "../src/lib/pdf-processing/batching.ts";
@@ -60,6 +61,12 @@ export function writePrivateJson(filename, value) {
   // Exclusive creation: partial evidence and earlier runs can never be overwritten.
   writeFileSync(filename, JSON.stringify(value, null, 2) + "\n", { mode: 0o600, flag: "wx" });
 }
+// The first attempt keeps the historical filename; a 429 retry never overwrites it.
+export function batchAttemptFile(batchIndex, attempt, kind) {
+  return "batch-" + batchIndex + (attempt > 1 ? "-attempt-" + attempt : "") + "-" + kind + ".json";
+}
+export const FIXTURE_PAUSE_MS = 30_000;
+const pauseFor = (milliseconds) => delay(milliseconds);
 export function createRunDirectory(root, runId = randomUUID()) {
   requireThat(/^[a-zA-Z0-9-]{1,100}$/.test(runId), "invalid-run-id");
   const parent = path.join(root, "local/extraction-review");
@@ -160,7 +167,7 @@ function configuration() {
     codeFiles,
   };
 }
-function localSupabase() {
+export function localSupabase() {
   const status = JSON.parse(
     execFileSync("npx", ["--no-install", "supabase", "status", "-o", "json"], {
       cwd: PROJECT_ROOT,
@@ -298,8 +305,10 @@ export async function extractReviewFixture({
         state,
         now,
         processingStartedAt: startedAt,
-        onProviderResponse: (response) =>
-          writePrivateJson(path.join(fixtureDir, "batch-" + batch.index + "-response.json"), response),
+        onProviderResponse: (response, attempt = 1) =>
+          writePrivateJson(path.join(fixtureDir, batchAttemptFile(batch.index, attempt, "response")), response),
+        onProviderAttempt: (evidence) =>
+          writePrivateJson(path.join(fixtureDir, batchAttemptFile(batch.index, evidence.attempt, "attempt")), evidence),
         reservation: {
           importId,
           batchIndex: batch.index,
@@ -475,7 +484,10 @@ export async function runReview(args, dependencies = {}) {
     });
     requireThat(!error, "review-owner-creation-failed");
     const state = createImportState(supabase, ownerId);
+    const pause = dependencies.pause ?? pauseFor;
     for (const item of prepared.filter(({ fixture }) => options.fixtures.includes(fixture.id))) {
+      // Provider pacing: never start the next fixture's paid calls immediately after the previous one.
+      if (results.length > 0) await pause(FIXTURE_PAUSE_MS);
       const remainingFixtures = options.fixtures.filter((id) => !results.some((result) => result.fixture === id));
       const report = await extractReviewFixture({
         prepared: item,
@@ -485,6 +497,8 @@ export async function runReview(args, dependencies = {}) {
         apiKey,
         directory,
         root,
+        ...(dependencies.recognize ? { recognize: dependencies.recognize } : {}),
+        ...(dependencies.prepareBatches ? { prepareBatches: dependencies.prepareBatches } : {}),
         authorizeBatches: async (batches) => {
           item.batches = batches;
           const budgetBeforeDispatch = await readBudget(supabase);

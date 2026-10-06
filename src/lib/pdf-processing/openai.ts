@@ -34,11 +34,22 @@ const COMPATIBLE_MODELS = new Set([OPENAI_MODEL, "gpt-5.4-mini-2026-03-17"]);
 
 export class OpenAiPdfError extends Error {
   readonly code: string;
-  constructor(code: string) {
+  // Only set for HTTP 429: the provider-requested wait, already bounded to a finite non-negative value.
+  readonly retryAfterMs?: number;
+  constructor(code: string, retryAfterMs?: number) {
     super(code);
     this.name = "OpenAiPdfError";
     this.code = code;
+    if (retryAfterMs !== undefined) this.retryAfterMs = retryAfterMs;
   }
+}
+
+export interface ProviderAttemptEvidence {
+  attempt: number;
+  reservationId: string;
+  error: string | null;
+  retryAfterMs: number | null;
+  delayMs: number | null;
 }
 
 export interface OpenAiRecognitionResult {
@@ -59,9 +70,28 @@ interface AdapterOptions {
   // Shared across every batch in one import; never reset between provider requests.
   processingStartedAt?: number;
   // Evaluation-only private evidence sink; never operational logging.
-  onProviderResponse?: (response: unknown) => void;
+  onProviderResponse?: (response: unknown, attempt: number) => void;
+  onProviderAttempt?: (evidence: ProviderAttemptEvidence) => void;
   onInputCount?: (measurement: { inputTokens: number; limit: number }) => void;
+  sleep?: (milliseconds: number) => Promise<void>;
 }
+
+function retryAfterMs(headers: Headers, now: number): number | undefined {
+  const header = headers.get("retry-after-ms")?.trim();
+  const milliseconds = header ? Number(header) : Number.NaN;
+  if (Number.isFinite(milliseconds) && milliseconds >= 0) return milliseconds;
+  const value = headers.get("retry-after")?.trim();
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - now) : undefined;
+}
+
+const defaultSleep = (milliseconds: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 
 function requestBody(batch: PdfTextBatch) {
   return {
@@ -154,7 +184,8 @@ async function providerPost(
     });
     const raw = await readBounded(response, bodyLimit);
     if (!response.ok) {
-      if (response.status === 429) throw new OpenAiPdfError("provider-rate-limited");
+      if (response.status === 429)
+        throw new OpenAiPdfError("provider-rate-limited", retryAfterMs(response.headers, (options.now ?? Date.now)()));
       if (response.status >= 500) throw new OpenAiPdfError("provider-server-error");
       throw new OpenAiPdfError("provider-http-error");
     }
@@ -329,23 +360,61 @@ export async function recognizePdfBatch(
   const countedInputTokens = await countOpenAiPdfInput(options.batch, options, startedAt);
   const request = requestBody(options.batch);
   remaining(startedAt, now); // Counting must not consume the deadline and still reserve a paid attempt.
-  return dispatchWithSpendingControl({
-    state: options.state,
-    reservation: {
-      ...options.reservation,
-      maximumCostNanoUsd: OPENAI_MAXIMUM_COST_NANO_USD,
-      pricing: OPENAI_PRICING,
-    },
-    dispatch: async () => {
-      const raw = await providerPost("/responses", request, options, remaining(startedAt, now), RESPONSE_BODY_LIMIT);
-      options.onProviderResponse?.(raw);
-      const parsed = parseResponse(raw, countedInputTokens);
-      return {
-        value: parsed.value,
-        usage: parsed.usage,
-        outputDigest: await sha256(parsed.outputText),
-        reportId: crypto.randomUUID(),
-      };
-    },
-  });
+  const sleep = options.sleep ?? defaultSleep;
+  for (let attempt = 1; ; attempt++) {
+    let reservationId = "";
+    try {
+      const result = await dispatchWithSpendingControl({
+        state: options.state,
+        reservation: {
+          ...options.reservation,
+          maximumCostNanoUsd: OPENAI_MAXIMUM_COST_NANO_USD,
+          pricing: OPENAI_PRICING,
+        },
+        dispatch: async (claim) => {
+          reservationId = claim.reservation_id;
+          let raw: unknown;
+          try {
+            raw = await providerPost("/responses", request, options, remaining(startedAt, now), RESPONSE_BODY_LIMIT);
+          } catch (error) {
+            // Only an HTTP 429 response is a proven unbilled rejection; every other failure stays held.
+            if (error instanceof OpenAiPdfError && error.code === "provider-rate-limited")
+              await options.state.reconcileRateLimited(claim.reservation_id, crypto.randomUUID());
+            throw error;
+          }
+          options.onProviderResponse?.(raw, attempt);
+          const parsed = parseResponse(raw, countedInputTokens);
+          return {
+            value: parsed.value,
+            usage: parsed.usage,
+            outputDigest: await sha256(parsed.outputText),
+            reportId: crypto.randomUUID(),
+          };
+        },
+      });
+      if (result.claim.claimed)
+        options.onProviderAttempt?.({ attempt, reservationId, error: null, retryAfterMs: null, delayMs: null });
+      return result;
+    } catch (error) {
+      const rateLimited = error instanceof OpenAiPdfError && error.code === "provider-rate-limited";
+      const requested = rateLimited ? (error.retryAfterMs ?? null) : null;
+      let delayMs: number | null = null;
+      if (rateLimited && attempt <= PDF_LIMITS.rateLimitRetries) {
+        const wait = Math.min(requested ?? PDF_LIMITS.rateLimitDefaultDelayMs, PDF_LIMITS.rateLimitMaxDelayMs);
+        // The retry must still have import time left after waiting; otherwise the 429 ends the import.
+        if (wait < PDF_LIMITS.processingDeadlineMs - (now() - startedAt)) delayMs = wait;
+      }
+      if (reservationId)
+        options.onProviderAttempt?.({
+          attempt,
+          reservationId,
+          error: error instanceof OpenAiPdfError ? error.code : "provider-dispatch-failed",
+          retryAfterMs: requested,
+          delayMs,
+        });
+      if (delayMs === null) throw error;
+      await sleep(delayMs);
+      remaining(startedAt, now);
+    }
+  }
 }

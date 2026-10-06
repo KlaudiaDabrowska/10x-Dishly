@@ -24,6 +24,7 @@
     "pdf:acceptance": "node scripts/pdf-acceptance.mjs",
     "pdf:provider-smoke": "node scripts/pdf-provider-smoke.mjs",
     "pdf:extract-review": "node scripts/pdf-extract-review.mjs",
+    "pdf:reconcile-rate-limited": "node scripts/pdf-reconcile-rate-limited.mjs",
     "build:pdf-reader": "vite build --config scripts/pdf-reader.vite.config.mjs"
   },
   "dependencies": {

@@ -93,6 +93,17 @@ export function createImportState(client: AccountingRpcClient, authenticatedOwne
       if (error) throw new SpendingControlError("reconciliation-failed", { cause: error });
       return data === true;
     },
+
+    // HTTP 429 is an unbilled rejection: only a dispatch-claimed reservation is reconciled at zero.
+    async reconcileRateLimited(reservationId: string, reportId: string): Promise<boolean> {
+      const { data, error } = await client.rpc("reconcile_pdf_rate_limited", {
+        p_owner_id: ownerId,
+        p_reservation_id: assertIdentity(reservationId, "reservation-id"),
+        p_usage_report_id: assertIdentity(reportId, "usage-report-id"),
+      });
+      if (error) throw new SpendingControlError("reconciliation-failed", { cause: error });
+      return data === true;
+    },
   };
 }
 

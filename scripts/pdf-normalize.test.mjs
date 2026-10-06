@@ -130,6 +130,81 @@ test("wrapped unnumbered paragraph lines merge; numbered steps and separate para
   assert.deepEqual(normalizeCandidate(recipe({ instructions: unknown }), paragraph).candidate.instructions, unknown);
 });
 
+test("geometry-derived ingredient continuation lines merge into the previous entry", () => {
+  const list = batch([
+    line(0, "40g humusu", 40, 300, 70),
+    line(1, "(dowolny smak)", 40, 284, 90),
+    line(2, "90g tofu", 40, 268, 50),
+    line(3, "wędzononego", 40, 252, 80),
+    line(4, "Kilka listków sałaty", 40, 236, 115),
+    line(5, "Ulubione przyprawy", 40, 220, 110),
+    line(6, "szczypta soli", 40, 204, 80),
+  ]);
+  const ingredients = [
+    { name: "humusu", quantity: "40", unit: "g", sourceText: "40g humusu" },
+    { name: "(dowolny smak)", quantity: null, unit: null, sourceText: "(dowolny smak)" },
+    { name: "tofu", quantity: "90", unit: "g", sourceText: "90g tofu" },
+    { name: "wędzononego", quantity: null, unit: null, sourceText: "wędzononego" },
+    { name: "sałaty", quantity: null, unit: null, sourceText: "Kilka listków sałaty" },
+    { name: "Ulubione przyprawy", quantity: null, unit: null, sourceText: "Ulubione przyprawy" },
+    { name: "szczypta soli", quantity: null, unit: null, sourceText: "szczypta soli" },
+  ];
+  const result = normalizeCandidate(recipe({ ingredientGroups: [{ label: null, ingredients }] }), list);
+  assert.deepEqual(result.candidate.ingredientGroups[0].ingredients, [
+    { name: "humusu (dowolny smak)", quantity: "40", unit: "g", sourceText: "40g humusu (dowolny smak)" },
+    { name: "tofu wędzononego", quantity: "90", unit: "g", sourceText: "90g tofu wędzononego" },
+    ingredients[4],
+    {
+      name: "Ulubione przyprawy szczypta soli",
+      quantity: null,
+      unit: null,
+      sourceText: "Ulubione przyprawy szczypta soli",
+    },
+  ]);
+  assert.deepEqual(result.changes, [
+    "merged-ingredient-continuation:0.0",
+    "merged-ingredient-continuation:0.1",
+    "merged-ingredient-continuation:0.3",
+  ]);
+});
+
+test("independent, bulleted, quantified, distant or other-column ingredient lines never merge", () => {
+  const base = { name: "humusu", quantity: "40", unit: "g", sourceText: "40g humusu" };
+  const tail = (sourceText, quantity = null, unit = null) => ({ name: sourceText, quantity, unit, sourceText });
+  const cases = [
+    // Capitalized independent item directly below.
+    [[line(0, "40g humusu", 40, 300, 70), line(1, "Kilka listków sałaty", 40, 284, 115)], tail("Kilka listków sałaty")],
+    // Bulleted list item directly below.
+    [[line(0, "40g humusu", 40, 300, 70), line(1, "- rukola – szczypta", 40, 284, 100)], tail("- rukola – szczypta")],
+    // Lowercase but carries its own amount.
+    [[line(0, "40g humusu", 40, 300, 70), line(1, "sól 2 g", 40, 284, 60)], tail("sól 2 g", "2", "g")],
+    // Far below, not the next visual line.
+    [[line(0, "40g humusu", 40, 300, 70), line(1, "(dowolny smak)", 40, 200, 90)], tail("(dowolny smak)")],
+    // Next row, but in another column.
+    [[line(0, "40g humusu", 40, 300, 70), line(1, "(dowolny smak)", 250, 284, 90)], tail("(dowolny smak)")],
+    // Overlapping but indented: not left-aligned with the line it would continue.
+    [[line(0, "40g humusu", 40, 300, 70), line(1, "(dowolny smak)", 80, 284, 90)], tail("(dowolny smak)")],
+    // Text not present in the source at all.
+    [[line(0, "40g humusu", 40, 300, 70)], tail("(invented)")],
+  ];
+  for (const [items, entry] of cases) {
+    const ingredients = [base, entry];
+    const result = normalizeCandidate(recipe({ ingredientGroups: [{ label: null, ingredients }] }), batch(items));
+    assert.deepEqual(result.candidate.ingredientGroups[0].ingredients, ingredients, entry.sourceText);
+    assert.deepEqual(result.changes, [], entry.sourceText);
+  }
+  // Groups are independent: a group's first entry never merges into the previous group.
+  const groups = [
+    { label: "A", ingredients: [base] },
+    { label: "B", ingredients: [tail("(dowolny smak)")] },
+  ];
+  const grouped = normalizeCandidate(
+    recipe({ ingredientGroups: groups }),
+    batch([line(0, "40g humusu", 40, 300, 70), line(1, "(dowolny smak)", 40, 284, 90)]),
+  );
+  assert.deepEqual(grouped.candidate.ingredientGroups, groups);
+});
+
 test("validation applies the normalization once and reports it as warnings", () => {
   const result = validateRecipeCandidate(
     recipe({ ingredientGroups: [{ label: "Składniki:", ingredients: recipe().ingredientGroups[0].ingredients }] }),

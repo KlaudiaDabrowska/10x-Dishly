@@ -266,9 +266,8 @@ test("paid response failures remain held and never retry or reconcile", async ()
   }
 });
 
-test("rate limits, server errors and oversized bodies are explicit and sanitized", async () => {
+test("server errors and oversized bodies are explicit and sanitized", async () => {
   for (const [reply, code] of [
-    [() => new globalThis.Response("private provider body", { status: 429 }), "provider-rate-limited"],
     [() => new globalThis.Response("private provider body", { status: 500 }), "provider-server-error"],
     [() => new globalThis.Response("x".repeat(1024 * 1024 + 1), { status: 200 }), "provider-response-too-large"],
   ]) {
@@ -291,6 +290,197 @@ test("rate limits, server errors and oversized bodies are explicit and sanitized
       ["reserve"],
     );
   }
+});
+
+function retryLedger(events) {
+  let reservations = 0;
+  return {
+    async reserveAndClaim(reservation) {
+      reservations++;
+      events.push(["reserve", reservation]);
+      return {
+        claimed: true,
+        import_id: reservation.importId,
+        batch_index: reservation.batchIndex,
+        attempt_id: `attempt-${reservations}`,
+        reservation_id: `reservation-${reservations}`,
+        status: "dispatch-claimed",
+      };
+    },
+    async reconcile(report, pricing) {
+      events.push(["reconcile", report.reservationId, pricing]);
+      return true;
+    },
+    async reconcileRateLimited(reservationId, reportId) {
+      events.push(["zero", reservationId, reportId]);
+      return true;
+    },
+  };
+}
+
+function retryOptions(events, replies, extra = {}) {
+  const sleeps = [];
+  const attempts = [];
+  let responses = 0;
+  return {
+    sleeps,
+    attempts,
+    calls: () => responses,
+    options: {
+      apiKey: "test-key",
+      batch,
+      reservation,
+      state: retryLedger(events),
+      sleep: async (milliseconds) => {
+        sleeps.push(milliseconds);
+      },
+      onProviderAttempt: (evidence) => attempts.push(evidence),
+      fetch: async (url) => {
+        if (url.endsWith("/input_tokens")) return responseJson({ object: "response.input_tokens", input_tokens: 123 });
+        return replies[responses++]();
+      },
+      ...extra,
+    },
+  };
+}
+
+const rateLimited = (headers = {}) => new globalThis.Response("private provider body", { status: 429, headers });
+
+test("one 429 is reconciled at zero, waits the header delay and retries once under a new reservation", async () => {
+  for (const [headers, delay] of [
+    [{ "retry-after-ms": "1500" }, 1500],
+    [{ "retry-after": "7" }, 7000],
+    [{}, PDF_LIMITS.rateLimitDefaultDelayMs],
+    [{ "retry-after": "120" }, PDF_LIMITS.rateLimitMaxDelayMs],
+  ]) {
+    const events = [];
+    const run = retryOptions(events, [() => rateLimited(headers), () => responseJson(completed())]);
+    const result = await recognizePdfBatch(run.options);
+    assert.equal(result.value.recipes.length, 1);
+    assert.equal(result.claim.reservation_id, "reservation-2");
+    assert.deepEqual(
+      events.map(([event, id]) => [event, typeof id === "string" ? id : "reservation"]),
+      [
+        ["reserve", "reservation"],
+        ["zero", "reservation-1"],
+        ["reserve", "reservation"],
+        ["reconcile", "reservation-2"],
+      ],
+    );
+    assert.deepEqual(run.sleeps, [delay]);
+    assert.equal(run.calls(), 2);
+    assert.deepEqual(
+      run.attempts.map(({ attempt, reservationId, error, delayMs }) => [attempt, reservationId, error, delayMs]),
+      [
+        [1, "reservation-1", "provider-rate-limited", delay],
+        [2, "reservation-2", null, null],
+      ],
+    );
+  }
+});
+
+test("a second 429 ends the import after zero-cost reconciliation of both attempts and no third call", async () => {
+  const events = [];
+  const run = retryOptions(events, [
+    () => rateLimited({ "retry-after-ms": "10" }),
+    () => rateLimited(),
+    () => {
+      throw new Error("third provider call");
+    },
+  ]);
+  await assert.rejects(
+    recognizePdfBatch(run.options),
+    (error) =>
+      error instanceof OpenAiPdfError && error.code === "provider-rate-limited" && !error.message.includes("private"),
+  );
+  assert.equal(run.calls(), 2);
+  assert.deepEqual(run.sleeps, [10]);
+  assert.deepEqual(
+    events.map(([event, id]) => [event, typeof id === "string" ? id : "reservation"]),
+    [
+      ["reserve", "reservation"],
+      ["zero", "reservation-1"],
+      ["reserve", "reservation"],
+      ["zero", "reservation-2"],
+    ],
+  );
+  assert.deepEqual(
+    run.attempts.map(({ attempt, error, delayMs }) => [attempt, error, delayMs]),
+    [
+      [1, "provider-rate-limited", 10],
+      [2, "provider-rate-limited", null],
+    ],
+  );
+});
+
+test("a 429 without enough remaining import time is reconciled at zero but not retried", async () => {
+  const events = [];
+  let clock = 0;
+  const run = retryOptions(
+    events,
+    [
+      () => {
+        clock = PDF_LIMITS.processingDeadlineMs - 5_000;
+        return rateLimited({ "retry-after": "10" });
+      },
+    ],
+    { now: () => clock, processingStartedAt: 0 },
+  );
+  await assert.rejects(recognizePdfBatch(run.options), { code: "provider-rate-limited" });
+  assert.equal(run.calls(), 1);
+  assert.deepEqual(run.sleeps, []);
+  assert.deepEqual(
+    events.map(([event]) => event),
+    ["reserve", "zero"],
+  );
+});
+
+test("timeouts, transport errors, 5xx and malformed responses never retry and stay held", async () => {
+  for (const [reply, code, extra] of [
+    [() => new globalThis.Response("private", { status: 500 }), "provider-server-error", {}],
+    [() => new globalThis.Response("private", { status: 503 }), "provider-server-error", {}],
+    [
+      () => {
+        throw new TypeError("network down");
+      },
+      "provider-transport-error",
+      {},
+    ],
+    [() => new globalThis.Response("{broken", { status: 200 }), "provider-malformed-json", {}],
+    [() => responseJson(completed({ output: [] })), "provider-missing-output", {}],
+  ]) {
+    const events = [];
+    const run = retryOptions(events, [reply, () => responseJson(completed())], extra);
+    await assert.rejects(recognizePdfBatch(run.options), { code });
+    assert.equal(run.calls(), 1, code);
+    assert.deepEqual(run.sleeps, [], code);
+    assert.deepEqual(
+      events.map(([event]) => event),
+      ["reserve"],
+      code,
+    );
+  }
+  const events = [];
+  let clock = 0;
+  const run = retryOptions(events, [], {
+    now: () => clock,
+    processingStartedAt: 0,
+    fetch: async (url, init) => {
+      if (url.endsWith("/input_tokens")) {
+        clock = PDF_LIMITS.processingDeadlineMs - 10;
+        return responseJson({ object: "response.input_tokens", input_tokens: 123 });
+      }
+      return new Promise((_resolve, reject) =>
+        init.signal.addEventListener("abort", () => reject(new Error("aborted"))),
+      );
+    },
+  });
+  await assert.rejects(recognizePdfBatch(run.options), { code: "provider-timeout" });
+  assert.deepEqual(run.sleeps, []);
+  assert.deepEqual(
+    events.map(([event]) => event),
+    ["reserve"],
+  );
 });
 
 test("source categories take precedence, including sweet and savory variants", () => {
