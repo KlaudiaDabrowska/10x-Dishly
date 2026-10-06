@@ -619,7 +619,7 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 #### Automated
 
 - [ ] 6.1 `npm run pdf:report` validates all eight final matrix cells, fixture/config identity, persisted-content comparison totals, <=300-second per-run elapsed time and F-01 usage including uncertain reservations within USD 5.
-- [x] 6.2 All offline PDF, local database, existing auth/deployment and build/config checks pass for the evaluated commit; negative limit tests produce zero provider dispatches.
+- [x] 6.2 All offline PDF, local database, existing auth/deployment and build/config checks pass for the evaluated commit; negative limit tests produce zero provider dispatches. — 2bd26b9
 
 #### Manual
 

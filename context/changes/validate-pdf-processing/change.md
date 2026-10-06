@@ -31,6 +31,8 @@ Phase 4 complete (2026-10-06): user approved the reported-tier differences (4.4,
 
 Phase 5 complete (2026-10-06, b46b966): recipes table, digest-checked atomic finalization, restricted evaluator screen and APIs. Local screen check: lunchboxy 5/5 saved, re-import deduplicated, scan rejected, cancel saved nothing. Spent USD 4.2286575, held USD 0.147456. Production deploy now requires four new secrets. Next: Phase 6.
 
+Phase 6 offline part (2026-10-06, 2bd26b9): pdf:report, panel run record, one-time f01 ledger carry-over to production, manual-tests.md. 6.2 done; 6.1 and manual 6.3–6.5 wait for deployment and the user's 8-cell matrix (summer + lunchboxy).
+
 ## Notes
 
 F-01 in context/foundation/roadmap.md. Provider, budget and retention accepted on 2026-09-28. Research requested before implementation planning.
