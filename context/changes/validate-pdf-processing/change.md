@@ -3,7 +3,7 @@ change_id: validate-pdf-processing
 title: Validate pdf processing
 status: implementing
 created: 2026-09-28
-updated: 2026-10-05
+updated: 2026-10-06
 archived_at: null
 ---
 
@@ -18,6 +18,8 @@ Normalization amendment (2026-10-05): deterministic source-derived normalization
 Second frame (2026-10-05): [frame.md](frame.md) reframes acceptance toward product-relevant correctness (no lost recipe, no wrong/added ingredient or amount); the earlier brief is preserved as frame-2026-10-03.md. Three repeat lunchboxy runs: blocking tier 1/5 overall, with recurring failure classes. Spend USD 1.14985125, held 0. Next: /10x-plan amendment.
 
 Acceptance measurement (2026-10-05): 4.10–4.12 done offline. Live 3×(summer+lunchboxy) with reasoning low: summer 1/3 (2 runs aborted by provider HTTP 429 rate limit, the completed run passes), lunchboxy 2/3 (recurring line-join defect). Gate 4.13 FAIL. Spent USD 1.5774885, held USD 0.294912 (two 429 calls). Awaiting user decision.
+
+Re-measurement (2026-10-06): 4.15 done (429 handling, line merge; 275115b). Live 3×: lunchboxy 3/3 exact match, summer 1/3 (variant merge, "sos:" sub-list group, dropped household text). Spent USD 2.18933325, held 0. Awaiting user decision on summer.
 
 ## Notes
 

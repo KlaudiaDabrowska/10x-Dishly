@@ -38,6 +38,15 @@ Based on [frame.md](frame.md) (second frame, HIGH confidence after repeat-run ve
 - **Repeatability:** 4.9 requires the blocking tier to pass in **3 of 3** ledger-backed runs per ebook (summer, lunchboxy) on one frozen configuration.
 - **Model escalation:** `gpt-5.4-mini` with `reasoning.effort=low` and `max_output_tokens` 16,384 (reservation USD 0.147456/call, USD 0.294912 for a two-batch summer import, within USD 0.50/import). A failure stops for a separate user decision on `gpt-5.4`, which is not part of this amendment.
 
+## Approved pacing, 429 accounting and line-join amendment — 2026-10-05
+
+Measurement 4.13 failed on infrastructure (two summer calls were rejected with HTTP 429 rate limits) and on one recurring line-join defect. The user approved:
+
+- **Pacing and one bounded retry on 429 only.** This supersedes "no automatic paid retry" solely for an HTTP 429 response. That response is a pre-processing rejection, which OpenAI documents as unbilled. Wait for `retry-after`/`retry-after-ms`, or 20 s when absent, capped at 30 s and the remaining import deadline, then make one more attempt under a **new reservation**. A second 429 ends the import. Timeouts, transport errors, 5xx and malformed responses still never retry. The evaluation runner pauses 30 s between fixtures and between repeated runs.
+- **Zero-cost reconciliation of 429.** A dispatched call that received an HTTP 429 response is reconciled with zero tokens and USD 0, under a dedicated usage-report kind, instead of remaining held. This also applies, by a one-time trusted reconciliation, to the two held reservations of runs 77ca3fb1/e7c581a0 (batch 1 of summer), with evidence recorded. Timeout and unknown outcomes stay held.
+- **Continuation-line merge.** A deterministic, geometry-derived normalization joins an ingredient entry with no amount or bullet that is the next visual line, in the same column, directly below the preceding ingredient. Examples are "(dowolny smak)" and "wędzononego". The goldens must stay invariant.
+- **Re-measurement:** the same 3 × (summer + lunchboxy) gate as 4.13, with the 4.13 failure retained as evidence.
+
 ## Overview
 
 F-01 will establish whether Dishly can read the accepted ebooks locally, recognize recipes through the authenticated backend and OpenAI, validate them, and persist complete recipes correctly within five minutes. It delivers a restricted feasibility screen, reusable processing modules and an evidence report; S-02 still owns the normal product import experience.
@@ -356,6 +365,8 @@ Phase 4 supplies canonical digest generation and verifies that representation ch
 
 - With golden results approved, summer and pasta extraction are compared with source pages; every discrepancy is documented and resolved before claiming a passing extraction configuration.
 - The user reviews the reported-tier differences of the measured runs and the updated PRD, roadmap and fixtures variant wording, and accepts them.
+- `npm run test:pdf` and `npm run test:pdf:db` prove one bounded 429 retry under a new reservation, zero-cost 429 reconciliation, no retry or release for timeout/5xx/transport errors, and the geometry-derived continuation-line merge with golden invariance.
+- A re-measurement of 3 × (summer + lunchboxy) on one frozen configuration passes the blocking tier 3/3 per ebook in `pdf:acceptance`, with the two earlier 429 reservations reconciled and recorded.
 
 ## Phase 5: Real Persistence and the Feasibility Screen
 
@@ -544,10 +555,12 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 - [x] 4.7 `npm run test:pdf` proves separate quantity/unit and unlabelled-group conventions, required versus optional omission handling, strict provenance, deterministic reconciliation and version-bound canonical digests.
 - [x] 4.8 Offline runner and database checks prove truthful exit status, immutable private run artifacts, hash/argument preflight, retained rejection/partial-failure evidence, one import deadline and preservation of historical spending; lint, Astro checks and build pass.
 - [ ] 4.9 One bounded ledger-backed attempt on the repaired fixed configuration passes exact golden comparison for all four summer and five pasta recipes, with no unresolved invalid/incomplete/conflicting candidates and complete run/accounting evidence.
-- [x] 4.10 `npm run test:pdf` proves contradicted or provenance-verified omission reasons are dropped with warnings, an unlabelled group among several is a warning, and unknown reasons, schema and provenance failures stay invalid.
-- [x] 4.11 `npm run pdf:acceptance -- --self-test` detects every planted blocking failure and passes the variant and form-only controls; re-scoring saved lunchboxy runs reproduces the frame verdicts.
-- [x] 4.12 `npm run test:pdf` proves requests use `reasoning.effort=low` and `max_output_tokens` 16,384 and reservations use 147,456,000 nano-USD per call; lint, Astro check and build pass.
+- [x] 4.10 `npm run test:pdf` proves contradicted or provenance-verified omission reasons are dropped with warnings, an unlabelled group among several is a warning, and unknown reasons, schema and provenance failures stay invalid. — 70fe903
+- [x] 4.11 `npm run pdf:acceptance -- --self-test` detects every planted blocking failure and passes the variant and form-only controls; re-scoring saved lunchboxy runs reproduces the frame verdicts. — 70fe903
+- [x] 4.12 `npm run test:pdf` proves requests use `reasoning.effort=low` and `max_output_tokens` 16,384 and reservations use 147,456,000 nano-USD per call; lint, Astro check and build pass. — 70fe903
 - [ ] 4.13 Three ledger-backed summer + lunchboxy runs on one frozen configuration pass the blocking tier 3/3 per ebook in `pdf:acceptance`, with reported-tier counts, tokens and cost recorded.
+- [x] 4.15 `npm run test:pdf` and `npm run test:pdf:db` prove one bounded 429 retry under a new reservation, zero-cost 429 reconciliation, no retry or release for timeout/5xx/transport errors, and the geometry-derived continuation-line merge with golden invariance. — 275115b
+- [ ] 4.16 A re-measurement of 3 × (summer + lunchboxy) on one frozen configuration passes the blocking tier 3/3 per ebook in `pdf:acceptance`, with the two earlier 429 reservations reconciled and recorded.
 
 #### Manual
 

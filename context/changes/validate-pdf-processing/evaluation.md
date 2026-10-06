@@ -312,3 +312,36 @@ The user ran `/10x-frame` and then requested verification before planning: three
 Accounting: 9 completed calls reconciled. The two rate-limited calls stay **held at the full reservation (2 × USD 0.147456 = USD 0.294912)** by design, because a dispatched call with an unknown outcome is never auto-released. Cumulative spent **USD 1.5774885**, held **USD 0.294912**, with USD 3.1275995 available under the USD 5 cap. Releasing the 429 holds requires the trusted reconciliation that the plan names as a separate step; OpenAI does not bill a 429-rejected request, but the application ledger cannot prove that on its own.
 
 **GATE 4.13: FAIL.** 4.4/4.9/4.13 remain pending. Per the amendment, the model escalation decision (`gpt-5.4`) belongs to the user. The evidence suggests two other causes first: rate-limit pacing between summer calls, and the page-12 line-join defect, which can be corrected deterministically from geometry.
+
+## 429 handling, line merge and re-measurement (2026-10-06)
+
+### 4.15 — PASS (commit 275115b)
+
+- An HTTP 429 is reconciled at USD 0 under a `rate-limited` usage-report kind, followed by one retry under a new reservation. The ledger allows exactly one re-reservation per batch, enforced in the database. Timeouts, 5xx and transport errors stay held without retry. The runner pauses 30 s between fixtures.
+- The two historical 429 holds (77ca3fb1 and e7c581a0, summer batch 1) were reconciled at 0 with the one-time CLI after migration 20261005090000 was applied locally. Held went from USD 0.294912 to 0; spent is unchanged. Evidence is in each run's `summer/batch-1-rate-limit-reconciliation.json`.
+- Geometry-derived ingredient continuation merge ("(dowolny smak)", "wędzononego"). Golden invariance holds.
+- Gates: PDF 87/87, isolated DB 10/10, lint, Astro check, build and deployment tests pass. Deliberate breaks (unbounded retry; merging any line) turned the tests red, and the code was restored.
+
+### 4.16 — re-measurement on one frozen configuration: FAIL
+
+Runs **5296e8f5, 02f9a3e9, f9efbc7f** (30 s apart). No 429 occurred and no retry was needed; held is 0 after each run.
+
+| Run | summer | lunchboxy |
+| --- | --- | --- |
+| 5296e8f5 | FAIL — strawberry salad: the three variants' ingredients merged into one unlabelled group, adding 3 entries from other variants (the shared "sos:" lines) | **PASS**, 0 differences |
+| 02f9a3e9 | **PASS** (4/4; 42 reported differences) | **PASS**, 0 differences |
+| f9efbc7f | FAIL — salad rejected: a 4th group without a label next to labelled ones (`invalid-group-labels`, duplicate/blank among labels). Dessert: all 3 variants correct, but sourceText dropped household parentheses; the golden "napar z owocowej herbaty (pół szklanki)" name is therefore not contained in the actual sourceText | **PASS**, 0 differences |
+
+`pdf:acceptance`: lunchboxy **3/3 PASS** (exact golden match in all three runs); summer **1/3** → overall FAIL.
+
+Remaining summer causes, all in the multi-column kcal-variant pages:
+
+- variants merged into one group (salad);
+- a "sos:" sub-list emitted as an extra group and then rejected;
+- dropped household-measure text.
+
+The ingredient-membership and line-join failures seen earlier in lunchboxy did not recur.
+
+Cost of this measurement: USD 0.611845. Cumulative spent **USD 2.18933325**, held 0, with USD 2.81066675 remaining under USD 5. The phase 6 final-matrix headroom check still passes.
+
+4.13/4.16 remain FAIL, and 4.4/4.9 are pending. Further work on summer needs a user decision: a stronger model (`gpt-5.4`, not approved), reasoning `medium`, or a scorer/validation change for the "sos:" sub-list and household parentheses.
