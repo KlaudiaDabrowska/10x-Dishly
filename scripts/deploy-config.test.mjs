@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
-import { checkConfig, checkConsumerConfig, requiredSecrets } from "./check-deploy-config.mjs";
+import { checkConfig, checkConsumerConfig, experimentSecrets, requiredSecrets } from "./check-deploy-config.mjs";
 
 function config(target = "preview") {
   return {
@@ -77,4 +77,25 @@ test("Free diagnostic rejects CPU overrides on either Worker and larger consumer
   }
   consumer.queues.consumers[0].max_batch_size = 10;
   assert.throws(() => checkConsumerConfig(consumer));
+});
+
+test("experiment credentials are optional secrets, never required, preview secrets or plain vars", () => {
+  const source = ts.parseConfigFileTextToJson("wrangler.jsonc", readFileSync("wrangler.jsonc", "utf8")).config;
+  // Production deploys must not depend on the experiment: missing configuration only disables it.
+  assert.deepEqual([...source.secrets.required].sort(), [...requiredSecrets].sort());
+  assert.deepEqual(source.env.preview.secrets.required, []);
+  for (const name of experimentSecrets) {
+    assert.ok(!requiredSecrets.includes(name));
+    assert.equal(source.vars[name], undefined);
+    assert.equal(source.env.preview.vars[name], undefined);
+    const preview = config();
+    preview.secrets.required = [name];
+    assert.throws(() => checkConfig(preview, "preview"));
+    const plain = config();
+    plain.vars[name] = "true";
+    assert.throws(() => checkConfig(plain, "preview"));
+    const productionRequired = config("production");
+    productionRequired.secrets.required = [...requiredSecrets, name];
+    assert.throws(() => checkConfig(productionRequired, "production"));
+  }
 });

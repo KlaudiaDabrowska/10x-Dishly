@@ -1,0 +1,83 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R 13 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /ASCIIHexDecode /Length 9 >>
+stream
+00ff8040>
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> /XObject << /Im1 4 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 158 >>
+stream
+BT /F1 12 Tf 1 0 0 1 30 740 Tm (Variant A) Tj 1 0 0 1 220 740 Tm (Variant B) Tj 1 0 0 1 410 740 Tm (Variant C) Tj 1 0 0 1 30 650 Tm (Recipe starts here) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> /XObject << /Im1 4 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 125 >>
+stream
+BT /F1 12 Tf 1 0 0 1 30 740 Tm (Ingredients) Tj 1 0 0 1 310 740 Tm (Instructions) Tj 0 1 -1 0 540 200 Tm (Rotated note) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> /XObject << /Im1 4 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 33 >>
+stream
+q 200 0 0 200 30 400 cm /Im1 Do Q
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> /XObject << /Im1 4 0 R >> >> /Contents 12 0 R >>
+endobj
+12 0 obj
+<< /Length 0 >>
+stream
+
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] /Resources << /Font << /F1 3 0 R >> /XObject << /Im1 4 0 R >> >> /Contents 14 0 R >>
+endobj
+14 0 obj
+<< /Length 58 >>
+stream
+BT /F1 12 Tf 1 0 0 1 30 740 Tm (Recipe continuation) Tj ET
+endstream
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000141 00000 n 
+0000000211 00000 n 
+0000000387 00000 n 
+0000000539 00000 n 
+0000000748 00000 n 
+0000000900 00000 n 
+0000001076 00000 n 
+0000001229 00000 n 
+0000001313 00000 n 
+0000001467 00000 n 
+0000001517 00000 n 
+0000001671 00000 n 
+trailer
+<< /Size 15 /Root 1 0 R >>
+startxref
+1780
+%%EOF

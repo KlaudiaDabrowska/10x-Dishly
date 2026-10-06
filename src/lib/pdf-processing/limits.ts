@@ -1,0 +1,34 @@
+// Decimal product size limit; independent backend resource limits use binary KiB/MiB.
+export const PDF_LIMITS = Object.freeze({
+  maxFileBytes: 20_000_000,
+  maxPages: 115,
+  maxBatchBodyBytes: 512 * 1024,
+  maxImportInputBytes: 2 * 1024 * 1024,
+  maxFinalizationBodyBytes: 2 * 1024 * 1024,
+  maxInputTokens: 98_304,
+  candidateCount: 1,
+  maxOutputTokens: 16_384,
+  reasoningEffort: "medium", // OpenAI output limit includes non-visible tokens.
+  corePagesPerBatch: 8,
+  contextPagesPerSide: 1,
+  maxBatches: 32,
+  providerDeadlineMs: 120_000,
+  processingDeadlineMs: 270_000,
+  endToEndDeadlineMs: 300_000,
+  rateLimitRetries: 1,
+  rateLimitDefaultDelayMs: 20_000,
+  rateLimitMaxDelayMs: 30_000,
+  f01BudgetNanoUsd: 7_000_000_000,
+  monthlyBudgetNanoUsd: 10_000_000_000,
+  importBudgetNanoUsd: 500_000_000,
+});
+
+export function fileLimitFailure(byteLength: number, pageCount?: number) {
+  if (!Number.isSafeInteger(byteLength) || byteLength < 1) return "invalid-file-size";
+  if (byteLength > PDF_LIMITS.maxFileBytes) return "file-too-large";
+  if (pageCount !== undefined) {
+    if (!Number.isSafeInteger(pageCount) || pageCount < 1) return "invalid-page-count";
+    if (pageCount > PDF_LIMITS.maxPages) return "too-many-pages";
+  }
+  return null;
+}

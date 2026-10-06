@@ -3,7 +3,7 @@ project: Dishly
 version: 5
 status: draft
 created: 2026-09-23
-updated: 2026-09-28
+updated: 2026-09-30
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -43,7 +43,7 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 
 | ID   | Change ID                  | Outcome (user can …)                                                                                                                                                                                                                              | Prerequisites | PRD refs                                                                                                        | Status   |
 | ---- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- | -------- |
-| F-01 | validate-pdf-processing    | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.                                                                                 | —             | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy                        | ready    |
+| F-01 | validate-pdf-processing    | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.                                                                                 | —             | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy                        | in-progress |
 | S-01 | private-recipe-collection  | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.                                                                              | —             | FR-001, FR-006, US-02; Access Control                                                                           | done     |
 | S-02 | import-complete-recipes    | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01    | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | proposed |
 | S-03 | resolve-incomplete-recipes | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | proposed |
@@ -80,7 +80,7 @@ Do not rebuild authentication, the queue or publication mechanisms. F-01 is limi
   - Q4 resolved on 2026-09-28: provider, budget and processing terms accepted; see the decision below. Block: no.
   - Does preserving columns, variants and page numbers produce correct recipes, and does the complete flow meet the PRD requirements? — Owner: team. Block: no; verification of this is required to complete F-01.
 - **Risk:** Reading text and having all fields present do not prove AI extraction accuracy; the bounded F-01 check precedes account, persistence and UI integration in S-02.
-- **Status:** ready
+- **Status:** in-progress
 
 ## Slices
 
@@ -110,7 +110,7 @@ Q3 resolved on 2026-09-23: an unauthenticated user opening a protected screen is
 - **Risk:** Repeated processing must not create duplicates or partial writes; correct completion includes confirmed persistence and release of application-held temporary data without deleting the user's original file.
 - **Status:** proposed
 
-The accepted S-02 flow: local text reading with layout and page numbers → backend sends text to AI → backend code validates and saves. The AI key stays server-side; the model does not determine data ownership. The user keeps the tab open until completion. The four summer dishes must preserve three labelled ingredient variants on each card and shared instructions. Automatic saving requires all fields specified in the PRD, exactly one category, and the filename and page number. Detected incomplete results stay outside the collection and are marked as requiring a decision; S-03 completes their handling. The message does not guarantee that every recipe was found. Verification covers the accepted representative ebooks (successful import within limits; rejection of the 113-page book), input limits, complete failure, retry, user isolation and the required processing time. S-02 alone does not complete US-01.
+The accepted S-02 flow: local text reading with layout and page numbers → backend sends text to AI → backend code validates and saves. The AI key stays server-side; the model does not determine data ownership. The user keeps the tab open until completion. The four summer dishes must each keep at least one complete, correctly quantified ingredient variant (never mixing quantities across variants) and shared instructions; preserving all three labelled variants is optional (user amendment 2026-10-05). Automatic saving requires all fields specified in the PRD, exactly one category, and the filename and page number. Detected incomplete results stay outside the collection and are marked as requiring a decision; S-03 completes their handling. The message does not guarantee that every recipe was found. Verification covers the accepted representative ebooks (successful import within limits; rejection of the 113-page book), input limits, complete failure, retry, user isolation and the required processing time. S-02 alone does not complete US-01.
 
 ### S-03: Decide on incomplete recipes
 
