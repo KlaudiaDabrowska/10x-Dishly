@@ -25,6 +25,8 @@ Reasoning medium (2026-10-06): 4.17 done (332aa84); F-01 budget raised to USD 6 
 
 4.19 done (9033455). 4.20: run 10798fa8 passes summer and lunchboxy; runs 2–3 refused by the budget preflight (short USD 0.268 against phase 6 headroom). Spent USD 3.1714035, held USD 0.147456. Awaiting a budget/headroom decision.
 
+4.20 PASS (2026-10-06): F-01 budget USD 7 (3d72e8d). Three runs on one frozen config (medium, 120 s) pass the blocking tier — summer 3/3, lunchboxy 3/3. Spent USD 4.03048275, held USD 0.147456. Pending: manual 4.4/4.14, and documentation of the summer variant change in PRD/roadmap/fixtures.
+
 ## Notes
 
 F-01 in context/foundation/roadmap.md. Provider, budget and retention accepted on 2026-09-28. Research requested before implementation planning.

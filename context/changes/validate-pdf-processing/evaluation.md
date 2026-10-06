@@ -393,3 +393,28 @@ Cost: USD 0.711945 confirmed plus 0.147456 held. Cumulative spent **USD 2.901278
 The held USD 0.147456 is the 4.18 summer batch-2 timeout (an unknown outcome). It cannot be released without trusted billing evidence.
 
 **4.20: 1 of the 3 required runs completed (passed); not accepted.** Cumulative spent **USD 3.1714035**, held **USD 0.147456**.
+
+## Budget USD 7 and acceptance measurement 4.20 — PASS (2026-10-06)
+
+The user raised the F-01 budget to USD 7 (commit 3d72e8d, migration 20261006120000). The deliberate break (old limit in the migration) made 2 DB tests fail, and the code was restored. PDF 92/92, DB 10/10, lint clean. The budget limit is part of the recorded configuration digest, so 4.20 used three new runs; 10798fa8 stays as supporting evidence.
+
+Runs **e4e7a786, e6e3150c, 066f4d67**, all with config digest a1cf3030…, commit 3d72e8d, `gpt-5.4-mini`, reasoning medium and a 120 s provider deadline. There were no failures, timeouts or 429s, and all calls reconciled.
+
+| Run | summer | lunchboxy |
+| --- | --- | --- |
+| e4e7a786 | PASS — 4/4, 18 reported diffs (99.8 s) | PASS — exact golden (42.6 s) |
+| e6e3150c | PASS — 4/4, 9 reported diffs (65.2 s) | PASS — exact golden (38.9 s) |
+| 066f4d67 | PASS — 4/4, 31 reported diffs (90.1 s) | PASS — 4 reported diffs (40.3 s) |
+
+**`npm run pdf:acceptance`: ok=true — summer 3/3, lunchboxy 3/3, identical config.** Exact-golden replay still exits 1 by design; that tier is report-only since the 2026-10-05 amendment.
+
+Reported-tier (non-blocking) differences across the three runs:
+
+- summer `name`: the golden keeps "(pół szklanki)" etc. in the name; the model drops the household parenthetical (33).
+- summer `quantity`/`unit`: "napar z owocowej herbaty (pół szklanki)" was given quantity "pół", unit "szklanki", where the golden has null (9 + 9). There is no metric amount, so this is not blocking under the contract.
+- summer `sourceText`: "kurczaka kurczaka" (a duplicated word in the wrap) and a missing or differently placed "sos:" prefix or "(2 łyżeczki)" (7).
+- lunchboxy `footnotes`: the "Całość: … kcal" nutrition line was returned as a footnote in 2 recipes in one run.
+
+Cost of the three runs: USD 0.8590695. Cumulative spent **USD 4.03048275**, held **USD 0.147456** (the 4.18 timeout), with USD 2.82206125 available under USD 7. That covers the phase 6 final-matrix headroom of USD 2.359296.
+
+Gate status: **4.20 PASS**. 4.9, 4.13 and 4.16 described earlier configurations and stay as failed historical gates. 4.4 and 4.14 (manual) await the user.

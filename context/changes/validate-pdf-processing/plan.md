@@ -56,6 +56,10 @@ Measurement 4.18 (reasoning medium) separated the summer variants correctly but 
 - **Provider deadline** 60 s → **120 s**. The 270 s import deadline and 300 s end-to-end bound are unchanged; reasoning stays medium.
 - **Re-measurement** 3 × (summer + lunchboxy), same 3/3 gate.
 
+## Approved F-01 budget amendment II — 2026-10-06
+
+The user raised the cumulative F-01 budget again, from **USD 6 to USD 7** (7,000,000,000 nano-USD). Measurement 4.20 completed one passing run, but the preflight refused the remaining two by USD 0.268. Reasoning medium raised per-run usage, and USD 0.147456 stays held from the 4.18 timeout. All other limits, the maximum-reservation headroom rule and the reservation arithmetic are unchanged. Wherever this plan says USD 5 or USD 6 for F-01, read USD 7. The budget limit is part of the recorded configuration digest, so run 10798fa8 cannot share a frozen configuration with later runs. 4.20 is therefore measured with three new runs; 10798fa8 stays as supporting evidence. Three runs fit under USD 7 with the unchanged headroom rule.
+
 ## Approved F-01 budget amendment — 2026-10-06
 
 The user raised the cumulative F-01 budget from **USD 5 to USD 6** (6,000,000,000 nano-USD). The preflight before measurement 4.18 refused the 3 × (summer + lunchboxy) run by USD 0.138 under maximum reservations while keeping the full final-matrix headroom. All historical spend and holds stay; the per-import (USD 0.50) and monthly (USD 10) limits, preflight headroom rule and reservation arithmetic are unchanged. Wherever this plan says "USD 5" for F-01, read USD 6. A new migration updates the existing `f01` scope limit and the default used when the scope is first created.
@@ -590,7 +594,7 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 - [x] 4.17 `npm run test:pdf` and `npm run pdf:acceptance -- --self-test` prove sub-list groups merge into their preceding variant, unrelated duplicate labels stay invalid, and household-parenthetical tolerance keeps amounts blocking; requests use `reasoning.effort=medium`; golden invariance holds. — 332aa84
 - [ ] 4.18 A re-measurement of 3 × (summer + lunchboxy) with reasoning medium passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
 - [x] 4.19 `npm run test:pdf` proves heading-only entries fold into the next entry, an unmapped source category falls back to the model's allowed category while mapped categories still win, and the provider deadline is 120 s within the unchanged 270 s import deadline; golden invariance holds. — 9033455
-- [ ] 4.20 A re-measurement of 3 × (summer + lunchboxy) with these rules passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
+- [x] 4.20 A re-measurement of 3 × (summer + lunchboxy) with these rules passes the blocking tier 3/3 per ebook in `pdf:acceptance`.
 
 #### Manual
 
