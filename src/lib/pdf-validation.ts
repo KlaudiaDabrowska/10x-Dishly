@@ -48,6 +48,7 @@ export function privateJson(body: unknown, status = 200): Response {
 const STATUS_BY_CODE: Record<string, number> = {
   "import-not-found": 404,
   "active-import-exists": 409,
+  "import-id-conflict": 409,
   "import-not-processing": 409,
   "batch-already-processed": 409,
   "batch-already-dispatched": 409,
@@ -56,16 +57,40 @@ const STATUS_BY_CODE: Record<string, number> = {
   "payload-digest-mismatch": 409,
   "import-budget-insufficient": 409,
   "reservation-failed": 409,
+  "invalid-request": 400,
 };
 
+// Content-free server trace for 5xx outcomes: fixed codes and identifiers only, never messages,
+// provider/database bodies, source text or recipe content.
+function logFailure(error: unknown, status: number, route: string) {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const dbCode = (cause as { code?: unknown } | undefined)?.code;
+  // eslint-disable-next-line no-console
+  console.error(
+    JSON.stringify({
+      event: "pdf_validation_error",
+      route,
+      status,
+      error: error instanceof Error ? error.name : typeof error,
+      code: (error as { code?: unknown } | null)?.code ?? null,
+      db_code: typeof dbCode === "string" && /^[0-9A-Z]{5}$/.test(dbCode) ? dbCode : null,
+    }),
+  );
+}
+
+function errorStatus(error: unknown): { code: string; status: number } {
+  if (error instanceof PdfRequestError) return { code: error.code, status: 400 };
+  if (error instanceof PdfReadError) return { code: error.code, status: 422 };
+  if (error instanceof OpenAiPdfError) return { code: error.code, status: 502 };
+  if (error instanceof SpendingControlError) return { code: error.code, status: STATUS_BY_CODE[error.code] ?? 500 };
+  return { code: "internal-error", status: 500 };
+}
+
 // Sanitized error codes only: never provider bodies, source text or database messages.
-export function errorResponse(error: unknown): Response {
-  if (error instanceof PdfRequestError) return privateJson({ error: error.code }, 400);
-  if (error instanceof PdfReadError) return privateJson({ error: error.code }, 422);
-  if (error instanceof OpenAiPdfError) return privateJson({ error: error.code }, 502);
-  if (error instanceof SpendingControlError)
-    return privateJson({ error: error.code }, STATUS_BY_CODE[error.code] ?? 500);
-  return privateJson({ error: "internal-error" }, 500);
+export function errorResponse(error: unknown, route = "unknown"): Response {
+  const { code, status } = errorStatus(error);
+  if (status >= 500) logFailure(error, status, route);
+  return privateJson({ error: code }, status);
 }
 
 async function readBoundedJson(request: Request, maximumBytes: number): Promise<unknown> {
@@ -140,22 +165,28 @@ export async function guard(
     } catch (error) {
       if (error instanceof PdfRequestError && error.code === "request-too-large")
         return privateJson({ error: error.code }, 413);
-      return errorResponse(error);
+      return errorResponse(error, "request-body");
     }
   }
   return { service: createValidationService({ client, ownerId: user.id, apiKey }), ownerId: user.id, body };
 }
+
+const READ_BACK_CHUNK = 100;
 
 // Owner-scoped read-back through the cookie-bound client and RLS, never the privileged client.
 export async function verifyReadBack(context: APIContext, ids: readonly string[]): Promise<boolean> {
   if (ids.length === 0) return true;
   const supabase = createClient(context.request.headers, context.cookies);
   if (!supabase) return false;
-  const { data, error } = await supabase
-    .from("recipes")
-    .select("id")
-    .in("id", [...ids]);
-  if (error || !Array.isArray(data)) return false;
-  const found = new Set(data.map((row: { id: string }) => row.id));
+  // Chunked so a large import never exceeds request URL limits.
+  const found = new Set<string>();
+  for (let start = 0; start < ids.length; start += READ_BACK_CHUNK) {
+    const { data, error } = await supabase
+      .from("recipes")
+      .select("id")
+      .in("id", ids.slice(start, start + READ_BACK_CHUNK));
+    if (error || !Array.isArray(data)) return false;
+    for (const row of data as { id: string }[]) found.add(row.id);
+  }
   return ids.every((id) => found.has(id));
 }

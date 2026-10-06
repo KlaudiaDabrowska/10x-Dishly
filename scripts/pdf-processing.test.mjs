@@ -14,6 +14,7 @@ import {
 } from "../src/lib/pdf-processing/openai.ts";
 import { PDF_LIMITS } from "../src/lib/pdf-processing/limits.ts";
 import { reconcileCandidates } from "../src/lib/pdf-processing/reconcile.ts";
+import { createPersistence } from "../src/lib/pdf-processing/persistence.ts";
 import { digestValidatedCandidate, validateRecipeCandidate } from "../src/lib/pdf-processing/validation.ts";
 
 const source = {
@@ -894,5 +895,26 @@ test("schema and runtime accept provenance on pages 113/115 while rejecting 116"
       allPagesBatch,
     ).status,
     "invalid",
+  );
+});
+
+test("deterministic finalization RPC rejections map to client codes; unknown errors stay generic", async () => {
+  const owner = "00000000-0000-4000-8000-000000000001";
+  const rejecting = (message) =>
+    createPersistence({ rpc: async () => ({ data: null, error: { message, code: "P0001" } }) }, owner);
+  for (const [message, code] of [
+    ["manifest mismatch", "manifest-mismatch"],
+    ["invalid finalization", "invalid-request"],
+    ["invalid batch result", "invalid-request"],
+    ["invalid validation import", "invalid-request"],
+    ["batch is not reconciled", "batch-results-missing"],
+    ["import id conflict", "import-id-conflict"],
+    ["import is not processing", "import-not-processing"],
+  ]) {
+    await assert.rejects(rejecting(message).cancelImport(owner), (error) => error.code === code);
+  }
+  await assert.rejects(
+    rejecting("connection reset").cancelImport(owner),
+    (error) => error.code === "import-cancel-failed" && !error.message.includes("connection"),
   );
 });

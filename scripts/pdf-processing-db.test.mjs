@@ -500,9 +500,11 @@ function service(ownerId, options = {}) {
   });
 }
 const roundTrip = (value) => JSON.parse(JSON.stringify(value));
+// The browser chooses the import id before sending the text (idempotency key).
+const createBody = (document, importId = randomUUID()) => roundTrip({ importId, ...document });
 // Drives the same request bodies the browser panel sends.
 async function processAll(svc, document) {
-  const created = roundTrip(await svc.createImport(roundTrip(document)));
+  const created = roundTrip(await svc.createImport(createBody(document)));
   const candidates = [];
   for (const entry of created.manifest.batches) {
     const batch = batchFromManifest(document.source, document.pages, entry);
@@ -577,7 +579,7 @@ test("finalization saves only complete candidates atomically, reads back per own
     ],
   );
   // One active import per evaluator.
-  await assert.rejects(svc.createImport(roundTrip(sourceDocument(sha(), "other.pdf"))), {
+  await assert.rejects(svc.createImport(createBody(sourceDocument(sha(), "other.pdf"))), {
     code: "active-import-exists",
   });
 
@@ -631,7 +633,7 @@ test("tampered batch input is rejected before any reservation", async () => {
   const calls = [];
   const svc = service(user.id, { calls });
   const document = sourceDocument(sha(), "tamper.pdf");
-  const created = roundTrip(await svc.createImport(roundTrip(document)));
+  const created = roundTrip(await svc.createImport(createBody(document)));
   const batch = roundTrip(batchFromManifest(document.source, document.pages, created.manifest.batches[0]));
   const changedText = roundTrip(batch);
   changedText.pages[0].items[1].text = "900 g flour";
@@ -650,7 +652,7 @@ test("a complete extraction failure writes no recipes and keeps the possible cha
   const user = await createUser(`pdf-recipes-fail-${randomUUID()}@example.test`);
   const svc = service(user.id, { fail: true });
   const document = sourceDocument(sha(), "fail.pdf");
-  const created = roundTrip(await svc.createImport(roundTrip(document)));
+  const created = roundTrip(await svc.createImport(createBody(document)));
   const batch = batchFromManifest(document.source, document.pages, created.manifest.batches[0]);
   await assert.rejects(svc.processBatch(created.importId, roundTrip(batch)));
   const outcome = await svc.finalize(created.importId, { manifestDigest: created.manifestDigest, candidates: [] });
@@ -658,6 +660,88 @@ test("a complete extraction failure writes no recipes and keeps the possible cha
   assert.deepEqual([outcome.saved, outcome.alreadySaved, outcome.pending], [0, 0, 0]);
   assert.deepEqual(await ownRecipes(user), []);
   assert.equal((await scope(`import:${created.importId}`)).held_nano_usd, 1000);
+});
+
+test("a cancel that lands after the open check still prevents reservation and dispatch", async () => {
+  const user = await createUser(`pdf-recipes-cancel-race-${randomUUID()}@example.test`);
+  const document = sourceDocument(sha(), "cancel-race.pdf");
+  let dispatched = 0;
+  let importId;
+  const svc = createValidationService({
+    client: admin(),
+    ownerId: user.id,
+    apiKey: "unused-test-key",
+    prepareBatches: async (source, pages) => createTextBatches(source, pages, { corePagesPerBatch: 1 }),
+    // The service already checked the import is open; the user cancels before the reservation.
+    recognize: async (options) => {
+      await admin().rpc("cancel_pdf_validation_import", { p_owner_id: user.id, p_import_id: importId });
+      return dispatchWithSpendingControl({
+        state: options.state,
+        reservation: { ...options.reservation, maximumCostNanoUsd: 1000, pricing },
+        dispatch: async () => {
+          dispatched++;
+          throw new Error("must not dispatch");
+        },
+      });
+    },
+  });
+  const created = roundTrip(await svc.createImport(createBody(document)));
+  importId = created.importId;
+  const batch = batchFromManifest(document.source, document.pages, created.manifest.batches[0]);
+  await assert.rejects(svc.processBatch(importId, roundTrip(batch)), { code: "import-not-processing" });
+  assert.equal(dispatched, 0);
+  // No reservation was admitted: nothing is held or spent for this import, and no batch was claimed.
+  const importScope = await admin().rpc("get_pdf_budget_scope", { p_scope_key: `import:${importId}` });
+  assert.ifError(importScope.error);
+  assert.ok(importScope.data.every((row) => Number(row.held_nano_usd) === 0 && Number(row.spent_nano_usd) === 0));
+  const state = await admin().rpc("get_pdf_import_state", { p_owner_id: user.id, p_import_id: importId });
+  assert.ifError(state.error);
+  assert.ok(state.data[0].batches.every((entry) => !entry.reservationId && entry.status !== "dispatch-claimed"));
+  assert.equal((await svc.status(importId)).status, "cancelled");
+  assert.deepEqual(await ownRecipes(user), []);
+});
+
+test("a client-chosen import id recovers a lost create response and cannot be reused", async () => {
+  const user = await createUser(`pdf-recipes-create-${randomUUID()}@example.test`);
+  const other = await createUser(`pdf-recipes-create-other-${randomUUID()}@example.test`);
+  const svc = service(user.id);
+  const document = sourceDocument(sha(), "create.pdf");
+  const importId = randomUUID();
+  // A cancel sent before the create lands finds nothing and writes nothing.
+  await assert.rejects(svc.cancel(importId), { code: "import-not-found" });
+  const first = roundTrip(await svc.createImport(createBody(document, importId)));
+  assert.equal(first.importId, importId);
+  // The create response is "lost": retrying with the same id returns the same import, not a 409.
+  const retried = roundTrip(await svc.createImport(createBody(document, importId)));
+  assert.deepEqual([retried.importId, retried.manifestDigest], [importId, first.manifestDigest]);
+  // The same id with different text, or from another account, is rejected.
+  await assert.rejects(svc.createImport(createBody(sourceDocument(sha(), "create.pdf"), importId)), {
+    code: "import-id-conflict",
+  });
+  await assert.rejects(service(other.id).createImport(createBody(sourceDocument(sha(), "x.pdf"), importId)), {
+    code: "import-id-conflict",
+  });
+  await assert.rejects(svc.createImport({ ...createBody(document), importId: "not-a-uuid" }), {
+    code: "invalid-request",
+  });
+  // The browser can always close the import by the id it chose, which frees the evaluator slot.
+  assert.equal((await svc.cancel(importId)).status, "cancelled");
+  const next = roundTrip(await svc.createImport(createBody(sourceDocument(sha(), "next.pdf"))));
+  await svc.cancel(next.importId);
+});
+
+test("an import that expired before finalize saves nothing, even with valid content", async () => {
+  const user = await createUser(`pdf-recipes-expired-${randomUUID()}@example.test`);
+  const svc = service(user.id);
+  const { created, body } = await processAll(svc, sourceDocument(sha(), "expired.pdf"));
+  sql(
+    `update public.pdf_imports set expires_at = clock_timestamp() - interval '1 second' where id = '${created.importId}'`,
+  );
+  const outcome = await svc.finalize(created.importId, body);
+  assert.equal(outcome.status, "failed");
+  assert.deepEqual([outcome.saved, outcome.alreadySaved], [0, 0]);
+  assert.deepEqual(await ownRecipes(user), []);
+  assert.equal((await svc.status(created.importId)).status, "failed");
 });
 
 test("concurrent finalize and cancel serialize on the import row", async () => {
@@ -728,7 +812,7 @@ test("identical bytes under a renamed file skip saved recipes and keep edits; ot
   // A later failed attempt on the same file never deletes earlier rows.
   const failing = service(user.id, { fail: true });
   const document = sourceDocument(fingerprint, "original.pdf");
-  const failed = roundTrip(await failing.createImport(roundTrip(document)));
+  const failed = roundTrip(await failing.createImport(createBody(document)));
   await assert.rejects(
     failing.processBatch(
       failed.importId,

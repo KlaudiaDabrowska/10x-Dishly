@@ -206,6 +206,15 @@ export function parseSourcePages(raw: unknown): { source: PdfSource; pages: Page
   return { source, pages };
 }
 
+const IMPORT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+// Create request: a browser-chosen import id (idempotency key) plus the untrusted import text.
+export function parseCreateRequest(raw: unknown): { importId: string; source: PdfSource; pages: PageText[] } {
+  if (!isRecord(raw) || !exactKeys(raw, ["importId", "source", "pages"])) fail();
+  if (typeof raw.importId !== "string" || !IMPORT_ID.test(raw.importId)) fail();
+  return { importId: raw.importId, ...parseSourcePages({ source: raw.source, pages: raw.pages }) };
+}
+
 const range = (start: number, end: number) =>
   Array.from({ length: end - start + 1 }, (_unused, index) => start + index);
 

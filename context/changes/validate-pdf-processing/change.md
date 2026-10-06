@@ -1,7 +1,7 @@
 ---
 change_id: validate-pdf-processing
 title: Validate pdf processing
-status: implementing
+status: impl_reviewed
 created: 2026-09-28
 updated: 2026-10-06
 archived_at: null
@@ -28,6 +28,8 @@ Reasoning medium (2026-10-06): 4.17 done (332aa84); F-01 budget raised to USD 6 
 4.20 PASS (2026-10-06): F-01 budget USD 7 (3d72e8d). Three runs on one frozen config (medium, 120 s) pass the blocking tier — summer 3/3, lunchboxy 3/3. Spent USD 4.03048275, held USD 0.147456. Pending: manual 4.4/4.14, and documentation of the summer variant change in PRD/roadmap/fixtures.
 
 Phase 4 complete (2026-10-06): user approved the reported-tier differences (4.4, 4.14); superseded gates 4.9/4.13/4.16/4.18 checked with a note. Next: Phase 5.
+
+Phase 5 complete (2026-10-06, b46b966): recipes table, digest-checked atomic finalization, restricted evaluator screen and APIs. Local screen check: lunchboxy 5/5 saved, re-import deduplicated, scan rejected, cancel saved nothing. Spent USD 4.2286575, held USD 0.147456. Production deploy now requires four new secrets. Next: Phase 6.
 
 ## Notes
 

@@ -9,7 +9,7 @@ import {
   buildManifest,
   manifestDigest,
   normalizeManifest,
-  parseSourcePages,
+  parseCreateRequest,
   verifyBatch,
 } from "./manifest.ts";
 import type { SourceManifest } from "./manifest.ts";
@@ -86,10 +86,11 @@ export function createValidationService(options: ValidationServiceOptions) {
 
   return {
     // Token counting is non-generative. The backend rebuilds batches/digests from the supplied text;
-    // nothing the browser claims about batches, digests or cost authorizes spending.
+    // nothing the browser claims about batches, digests or cost authorizes spending. The browser
+    // chooses the import id first, so it can cancel or look up the import if this response is lost.
     async createImport(body: unknown) {
       const startedAt = now();
-      const { source, pages } = parseSourcePages(body);
+      const { importId, source, pages } = parseCreateRequest(body);
       const batches = await (options.prepareBatches ?? prepareOpenAiPdfBatches)(source, pages, {
         apiKey: options.apiKey,
         ...(options.fetch ? { fetch: options.fetch } : {}),
@@ -99,7 +100,7 @@ export function createValidationService(options: ValidationServiceOptions) {
       const { manifest, manifestDigest: digest } = await buildManifest(source, pages, batches);
       assertManifestPartition(manifest);
       const created = await persistence.createImport({
-        importId: crypto.randomUUID(),
+        importId,
         fileFingerprint: source.sha256,
         manifestDigest: digest,
         sourceFilename: source.filename,
@@ -258,14 +259,18 @@ export function createValidationService(options: ValidationServiceOptions) {
       }
       const reconciled = reconcileCandidates([...byBatch.values()]);
       const recipes: FinalizedRecipe[] = [];
+      // First submitted candidate per batch + source start, as a map (linear, not per-entry scans).
+      const ownerKey = (batchIndex: number, page: number, itemIndex: number) => `${batchIndex}:${page}:${itemIndex}`;
+      const owners = new Map<string, (typeof submitted)[number]>();
+      for (const item of submitted) {
+        const key = ownerKey(item.batchIndex, item.candidate.sourceStart.page, item.candidate.sourceStart.itemIndex);
+        if (!owners.has(key)) owners.set(key, item);
+      }
       for (const entry of reconciled.candidates) {
         if (entry.status !== "complete") continue;
         const { candidate } = entry;
-        const owner = submitted.find(
-          (item) =>
-            item.batchIndex === entry.batches[0] &&
-            item.candidate.sourceStart.page === candidate.sourceStart.page &&
-            item.candidate.sourceStart.itemIndex === candidate.sourceStart.itemIndex,
+        const owner = owners.get(
+          ownerKey(entry.batches[0], candidate.sourceStart.page, candidate.sourceStart.itemIndex),
         );
         if (!owner || candidate.title === null || candidate.category === null)
           throw new SpendingControlError("payload-digest-mismatch");
@@ -301,7 +306,11 @@ export function createValidationService(options: ValidationServiceOptions) {
     async status(importId: string) {
       let record = await requireImport(importId);
       if (record.status === "processing" && Date.parse(record.expiresAt) <= now()) {
-        await options.client.rpc("close_expired_pdf_import", { p_owner_id: ownerId, p_import_id: importId });
+        const { error } = await options.client.rpc("close_expired_pdf_import", {
+          p_owner_id: ownerId,
+          p_import_id: importId,
+        });
+        if (error) throw new SpendingControlError("import-update-failed", { cause: error });
         record = await requireImport(importId);
       }
       return {

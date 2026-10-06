@@ -53,6 +53,21 @@ export interface FinalizedRecipe {
   footnotes: string[];
 }
 
+const RPC_REJECTIONS: Record<string, string> = {
+  "active import exists": "active-import-exists",
+  "import not found": "import-not-found",
+  "import id conflict": "import-id-conflict",
+  "import is not processing": "import-not-processing",
+  "payload digest mismatch": "payload-digest-mismatch",
+  "recipe is not a recorded complete candidate": "payload-digest-mismatch",
+  "batch results missing": "batch-results-missing",
+  "batch is not reconciled": "batch-results-missing",
+  "manifest mismatch": "manifest-mismatch",
+  "invalid finalization": "invalid-request",
+  "invalid batch result": "invalid-request",
+  "invalid validation import": "invalid-request",
+};
+
 // Narrow, typed access to the backend-only finalization RPCs. Never constructed with user cookies.
 export function createPersistence(client: AccountingRpcClient, authenticatedOwnerId: string | null | undefined) {
   const ownerId = authenticatedOwnerId?.trim();
@@ -61,15 +76,9 @@ export function createPersistence(client: AccountingRpcClient, authenticatedOwne
   async function call(name: string, parameters: Record<string, unknown>, code: string): Promise<unknown> {
     const { data, error } = await client.rpc(name, { p_owner_id: ownerId, ...parameters });
     if (error) {
-      if (error.message === "active import exists") throw new SpendingControlError("active-import-exists");
-      if (error.message === "import not found") throw new SpendingControlError("import-not-found");
-      if (
-        error.message === "payload digest mismatch" ||
-        error.message === "recipe is not a recorded complete candidate"
-      )
-        throw new SpendingControlError("payload-digest-mismatch");
-      if (error.message === "batch results missing") throw new SpendingControlError("batch-results-missing");
-      if (error.message === "import is not processing") throw new SpendingControlError("import-not-processing");
+      // Deterministic rejections raised by the RPCs map to client-facing codes; anything else stays generic.
+      const known = RPC_REJECTIONS[error.message];
+      if (known) throw new SpendingControlError(known, { cause: error });
       throw new SpendingControlError(code, { cause: error });
     }
     return data;

@@ -79,12 +79,13 @@ test("Free diagnostic rejects CPU overrides on either Worker and larger consumer
   assert.throws(() => checkConsumerConfig(consumer));
 });
 
-test("experiment credentials are production-only secrets, never preview secrets or plain vars", () => {
+test("experiment credentials are optional secrets, never required, preview secrets or plain vars", () => {
   const source = ts.parseConfigFileTextToJson("wrangler.jsonc", readFileSync("wrangler.jsonc", "utf8")).config;
-  assert.deepEqual([...source.secrets.required].sort(), requiredSecrets);
+  // Production deploys must not depend on the experiment: missing configuration only disables it.
+  assert.deepEqual([...source.secrets.required].sort(), [...requiredSecrets].sort());
   assert.deepEqual(source.env.preview.secrets.required, []);
   for (const name of experimentSecrets) {
-    assert.ok(requiredSecrets.includes(name));
+    assert.ok(!requiredSecrets.includes(name));
     assert.equal(source.vars[name], undefined);
     assert.equal(source.env.preview.vars[name], undefined);
     const preview = config();
@@ -93,8 +94,8 @@ test("experiment credentials are production-only secrets, never preview secrets 
     const plain = config();
     plain.vars[name] = "true";
     assert.throws(() => checkConfig(plain, "preview"));
-    const production = config("production");
-    production.secrets.required = requiredSecrets.filter((secret) => secret !== name);
-    assert.throws(() => checkConfig(production, "production"));
+    const productionRequired = config("production");
+    productionRequired.secrets.required = [...requiredSecrets, name];
+    assert.throws(() => checkConfig(productionRequired, "production"));
   }
 });

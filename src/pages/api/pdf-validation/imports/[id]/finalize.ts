@@ -11,6 +11,6 @@ export const POST: APIRoute = async (context) => {
       outcome.status === "committed" && (await verifyReadBack(context, [...outcome.savedIds, ...outcome.existingIds]));
     return privateJson({ ...outcome, readBack });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, "finalize");
   }
 };

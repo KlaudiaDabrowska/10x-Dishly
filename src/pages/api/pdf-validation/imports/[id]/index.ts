@@ -12,7 +12,7 @@ export const GET: APIRoute = async (context) => {
       (await verifyReadBack(context, [...status.outcome.savedIds, ...status.outcome.existingIds]));
     return privateJson({ ...status, readBack });
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, "status");
   }
 };
 
@@ -23,6 +23,6 @@ export const DELETE: APIRoute = async (context) => {
   try {
     return privateJson(await guarded.service.cancel(String(context.params.id)));
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, "cancel");
   }
 };

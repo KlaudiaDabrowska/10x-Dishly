@@ -9,6 +9,6 @@ export const POST: APIRoute = async (context) => {
   try {
     return privateJson(await guarded.service.createImport(guarded.body), 201);
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, "create");
   }
 };

@@ -436,3 +436,15 @@ Local built Worker (`preview:worker`) against the local Supabase ledger, with mi
 Cost of the screen checks: USD 0.198175 (three imports, including the cancelled one). Cumulative spent **USD 4.2286575**, held **USD 0.147456**, with USD 2.6238865 available under USD 7, which still covers the phase 6 final-matrix headroom of USD 2.359296.
 
 Progress 5.5 is checked on the user's confirmation.
+
+### Phase 5 implementation review fixes (2026-10-06)
+
+[reviews/impl-review-phase-5.md](reviews/impl-review-phase-5.md) found no critical issue. Fixed before Phase 6:
+
+- `reserve_pdf_batch` (migration 20261007100000) refuses a new reservation for a validation import that is cancelled, failed, committed or expired, so a cancel arriving during token counting can no longer let a paid call start. Cancel and failure also close batches that were never dispatched.
+- The browser chooses the import id before sending text; create is idempotent on that id, so a cancelled or lost create can always be closed and cannot block the evaluator for 5 minutes.
+- The four experiment secrets are optional for deploys again; missing configuration only disables the experiment.
+- Deterministic RPC rejections return 400/409 instead of 500; 5xx outcomes log one content-free line (route, status, error code, SQLSTATE).
+- Finalize uses a map instead of a nested scan; read-back is chunked; the status call checks the expiry-close result.
+
+Design note: the plan's `processing → ready → committed` sequence is simplified. Finalize accepts a `processing` import directly once every batch is recorded; `ready` is never set. Cancellation and expiry behave as planned. Error codes produced by the shared request guard stay snake_case (`experiment_unavailable` etc.), as the existing middleware and preview checks use them.

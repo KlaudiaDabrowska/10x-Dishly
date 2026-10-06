@@ -9,6 +9,6 @@ export const POST: APIRoute = async (context) => {
   try {
     return privateJson(await guarded.service.processBatch(String(context.params.id), guarded.body));
   } catch (error) {
-    return errorResponse(error);
+    return errorResponse(error, "batch");
   }
 };

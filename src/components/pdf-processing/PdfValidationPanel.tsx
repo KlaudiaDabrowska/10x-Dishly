@@ -93,6 +93,8 @@ export default function PdfValidationPanel() {
   const [importId, setImportId] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
   const activeImport = useRef<string | null>(null);
+  // An id whose create may still complete after a cancel; closed before the next import starts.
+  const unconfirmedImport = useRef<string | null>(null);
   const busy = stage === "reading" || stage === "recognizing" || stage === "saving";
 
   useEffect(() => {
@@ -137,6 +139,9 @@ export default function PdfValidationPanel() {
     const startedAt = performance.now(); // Before hashing/reading; stops after commit read-back.
     const abort = new AbortController();
     controller.current = abort;
+    const previous = unconfirmedImport.current;
+    unconfirmedImport.current = null;
+    if (previous) await api(`/api/pdf-validation/imports/${previous}`, { method: "DELETE" }).catch(() => undefined);
     let id: string | null = null;
     let candidates: ReturnedCandidate[] = [];
     try {
@@ -144,14 +149,16 @@ export default function PdfValidationPanel() {
       const { readPdf } = await import("@/lib/pdf-processing/browser-reader");
       let read: Awaited<ReturnType<typeof readPdf>> | null = await readPdf(file, { signal: abort.signal });
       setStage("recognizing");
-      const created = await api<ImportCreated>(
-        "/api/pdf-validation/imports",
-        { method: "POST", body: JSON.stringify({ source: read.source, pages: read.pages }) },
-        abort.signal,
-      );
-      id = created.importId;
+      // Chosen before sending, so cancel and status lookup work even if the create response is lost.
+      id = crypto.randomUUID();
       activeImport.current = id;
       setImportId(id);
+      const created = await api<ImportCreated>(
+        "/api/pdf-validation/imports",
+        { method: "POST", body: JSON.stringify({ importId: id, source: read.source, pages: read.pages }) },
+        abort.signal,
+      );
+      if (created.importId !== id) throw new RequestFailure("invalid-response");
       const total = created.manifest.batches.length;
       setProgress({ done: 0, total });
       for (const entry of created.manifest.batches) {
@@ -215,6 +222,8 @@ export default function PdfValidationPanel() {
         }
         if (recovered?.status === "processing")
           await api(`/api/pdf-validation/imports/${id}`, { method: "DELETE" }).catch(() => undefined);
+        // Not found yet: the create request may still complete on the server after this cancel.
+        if (!recovered) unconfirmedImport.current = id;
       }
       activeImport.current = null;
       setElapsedMs(performance.now() - startedAt);

@@ -72,7 +72,11 @@ export function createImportState(client: AccountingRpcClient, authenticatedOwne
         p_pricing_snapshot: reservation.pricing,
         p_expires_at: reservation.expiresAt,
       });
-      if (error) throw new SpendingControlError("reservation-failed", { cause: error });
+      if (error) {
+        if (error.message.includes("import is not processing"))
+          throw new SpendingControlError("import-not-processing", { cause: error });
+        throw new SpendingControlError("reservation-failed", { cause: error });
+      }
       const data = rawData as DispatchClaim[] | null;
       const claim = data?.[0];
       if (!claim) throw new SpendingControlError("reservation-failed");
