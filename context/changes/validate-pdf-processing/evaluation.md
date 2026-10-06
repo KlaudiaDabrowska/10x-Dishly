@@ -528,3 +528,12 @@ Known failures carried forward: none new. The superseded failed gates 4.9/4.13/4
 - S-02: the real dashboard import flow for all users (no evaluator allowlist or feature switch), the production UX for progress, errors and incomplete results, and moving the monthly USD 10 scope from test to product use.
 - S-03: keep/discard of incomplete results; S-04–S-07: browsing, filtering, editing and deleting recipes.
 - Retiring or gating the evaluation screen and the evaluator accounts after F-01, and a decision on the held USD 0.147456 (4.18 timeout), which stays held without billing evidence.
+
+## Migration consolidation (2026-10-06)
+
+Production had received no migration yet, so the user approved replacing the nine F-01 migrations with one file, `supabase/migrations/20261008120000_pdf_processing.sql`. There is no behavior change.
+
+- `npm run test:pdf:migration` PASS. It applied the nine files from f1cdd0b and the single file to two separate fresh isolated projects. pg_dump, functions (definition md5, ACL, security definer, config), tables, columns, constraints, indexes, triggers, policies, RLS, default privileges and table rows were all identical: 18 functions, 11 tables, 1 policy, 94 constraints, 17 indexes, 1 trigger, 104 columns. A negative control (one changed function character plus one extra grant) failed as expected.
+- Local evaluation ledger: backed up privately to `local/db-backup/`, brought to the full nine-migration schema (`migration up`), and compared read-only with the consolidated schema: identical. Only its history was repaired (nine versions reverted, 20261008120000 applied). It was not reset. F-01 is unchanged: spent 4,228,657,500, held 147,456,000 nano-USD. The ledger still holds 47 imports and 5 recipes.
+- Gates: PDF 103/103, isolated DB 22/22 on the single migration, lint, Astro check, build, check:deploy production and deploy-config 8/8 all pass.
+- Migration file names cited in earlier sections are historical; the originals remain in git.

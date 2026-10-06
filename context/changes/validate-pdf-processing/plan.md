@@ -1,5 +1,9 @@
 # Validate PDF Processing Implementation Plan
 
+## Approved migration-consolidation amendment — 2026-10-06
+
+The user approved replacing the nine F-01 migrations (20260930090000 … 20261008100000) with one consolidated migration, `20261008120000_pdf_processing.sql`, before production receives any migration. It is a Phase 6 prerequisite with no behavior change. `npm run test:pdf:migration` proves the final schema is identical, comparing two isolated fresh projects (the nine files at f1cdd0b versus the single file): pg_dump, functions with md5/ACL/security/config, tables, columns, constraints, indexes, triggers, policies, RLS and default privileges. The local evaluation ledger was backed up, brought to the full nine-migration schema, compared read-only with the consolidated schema (identical), and only its migration history was repaired (nine versions reverted, 20261008120000 applied). It was not reset. F-01 spend and holds are unchanged. The originals remain in git history; earlier references to their file names in evaluation records are historical.
+
 ## Approved provider amendment — 2026-09-30
 
 The user approved OpenAI API with gpt-5.4-mini. [provider-decision.md](provider-decision.md) is the current account, request, accounting and retention contract; it supersedes earlier Gemini-specific foundation/research clauses. This is an explicit user-approved plan amendment, not implementation drift.
