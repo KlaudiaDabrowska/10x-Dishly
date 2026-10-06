@@ -18,7 +18,7 @@ export const PDF_LIMITS = Object.freeze({
   rateLimitRetries: 1,
   rateLimitDefaultDelayMs: 20_000,
   rateLimitMaxDelayMs: 30_000,
-  f01BudgetNanoUsd: 6_000_000_000,
+  f01BudgetNanoUsd: 7_000_000_000,
   monthlyBudgetNanoUsd: 10_000_000_000,
   importBudgetNanoUsd: 500_000_000,
 });

@@ -97,7 +97,7 @@ function candidate() {
   };
 }
 const ledgerSnapshot = {
-  f01: { limit_nano_usd: 6_000_000_000, spent_nano_usd: 123_000_000, held_nano_usd: 61_440_000 },
+  f01: { limit_nano_usd: 7_000_000_000, spent_nano_usd: 123_000_000, held_nano_usd: 61_440_000 },
 };
 
 test("review arguments default to both; invalid input has zero credential/network effects", async () => {
@@ -161,7 +161,7 @@ test("budget preflight retains historical spend/holds and headroom for all eight
   const admitted = assertReviewBudget(before, prepared, ["summer", "lunchboxy"]);
   assert.equal(admitted.selectedCalls, 4);
   assert.equal(admitted.finalMatrixCalls, 16);
-  assert.equal(admitted.availableNanoUsd, 6_000_000_000 - 123_000_000 - 61_440_000);
+  assert.equal(admitted.availableNanoUsd, 7_000_000_000 - 123_000_000 - 61_440_000);
   assert.deepEqual(before, ledgerSnapshot);
   assert.throws(() => assertReviewBudget({}, prepared, ["lunchboxy"]), { code: "f01-ledger-missing" });
   assert.throws(
