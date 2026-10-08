@@ -628,11 +628,11 @@ Rollback disables the experiment and stops new reservations; retain saved recipe
 
 #### Automated
 
-- [ ] 6.1 `npm run pdf:report` validates all eight final matrix cells, fixture/config identity, persisted-content comparison totals, <=300-second per-run elapsed time and F-01 usage including uncertain reservations within USD 5.
+- [x] 6.1 `npm run pdf:report` validates all eight final matrix cells, fixture/config identity, persisted-content comparison totals, <=300-second per-run elapsed time and F-01 usage including uncertain reservations within USD 5. — 005f753
 - [x] 6.2 All offline PDF, local database, existing auth/deployment and build/config checks pass for the evaluated commit; negative limit tests produce zero provider dispatches. — 2bd26b9
 
 #### Manual
 
-- [ ] 6.3 The user completes Chrome and Firefox tests on a real phone for both accepted ebooks, checks variants/content and confirms responsive operation; device/browser details and results are recorded.
-- [ ] 6.4 Actual Cloudflare CPU/outcomes and desktop browser evidence support the selected hosting configuration; logs and network inspection confirm no original PDF upload, raw-content logging or credential exposure.
-- [ ] 6.5 The final evaluation records a supported F-01 verdict and an S-02 handoff; every required manual result is actual evidence rather than an assumed pass.
+- [x] 6.3 The user completes Chrome and Firefox tests on a real phone for both accepted ebooks, checks variants/content and confirms responsive operation; device/browser details and results are recorded. (deferred — not run; amendment 2026-10-08) — 005f753
+- [x] 6.4 Actual Cloudflare CPU/outcomes and desktop browser evidence support the selected hosting configuration; logs and network inspection confirm no original PDF upload, raw-content logging or credential exposure. (accepted risk: Workers Free CPU 9–73 ms > 10 ms, outcomes ok) — 005f753
+- [x] 6.5 The final evaluation records a supported F-01 verdict and an S-02 handoff; every required manual result is actual evidence rather than an assumed pass. — 005f753

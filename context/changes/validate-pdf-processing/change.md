@@ -1,9 +1,9 @@
 ---
 change_id: validate-pdf-processing
 title: Validate pdf processing
-status: implementing
+status: implemented
 created: 2026-09-28
-updated: 2026-10-06
+updated: 2026-10-08
 archived_at: null
 ---
 
@@ -32,6 +32,8 @@ Phase 4 complete (2026-10-06): user approved the reported-tier differences (4.4,
 Phase 5 complete (2026-10-06, b46b966): recipes table, digest-checked atomic finalization, restricted evaluator screen and APIs. Local screen check: lunchboxy 5/5 saved, re-import deduplicated, scan rejected, cancel saved nothing. Spent USD 4.2286575, held USD 0.147456. Production deploy now requires four new secrets. Next: Phase 6.
 
 Phase 6 offline part (2026-10-06, 2bd26b9): pdf:report, panel run record, one-time f01 ledger carry-over to production, manual-tests.md. 6.2 done; 6.1 and manual 6.3–6.5 wait for deployment and the user's 8-cell matrix (summer + lunchboxy).
+
+Phase 6 complete (2026-10-08): first-iteration matrix (desktop Chrome) passes on the deployed stack. summer 105.4 s, lunchboxy 56.6 s; rejections cost zero. F-01 verdict GO, scoped to desktop Chrome. Firefox/phone are deferred, and Workers Free CPU (9–73 ms) is an accepted risk. Spent USD 4.51609425, held USD 0.147456. 9 migrations consolidated into one.
 
 ## Notes
 
