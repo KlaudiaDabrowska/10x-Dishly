@@ -3,7 +3,7 @@ project: "Dishly"
 version: 5
 status: draft
 created: 2026-09-18
-updated: 2026-09-28
+updated: 2026-10-08
 context_type: greenfield
 product_type: web-app
 target_scale:
@@ -146,6 +146,7 @@ Sweet/savory options and calorie values describe sample input; no new filtering 
 - The original PDF stays on the user's device; only extracted text and necessary layout/page context are sent through the backend to the AI provider. App-held temporary input is released after success, failure, or cancellation; saved recipes remain in the private account. Provider retention and data-use terms were accepted on 2026-09-28 (see the processing decision below); local cleanup does not guarantee provider-side deletion.
 - Recipe collections remain private to their owners; users cannot access another user's import text, results, or saved recipes.
 - The main flow (registration/login, local PDF reading, AI processing, import results and keep-or-discard decisions, filtering, and reading recipes) is usable in current versions of the two agreed mainstream browsers on desktop and mobile with a responsive layout.
+  > Amendment (2026-10-08, user): the first iteration targets desktop web users. F-01 verifies the full import path in desktop Chrome only. Firefox and real-phone import checks are deferred until after the first iteration. Mobile should still look good, and a mobile layout check is expected when this is revisited.
 
 ## Business Logic
 

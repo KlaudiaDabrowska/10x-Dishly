@@ -23,12 +23,15 @@ import {
 } from "./pdf-extract-review.mjs";
 
 // Phase 6 final benchmark. `record` turns one panel run record plus operator-supplied cell metadata
-// into a non-content cell record; `report` validates the eight-cell matrix. Recipe content is read
-// only to score it against the pinned golden and never leaves this process: cell records keep
+// into a non-content cell record; `report` validates the required matrix cells. Recipe content is
+// read only to score it against the pinned golden and never leaves this process: cell records keep
 // codes, titles, indices, counts, timings, tokens and cost.
 export const MATRIX_FIXTURES = ["summer", "lunchboxy"];
 export const MATRIX_BROWSERS = ["chrome", "firefox"];
 export const MATRIX_DEVICES = ["desktop", "phone"];
+// User amendment 2026-10-08: the first iteration requires desktop Chrome only. Firefox and real-phone
+// import cells are deferred until after the first iteration; record still accepts them.
+export const REQUIRED_CELLS = ["summer/chrome/desktop", "lunchboxy/chrome/desktop"];
 // Synthetic negative inputs. The 113-page low-gi ebook is within the 115-page limit since the
 // 2026-10-05 amendment, so the page-limit check uses a >115-page file instead.
 export const REJECTION_FIXTURES = ["over-page-limit", "oversized"];
@@ -396,16 +399,20 @@ export function rejectionFailures(record) {
   return failures;
 }
 
-export function benchmarkReport(cells, rejections = [], expectedLimitNanoUsd = PDF_LIMITS.f01BudgetNanoUsd) {
+export function benchmarkReport(
+  cells,
+  rejections = [],
+  expectedLimitNanoUsd = PDF_LIMITS.f01BudgetNanoUsd,
+  requiredCells = REQUIRED_CELLS,
+) {
   const reasons = [];
-  const required = MATRIX_FIXTURES.flatMap((fixture) =>
-    MATRIX_BROWSERS.flatMap((browser) => MATRIX_DEVICES.map((deviceClass) => `${fixture}/${browser}/${deviceClass}`)),
-  );
   const byKey = new Map();
   for (const record of cells) {
     const key = cellKey(record.cell);
     byKey.set(key, [...(byKey.get(key) ?? []), record]);
   }
+  // Deferred cells that were recorded anyway are reported and must pass; they are never required.
+  const required = [...requiredCells, ...[...byKey.keys()].filter((key) => !requiredCells.includes(key))];
   const matrix = required.map((key) => {
     const records = byKey.get(key) ?? [];
     if (records.length === 0) return { cell: key, ok: false, failures: ["missing"] };
@@ -428,7 +435,10 @@ export function benchmarkReport(cells, rejections = [], expectedLimitNanoUsd = P
       confirmedNanoUsd: record.usage.confirmedNanoUsd,
     };
   });
-  for (const key of byKey.keys()) if (!required.includes(key)) reasons.push("unexpected-cell");
+  const knownCells = MATRIX_FIXTURES.flatMap((fixture) =>
+    MATRIX_BROWSERS.flatMap((browser) => MATRIX_DEVICES.map((deviceClass) => `${fixture}/${browser}/${deviceClass}`)),
+  );
+  for (const key of byKey.keys()) if (!knownCells.includes(key)) reasons.push("unexpected-cell");
   if (matrix.some((entry) => !entry.ok)) reasons.push("matrix-incomplete-or-failed");
   if (new Set(cells.map((record) => record.identity.commit)).size > 1) reasons.push("commit-mismatch");
   if (new Set(cells.map((record) => record.identity.configDigest)).size > 1) reasons.push("config-mismatch");

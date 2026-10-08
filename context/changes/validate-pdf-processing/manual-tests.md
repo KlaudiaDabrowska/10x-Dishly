@@ -2,7 +2,7 @@
 
 This is the procedure for the final F-01 measurement on the deployed Cloudflare Worker and production Supabase. The agent prepared the tools offline. The user runs every deployed and real-phone step and records actual results. Emulation, local runs and synthetic tests cannot fill any matrix cell. A blank or assumed value counts as not run.
 
-Binding decisions for this run: the second ebook is **lunchboxy** (amendment of 2026-10-05; read "pasta" as lunchboxy). The F-01 budget is **USD 7** (amendment II of 2026-10-06). The matrix is {summer, lunchboxy} × {Chrome, Firefox} × {desktop, real phone} = **8 cells, one clean final run each**.
+Binding decisions for this run: the second ebook is **lunchboxy** (amendment of 2026-10-05; read "pasta" as lunchboxy). The F-01 budget is **USD 7** (amendment II of 2026-10-06). **First-iteration matrix (amendment of 2026-10-08):** summer and lunchboxy in **desktop Chrome**, i.e. 2 cells with one clean final run each. Firefox and real-phone cells (sections 5 and the remaining checklist rows) are deferred until after the first iteration. They are revisited then, together with a mobile layout check. The host stays on Workers Free as an accepted risk; any `exceededCpu`/1102 outcome stops the measurement.
 
 ## 0. Ground rules
 

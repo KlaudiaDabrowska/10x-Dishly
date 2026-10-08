@@ -8,6 +8,7 @@ import {
   MATRIX_BROWSERS,
   MATRIX_DEVICES,
   MATRIX_FIXTURES,
+  REQUIRED_CELLS,
   benchmarkReport,
   buildCellRecord,
   buildRejectionRecord,
@@ -164,6 +165,11 @@ function cell({
   });
 }
 
+// The full browser × device matrix; the first-iteration requirement is checked separately below.
+const ALL_CELLS = MATRIX_FIXTURES.flatMap((fixture) =>
+  MATRIX_BROWSERS.flatMap((browser) => MATRIX_DEVICES.map((device) => `${fixture}/${browser}/${device}`)),
+);
+
 function fullMatrix() {
   let index = 0;
   return MATRIX_FIXTURES.flatMap((fixture) =>
@@ -191,7 +197,7 @@ function rejection(fixture, error, overrides = {}) {
 const rejections = () => [rejection("over-page-limit", "too-many-pages"), rejection("oversized", "file-too-large")];
 
 test("a complete clean matrix on one deployed commit passes and reports max/mean and confirmed vs held", () => {
-  const result = benchmarkReport(fullMatrix(), rejections(), LIMIT);
+  const result = benchmarkReport(fullMatrix(), rejections(), LIMIT, ALL_CELLS);
   assert.deepEqual(result.reasons, []);
   assert.equal(result.ok, true);
   assert.equal(result.matrix.length, 8);
@@ -285,47 +291,71 @@ test("each per-cell failure is rejected with its own code", () => {
 
 test("missing, duplicate and inconsistent matrices fail with explicit reasons", () => {
   const matrix = fullMatrix();
-  const missing = benchmarkReport(matrix.slice(1), rejections(), LIMIT);
+  const missing = benchmarkReport(matrix.slice(1), rejections(), LIMIT, ALL_CELLS);
   assert.equal(missing.ok, false);
   assert.deepEqual(missing.matrix[0].failures, ["missing"]);
 
-  const duplicate = benchmarkReport([...matrix, cell({ index: 99 })], rejections(), LIMIT);
+  const duplicate = benchmarkReport([...matrix, cell({ index: 99 })], rejections(), LIMIT, ALL_CELLS);
   assert.ok(duplicate.matrix.some((entry) => entry.failures.includes("duplicate")));
 
   const mixedConfig = fullMatrix();
   mixedConfig[3].identity.configDigest = "c".repeat(64);
-  assert.ok(benchmarkReport(mixedConfig, rejections(), LIMIT).reasons.includes("config-mismatch"));
+  assert.ok(benchmarkReport(mixedConfig, rejections(), LIMIT, ALL_CELLS).reasons.includes("config-mismatch"));
 
   const mixedCommit = fullMatrix();
   mixedCommit[2].identity.commit = "b".repeat(40);
-  assert.ok(benchmarkReport(mixedCommit, rejections(), LIMIT).reasons.includes("commit-mismatch"));
+  assert.ok(benchmarkReport(mixedCommit, rejections(), LIMIT, ALL_CELLS).reasons.includes("commit-mismatch"));
 
   const local = fullMatrix();
   local[0].target = "local";
-  assert.ok(benchmarkReport(local, rejections(), LIMIT).reasons.includes("not-deployed-target"));
+  assert.ok(benchmarkReport(local, rejections(), LIMIT, ALL_CELLS).reasons.includes("not-deployed-target"));
 
   const overBudget = fullMatrix();
   overBudget.at(-1).recordedAt = "2026-10-08T00:00:00.000Z";
   overBudget.at(-1).budget.f01 = { limitNanoUsd: LIMIT, spentNanoUsd: 6_900_000_000, heldNanoUsd: 147_456_000 };
-  assert.ok(benchmarkReport(overBudget, rejections(), LIMIT).reasons.includes("f01-budget-exceeded"));
+  assert.ok(benchmarkReport(overBudget, rejections(), LIMIT, ALL_CELLS).reasons.includes("f01-budget-exceeded"));
 
-  assert.ok(benchmarkReport(fullMatrix(), [], LIMIT).reasons.includes("rejection-check-failed"));
+  assert.ok(benchmarkReport(fullMatrix(), [], LIMIT, ALL_CELLS).reasons.includes("rejection-check-failed"));
+});
+
+test("the first iteration requires only the two desktop Chrome cells (2026-10-08 amendment)", () => {
+  assert.deepEqual(REQUIRED_CELLS, ["summer/chrome/desktop", "lunchboxy/chrome/desktop"]);
+  const desktopChrome = fullMatrix().filter(
+    (record) => record.cell.browser === "chrome" && record.cell.deviceClass === "desktop",
+  );
+  const passing = benchmarkReport(desktopChrome, rejections(), LIMIT);
+  assert.deepEqual(passing.reasons, []);
+  assert.equal(passing.matrix.length, 2);
+  const missingLunchboxy = benchmarkReport(desktopChrome.slice(0, 1), rejections(), LIMIT);
+  assert.ok(missingLunchboxy.reasons.includes("matrix-incomplete-or-failed"));
+  // Deferred cells are not required, but a recorded one must still pass.
+  const failingPhone = fullMatrix().find((record) => record.cell.deviceClass === "phone");
+  failingPhone.timings.totalMs = 300_001;
+  const withFailingPhone = benchmarkReport([...desktopChrome, failingPhone], rejections(), LIMIT);
+  assert.ok(withFailingPhone.reasons.includes("matrix-incomplete-or-failed"));
+  assert.ok(
+    withFailingPhone.matrix
+      .find((entry) => entry.cell === "summer/chrome/phone")
+      .failures.includes("elapsed-over-300s"),
+  );
+  const passingPhone = fullMatrix().find((record) => record.cell.deviceClass === "phone");
+  assert.deepEqual(benchmarkReport([...desktopChrome, passingPhone], rejections(), LIMIT).reasons, []);
 });
 
 test("rejection checks require the exact limit code, no import and an unchanged budget", () => {
   assert.equal(
-    benchmarkReport(fullMatrix(), rejections(), LIMIT).rejections.every((entry) => entry.ok),
+    benchmarkReport(fullMatrix(), rejections(), LIMIT, ALL_CELLS).rejections.every((entry) => entry.ok),
     true,
   );
   const wrongCode = [rejection("over-page-limit", "file-too-large"), rejection("oversized", "file-too-large")];
-  assert.deepEqual(benchmarkReport(fullMatrix(), wrongCode, LIMIT).rejections[0].failures, [
+  assert.deepEqual(benchmarkReport(fullMatrix(), wrongCode, LIMIT, ALL_CELLS).rejections[0].failures, [
     "unexpected-rejection-code",
   ]);
   const spent = rejections();
   spent[1].budgetAfter = { ...spent[1].budgetAfter, spentNanoUsd: spent[1].budgetAfter.spentNanoUsd + 1 };
-  assert.deepEqual(benchmarkReport(fullMatrix(), spent, LIMIT).rejections[1].failures, ["budget-changed"]);
+  assert.deepEqual(benchmarkReport(fullMatrix(), spent, LIMIT, ALL_CELLS).rejections[1].failures, ["budget-changed"]);
   const created = [rejection("over-page-limit", "too-many-pages", { importId: importIdFor(50) }), rejections()[1]];
-  assert.deepEqual(benchmarkReport(fullMatrix(), created, LIMIT).rejections[0].failures, ["import-created"]);
+  assert.deepEqual(benchmarkReport(fullMatrix(), created, LIMIT, ALL_CELLS).rejections[0].failures, ["import-created"]);
 });
 
 test("run records accept only non-content fields and never a zero memory reading", () => {
