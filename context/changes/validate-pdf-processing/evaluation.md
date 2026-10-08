@@ -602,4 +602,6 @@ Remaining product work:
 - S-03: keep/discard handling for incomplete results.
 - Later: Firefox/mobile verification and the hosting decision.
 
+The carried-over hold of USD 0.147456 (the 4.18 provider timeout) has no reservation row in production, so no RPC can release or reconcile it. It is accepted as a permanent, fail-closed hold that reduces F-01 headroom. It may be resolved later only from OpenAI billing evidence, in a separate change (user decision, review F7).
+
 The evaluator screen stays enabled at the user's request (only the 8 evaluator accounts can use it). Saved recipes and accounting are retained.
