@@ -537,3 +537,69 @@ Production had received no migration yet, so the user approved replacing the nin
 - Local evaluation ledger: backed up privately to `local/db-backup/`, brought to the full nine-migration schema (`migration up`), and compared read-only with the consolidated schema: identical. Only its history was repaired (nine versions reverted, 20261008120000 applied). It was not reset. F-01 is unchanged: spent 4,228,657,500, held 147,456,000 nano-USD. The ledger still holds 47 imports and 5 recipes.
 - Gates: PDF 103/103, isolated DB 22/22 on the single migration, lint, Astro check, build, check:deploy production and deploy-config 8/8 all pass.
 - Migration file names cited in earlier sections are historical; the originals remain in git.
+
+## Phase 6 — final measurement and F-01 verdict (2026-10-07/08)
+
+Deployed: commit `37f690e831ee7790e3287127cc0cf891d677dd23`, dishly-web version a1167ab6 (secrets applied on top of 5fecf473), production Supabase with the consolidated migration and the carried-over F-01 history (evidence digest da0a5558…). Model `gpt-5.4-mini`, Responses API, reasoning medium, 120 s provider deadline. The first-iteration matrix is desktop Chrome only (amendment 2026-10-08). One dedicated clean evaluator account was used per cell.
+
+### Matrix (`npm run pdf:report`: ok=true)
+
+| Cell | Result | Elapsed (read / recognize / save) | Saved | Blocking tier | Reported diffs | Tokens in/out | Cost |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| summer / Chrome 152 / Linux desktop | PASS | 105.4 s (1.8 / 103.0 / 0.6) | 4/4, read back | PASS | 11 | 169,274 / 18,482 | USD 0.2101245 |
+| lunchboxy / Chrome 152 / Linux desktop | PASS | 56.6 s (0.15 / 56.0 / 0.5) | 5/5, read back | PASS | 5 | 51,009 / 8,679 | USD 0.07731225 |
+
+Maximum elapsed 105.4 s, mean 81.0 s (limit 300 s). Browser: 0 long tasks, JS heap ≤ 52 MB; the user attested responsive with no crash. Rejections: the 125-page file failed with `too-many-pages` and the 20,000,001-byte file with `file-too-large`. Neither created an import or made a request to the import API, and the F-01 ledger did not change.
+
+### Cloudflare (Workers Free) — `wrangler tail`
+
+All invocations in both runs had outcome `ok`, with no `exceededCpu`, exception or application log line. CPU per request in ms, summer / lunchboxy:
+
+| Request | Summer | Lunchboxy |
+| --- | --- | --- |
+| create | 73 | 24 |
+| batch 1 | 47 | 26 |
+| batch 2 | 53 | 17 |
+| finalize | 11 | 9 |
+
+Every import request except one exceeds the 10 ms Workers Free limit (lunchboxy finalize, 9 ms, is the exception). It currently runs within Cloudflare's tolerance. This is not evidence that Free is sufficient. The user accepted it as a first-iteration risk (amendment 2026-10-08), and Workers Paid is parked in the roadmap. Any `exceededCpu`/1102 reopens the decision.
+
+Network inspection in desktop Chrome DevTools (user): the PDF was not uploaded (JSON requests only), the browser made no request to api.openai.com, and no credentials appeared.
+
+### Spend
+
+Matrix USD 0.28743675. F-01 cumulative: spent **USD 4.51609425**, held **USD 0.147456** (the 4.18 timeout, carried over), available USD 2.33644975 of USD 7.
+
+### Acceptance items
+
+| Item | Status |
+| --- | --- |
+| 6.1 `pdf:report` | PASS (2 required cells, rejections, ≤300 s, budget, identity) |
+| 6.2 offline/DB/deploy checks | PASS (2bd26b9) |
+| 6.3 real-phone Chrome/Firefox | **Deferred, not run** (amendment 2026-10-08; roadmap Parked) |
+| 6.4 Cloudflare CPU/outcomes, desktop evidence, network | PASS with accepted risk (Workers Free CPU above limit, outcomes ok) |
+| 6.5 verdict and handoff | This section |
+
+### F-01 verdict — GO for the first iteration (desktop Chrome)
+
+The local reading → backend → OpenAI → validation → atomic save path works on the deployed stack for both accepted ebooks. All expected recipes were saved with correct ingredients and metric amounts, in at most 105 s, within budget. Limits reject oversized input at zero cost. The verdict is scoped: Firefox and phone import are not verified, and Workers Free is an accepted risk, not a proven fit. Both are open conditions for later iterations, not passes.
+
+Exact passing configuration: commit 37f690e, `gpt-5.4-mini`, reasoning medium, max output 16,384 tokens, input cap 98,304, provider deadline 120 s, import deadline 270 s, end-to-end bound 300 s, F-01 budget USD 7, USD 0.50 per import, USD 10 per month, normalization and validation rules as of 4.19.
+
+### S-02 handoff
+
+Reusable components:
+- `browser-reader.ts`/`reader-core.ts` (PDF.js, limits, layout)
+- `batching.ts`/`manifest.ts` (shared batch builder, input digests)
+- `openai.ts`/`prompt.ts` (bounded adapter, 429 handling)
+- `validation.ts`/`normalize.ts`/`categories.ts`/`reconcile.ts`
+- `budget.ts`/`import-state.ts` plus the ledger RPCs
+- `persistence.ts`/`service.ts` plus the `recipes` table and finalize RPC
+- the four API routes
+
+Remaining product work:
+- S-02: the dashboard import flow replaces the restricted evaluator screen, so the allowlist/enable switch must be replaced by product access rules and a monthly budget.
+- S-03: keep/discard handling for incomplete results.
+- Later: Firefox/mobile verification and the hosting decision.
+
+The evaluator screen stays enabled at the user's request (only the 8 evaluator accounts can use it). Saved recipes and accounting are retained.
