@@ -1,10 +1,10 @@
 ---
 change_id: validate-pdf-processing
 title: Validate pdf processing
-status: impl_reviewed
+status: archived
 created: 2026-09-28
 updated: 2026-10-08
-archived_at: null
+archived_at: 2026-10-08T11:54:48Z
 ---
 
 Input-cap amendment (2026-10-03): raised to 98,304 at the user's request. Summer now passes input admission in two calls (60,886/80,950 tokens); golden quality remains failed. Current cost and run evidence are in evaluation.md.
