@@ -1,5 +1,11 @@
 # Validate PDF Processing Implementation Plan
 
+## Approved first-iteration matrix and hosting amendment — 2026-10-08
+
+The user narrowed the F-01 final matrix for the first iteration to **desktop Chrome**: summer and lunchboxy, one clean deployed run each (cells summer/chrome/desktop and lunchboxy/chrome/desktop, both measured on 2026-10-07). The first iteration targets desktop web users. Firefox and real-phone import cells are **deferred, not dropped**: they are revisited after the first iteration, with a mobile layout check expected then. Wherever 6.1/6.3 say "eight cells", "Chrome/Firefox" or "real phone", read the two desktop Chrome cells. 6.3 is not run in this iteration and is recorded as deferred. `pdf:report` requires the two cells; a deferred cell recorded anyway must still pass. The rejection checks, ≤300-second maximum, budget, identity and blocking-tier rules are unchanged.
+
+The user also chose to stay on **Workers Free** for the MVP while measuring. Measured CPU per import request (create, batches, finalize) is 9–73 ms against the 10 ms Free limit. No request has failed yet (all outcomes `ok`). This is an accepted risk, not a passing hosting gate. Any `exceededCpu`/1102 outcome stops the measurement and reopens the hosting decision (Workers Paid). 6.4 records this explicitly.
+
 ## Approved migration-consolidation amendment — 2026-10-06
 
 The user approved replacing the nine F-01 migrations (20260930090000 … 20261008100000) with one consolidated migration, `20261008120000_pdf_processing.sql`, before production receives any migration. It is a Phase 6 prerequisite with no behavior change. `npm run test:pdf:migration` proves the final schema is identical, comparing two isolated fresh projects (the nine files at f1cdd0b versus the single file): pg_dump, functions with md5/ACL/security/config, tables, columns, constraints, indexes, triggers, policies, RLS and default privileges. The local evaluation ledger was backed up, brought to the full nine-migration schema, compared read-only with the consolidated schema (identical), and only its migration history was repaired (nine versions reverted, 20261008120000 applied). It was not reset. F-01 spend and holds are unchanged. The originals remain in git history; earlier references to their file names in evaluation records are historical.

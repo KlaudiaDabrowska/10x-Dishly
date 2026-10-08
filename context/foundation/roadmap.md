@@ -3,7 +3,7 @@ project: Dishly
 version: 5
 status: draft
 created: 2026-09-23
-updated: 2026-09-30
+updated: 2026-10-08
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -215,6 +215,9 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved
 **Next move:** `/10x-plan validate-pdf-processing` (F-01). Q4 is resolved and S-01 is done; S-02 still awaits completion of the F-01 feasibility check. The local reading → backend → AI architecture is accepted. The 20 MB / 100-page limit remains in effect; the proposed 150-page limit has not yet been accepted.
 
 ## Parked
+
+- **Firefox and real-phone import verification** — deferred by the user on 2026-10-08. The first iteration targets desktop web, and F-01 measures the import path in desktop Chrome only. Revisit after the first iteration, including a mobile layout check; S-02 must not claim mobile/Firefox import support until then.
+- **Workers Paid hosting** — deferred by the user on 2026-10-08. The MVP stays on Workers Free. Import requests measured 9–73 ms CPU against the 10 ms Free limit, so far without failure. Revisit on any `exceededCpu`/1102 outcome, or before broader use.
 
 - **Ebook library and PDF storage** — Outside the PRD scope; files remain temporary extraction input only.
 - **Scanned PDFs** — Outside the PRD scope; the first version supports selectable text.
