@@ -234,13 +234,13 @@ Nowa migracja działa po skonsolidowanej migracji `20261008120000_pdf_processing
 
 #### Automated
 
-- [x] 3.1 `npm run test:pdf` przechodzi bez regresji ekstrakcji, walidacji i finalizacji.
-- [x] 3.2 `npm run test:pdf:db` potwierdza atomowość, deduplikację, RLS, kanały i budżety.
-- [x] 3.3 `npm run test:deploy-config`, `npx astro check`, `npm run lint` i `npm run build` przechodzą.
-- [x] 3.4 Test kontraktu dashboardu potwierdza owner-scoped banner i brak zaufania do parametrów licznikowych.
+- [x] 3.1 `npm run test:pdf` przechodzi bez regresji ekstrakcji, walidacji i finalizacji. — 807af2a
+- [x] 3.2 `npm run test:pdf:db` potwierdza atomowość, deduplikację, RLS, kanały i budżety. — 807af2a
+- [x] 3.3 `npm run test:deploy-config`, `npx astro check`, `npm run lint` i `npm run build` przechodzą. — 807af2a
+- [x] 3.4 Test kontraktu dashboardu potwierdza owner-scoped banner i brak zaufania do parametrów licznikowych. — 807af2a
 
 #### Manual
 
-- [x] 3.5 Reprezentatywne ebooki dają oczekiwane wyniki w desktopowym Chrome w czasie poniżej 300 sekund.
-- [x] 3.6 Pełny sukces przekierowuje na dashboard; ponowny import pokazuje liczbę już zapisanych bez duplikacji.
-- [x] 3.7 Limity, błąd dostawcy, anulowanie, retry i drugi właściciel nie powodują częściowych ani cudzych zapisów.
+- [x] 3.5 Reprezentatywne ebooki dają oczekiwane wyniki w desktopowym Chrome w czasie poniżej 300 sekund. — 807af2a
+- [x] 3.6 Pełny sukces przekierowuje na dashboard; ponowny import pokazuje liczbę już zapisanych bez duplikacji. — 807af2a
+- [x] 3.7 Limity, błąd dostawcy, anulowanie, retry i drugi właściciel nie powodują częściowych ani cudzych zapisów. — 807af2a
