@@ -209,26 +209,26 @@ Nowa migracja działa po skonsolidowanej migracji `20261008120000_pdf_processing
 
 #### Automated
 
-- [x] 1.1 Migracja i testy DB potwierdzają niezmienność kanału oraz poprawne zakresy budżetowe produktu i ewaluacji.
-- [x] 1.2 Testy autoryzacji potwierdzają dostęp zwykłego użytkownika do produktu, zachowanie allowlisty F-01 i izolację właścicieli.
-- [x] 1.3 Testy konfiguracji potwierdzają fail-closed `PDF_IMPORT_ENABLED` i brak sekretów produkcyjnych w preview.
+- [x] 1.1 Migracja i testy DB potwierdzają niezmienność kanału oraz poprawne zakresy budżetowe produktu i ewaluacji. — 8517acd
+- [x] 1.2 Testy autoryzacji potwierdzają dostęp zwykłego użytkownika do produktu, zachowanie allowlisty F-01 i izolację właścicieli. — 8517acd
+- [x] 1.3 Testy konfiguracji potwierdzają fail-closed `PDF_IMPORT_ENABLED` i brak sekretów produkcyjnych w preview. — 8517acd
 
 #### Manual
 
-- [x] 1.4 Przy wyłączonej fladze nie można rozpocząć nowego importu, a istniejący import nadal można bezpiecznie zakończyć lub anulować.
+- [x] 1.4 Przy wyłączonej fladze nie można rozpocząć nowego importu, a istniejący import nadal można bezpiecznie zakończyć lub anulować. — 8517acd
 
 ### Phase 2: Wspólny klient i produktowy UX
 
 #### Automated
 
-- [ ] 2.1 Testy kontrolera obejmują sukces, utraconą odpowiedź finalize, anulowanie, pending, `0/0/0` i niepotwierdzony read-back.
-- [ ] 2.2 Testy mapowania błędów pokrywają wszystkie znane klasy błędów bez wyświetlania kodów.
-- [ ] 2.3 Build, Astro check i lint przechodzą dla obu paneli.
+- [x] 2.1 Testy kontrolera obejmują sukces, utraconą odpowiedź finalize, anulowanie, pending, `0/0/0` i niepotwierdzony read-back.
+- [x] 2.2 Testy mapowania błędów pokrywają wszystkie znane klasy błędów bez wyświetlania kodów.
+- [x] 2.3 Build, Astro check i lint przechodzą dla obu paneli.
 
 #### Manual
 
-- [ ] 2.4 Produktowy import w desktopowym Chrome pokazuje polskie etapy i nie ujawnia diagnostyki F-01.
-- [ ] 2.5 Wynik z niekompletnymi przepisami pozostaje na stronie, pokazuje braki i nie zapisuje tych kandydatów.
+- [x] 2.4 Produktowy import w desktopowym Chrome pokazuje polskie etapy i nie ujawnia diagnostyki F-01.
+- [x] 2.5 Wynik z niekompletnymi przepisami pozostaje na stronie, pokazuje braki i nie zapisuje tych kandydatów.
 
 ### Phase 3: Dashboard, regresja i rollout
 
