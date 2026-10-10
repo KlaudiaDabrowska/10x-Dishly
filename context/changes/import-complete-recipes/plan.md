@@ -221,26 +221,26 @@ Nowa migracja działa po skonsolidowanej migracji `20261008120000_pdf_processing
 
 #### Automated
 
-- [x] 2.1 Testy kontrolera obejmują sukces, utraconą odpowiedź finalize, anulowanie, pending, `0/0/0` i niepotwierdzony read-back.
-- [x] 2.2 Testy mapowania błędów pokrywają wszystkie znane klasy błędów bez wyświetlania kodów.
-- [x] 2.3 Build, Astro check i lint przechodzą dla obu paneli.
+- [x] 2.1 Testy kontrolera obejmują sukces, utraconą odpowiedź finalize, anulowanie, pending, `0/0/0` i niepotwierdzony read-back. — 074c536
+- [x] 2.2 Testy mapowania błędów pokrywają wszystkie znane klasy błędów bez wyświetlania kodów. — 074c536
+- [x] 2.3 Build, Astro check i lint przechodzą dla obu paneli. — 074c536
 
 #### Manual
 
-- [x] 2.4 Produktowy import w desktopowym Chrome pokazuje polskie etapy i nie ujawnia diagnostyki F-01.
-- [x] 2.5 Wynik z niekompletnymi przepisami pozostaje na stronie, pokazuje braki i nie zapisuje tych kandydatów.
+- [x] 2.4 Produktowy import w desktopowym Chrome pokazuje polskie etapy i nie ujawnia diagnostyki F-01. — 074c536
+- [x] 2.5 Wynik z niekompletnymi przepisami pozostaje na stronie, pokazuje braki i nie zapisuje tych kandydatów. — 074c536
 
 ### Phase 3: Dashboard, regresja i rollout
 
 #### Automated
 
-- [ ] 3.1 `npm run test:pdf` przechodzi bez regresji ekstrakcji, walidacji i finalizacji.
-- [ ] 3.2 `npm run test:pdf:db` potwierdza atomowość, deduplikację, RLS, kanały i budżety.
-- [ ] 3.3 `npm run test:deploy-config`, `npx astro check`, `npm run lint` i `npm run build` przechodzą.
-- [ ] 3.4 Test kontraktu dashboardu potwierdza owner-scoped banner i brak zaufania do parametrów licznikowych.
+- [x] 3.1 `npm run test:pdf` przechodzi bez regresji ekstrakcji, walidacji i finalizacji.
+- [x] 3.2 `npm run test:pdf:db` potwierdza atomowość, deduplikację, RLS, kanały i budżety.
+- [x] 3.3 `npm run test:deploy-config`, `npx astro check`, `npm run lint` i `npm run build` przechodzą.
+- [x] 3.4 Test kontraktu dashboardu potwierdza owner-scoped banner i brak zaufania do parametrów licznikowych.
 
 #### Manual
 
-- [ ] 3.5 Reprezentatywne ebooki dają oczekiwane wyniki w desktopowym Chrome w czasie poniżej 300 sekund.
-- [ ] 3.6 Pełny sukces przekierowuje na dashboard; ponowny import pokazuje liczbę już zapisanych bez duplikacji.
-- [ ] 3.7 Limity, błąd dostawcy, anulowanie, retry i drugi właściciel nie powodują częściowych ani cudzych zapisów.
+- [x] 3.5 Reprezentatywne ebooki dają oczekiwane wyniki w desktopowym Chrome w czasie poniżej 300 sekund.
+- [x] 3.6 Pełny sukces przekierowuje na dashboard; ponowny import pokazuje liczbę już zapisanych bez duplikacji.
+- [x] 3.7 Limity, błąd dostawcy, anulowanie, retry i drugi właściciel nie powodują częściowych ani cudzych zapisów.

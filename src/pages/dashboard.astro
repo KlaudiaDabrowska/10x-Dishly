@@ -1,7 +1,13 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import ImportOutcomeBanner from "@/components/pdf-processing/ImportOutcomeBanner";
+import { dashboardImportId } from "@/lib/pdf-processing/dashboard-import";
+import { productImportAvailable } from "@/lib/pdf-validation";
 
 const { user } = Astro.locals;
+const importAvailable = productImportAvailable();
+const hasImportParameter = Astro.url.searchParams.has("import");
+const importId = dashboardImportId(Astro.url.search);
 ---
 
 <Layout title="Your recipes | Dishly">
@@ -25,6 +31,19 @@ const { user } = Astro.locals;
           </button>
         </form>
       </header>
+
+      {hasImportParameter && <ImportOutcomeBanner importId={importId} client:load />}
+
+      {importAvailable && (
+        <div class="mt-8">
+          <a
+            href="/dashboard/import"
+            class="inline-flex min-h-11 items-center justify-center rounded-lg bg-purple-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-200"
+          >
+            Importuj przepisy z PDF
+          </a>
+        </div>
+      )}
 
       <section
         aria-labelledby="empty-collection-title"
