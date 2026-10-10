@@ -23,6 +23,7 @@ export default defineConfig({
       SUPABASE_KEY: envField.string({ context: "server", access: "secret", optional: true }),
       SUPABASE_SECRET_KEY: envField.string({ context: "server", access: "secret", optional: true }),
       OPENAI_API_KEY: envField.string({ context: "server", access: "secret", optional: true }),
+      PDF_IMPORT_ENABLED: envField.string({ context: "server", access: "secret", optional: true }),
       PDF_VALIDATION_ENABLED: envField.string({ context: "server", access: "secret", optional: true }),
       PDF_VALIDATION_EVALUATOR_IDS: envField.string({ context: "server", access: "secret", optional: true }),
     },

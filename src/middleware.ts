@@ -24,7 +24,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // Preview and unconfigured environments cannot reach the model or privileged database.
     const error = context.url.pathname.startsWith("/api/pdf-validation/")
       ? "experiment_unavailable"
-      : "infrastructure_unavailable";
+      : context.url.pathname.startsWith("/api/imports")
+        ? "import_unavailable"
+        : "infrastructure_unavailable";
     return privateResponse(Response.json({ error }, { status: 503 }));
   }
 

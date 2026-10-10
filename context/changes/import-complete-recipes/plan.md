@@ -209,13 +209,13 @@ Nowa migracja działa po skonsolidowanej migracji `20261008120000_pdf_processing
 
 #### Automated
 
-- [ ] 1.1 Migracja i testy DB potwierdzają niezmienność kanału oraz poprawne zakresy budżetowe produktu i ewaluacji.
-- [ ] 1.2 Testy autoryzacji potwierdzają dostęp zwykłego użytkownika do produktu, zachowanie allowlisty F-01 i izolację właścicieli.
-- [ ] 1.3 Testy konfiguracji potwierdzają fail-closed `PDF_IMPORT_ENABLED` i brak sekretów produkcyjnych w preview.
+- [x] 1.1 Migracja i testy DB potwierdzają niezmienność kanału oraz poprawne zakresy budżetowe produktu i ewaluacji.
+- [x] 1.2 Testy autoryzacji potwierdzają dostęp zwykłego użytkownika do produktu, zachowanie allowlisty F-01 i izolację właścicieli.
+- [x] 1.3 Testy konfiguracji potwierdzają fail-closed `PDF_IMPORT_ENABLED` i brak sekretów produkcyjnych w preview.
 
 #### Manual
 
-- [ ] 1.4 Przy wyłączonej fladze nie można rozpocząć nowego importu, a istniejący import nadal można bezpiecznie zakończyć lub anulować.
+- [x] 1.4 Przy wyłączonej fladze nie można rozpocząć nowego importu, a istniejący import nadal można bezpiecznie zakończyć lub anulować.
 
 ### Phase 2: Wspólny klient i produktowy UX
 

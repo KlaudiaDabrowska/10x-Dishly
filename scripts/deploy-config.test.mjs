@@ -79,7 +79,7 @@ test("Free diagnostic rejects CPU overrides on either Worker and larger consumer
   assert.throws(() => checkConsumerConfig(consumer));
 });
 
-test("experiment credentials are optional secrets, never required, preview secrets or plain vars", () => {
+test("PDF import credentials and switches are optional secrets, never required, preview secrets or plain vars", () => {
   const source = ts.parseConfigFileTextToJson("wrangler.jsonc", readFileSync("wrangler.jsonc", "utf8")).config;
   // Production deploys must not depend on the experiment: missing configuration only disables it.
   assert.deepEqual([...source.secrets.required].sort(), [...requiredSecrets].sort());
