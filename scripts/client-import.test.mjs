@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   ClientRequestFailure,
   executeClientImport,
+  importIdForEvidence,
   polishImportError,
   productCompletion,
 } from "../src/lib/pdf-processing/client-import.ts";
@@ -65,7 +66,7 @@ function outcome(overrides = {}) {
   return { status: "committed", saved: 1, alreadySaved: 0, pending: 0, readBack: true, ...overrides };
 }
 
-function runner(request, signal = new globalThis.AbortController().signal) {
+function runner(request, signal = new globalThis.AbortController().signal, options = {}) {
   const states = [];
   return executeClientImport({
     apiBase: "/api/imports",
@@ -74,6 +75,7 @@ function runner(request, signal = new globalThis.AbortController().signal) {
     importId,
     read: async () => ({ source, pages: [page] }),
     request,
+    ...options,
     now: (() => {
       let value = 0;
       return () => ++value;
@@ -115,6 +117,40 @@ test("controller recovers a lost finalize response using status", async () => {
   assert.deepEqual(result.outcome, expected);
 });
 
+test("controller waits for an in-flight finalize to become committed after a lost response", async () => {
+  const expected = outcome({ saved: 0, alreadySaved: 1 });
+  const sleeps = [];
+  let statusCalls = 0;
+  let finalizeCalls = 0;
+  const { result } = await runner(
+    async (path) => {
+      if (path === "/api/imports") return { importId, manifestDigest: "digest", manifest };
+      if (path.endsWith("/batch")) return { candidates: [candidate] };
+      if (path.endsWith("/finalize")) {
+        finalizeCalls++;
+        throw new ClientRequestFailure("network-error", true);
+      }
+      if (path === `/api/imports/${importId}`) {
+        statusCalls++;
+        if (statusCalls === 1) return { status: "processing", outcome: null, readBack: false };
+        return { status: "committed", outcome: { saved: 0, alreadySaved: 1, pending: 0 }, readBack: true };
+      }
+      throw new Error(`unexpected request ${path}`);
+    },
+    undefined,
+    {
+      sleep: async (milliseconds) => {
+        sleeps.push(milliseconds);
+      },
+    },
+  );
+
+  assert.equal(finalizeCalls, 1);
+  assert.equal(statusCalls, 2);
+  assert.deepEqual(sleeps, [250]);
+  assert.deepEqual(result.outcome, expected);
+});
+
 test("controller stops before dispatching a batch after cancellation", async () => {
   const abort = new globalThis.AbortController();
   await assert.rejects(
@@ -129,11 +165,38 @@ test("controller stops before dispatching a batch after cancellation", async () 
   );
 });
 
+test("a local reader failure never dispatches create or exposes a server import id", async () => {
+  let dispatched = false;
+  await assert.rejects(
+    executeClientImport({
+      apiBase: "/api/imports",
+      file: { name: source.filename, size: source.byteLength, arrayBuffer: async () => new ArrayBuffer(0) },
+      signal: new globalThis.AbortController().signal,
+      importId,
+      read: async () => {
+        throw new ClientRequestFailure("unreadable-document");
+      },
+      request: async () => {
+        throw new Error("request must not run");
+      },
+      onImportDispatched: () => {
+        dispatched = true;
+      },
+      update: () => undefined,
+    }),
+    (error) => error instanceof ClientRequestFailure && error.code === "unreadable-document",
+  );
+  assert.equal(dispatched, false);
+  assert.equal(importIdForEvidence(importId, dispatched), null);
+  assert.equal(importIdForEvidence(importId, true), importId);
+});
+
 test("product completion distinguishes pending, empty and unconfirmed results", () => {
   assert.equal(productCompletion(outcome()), "redirect");
   assert.equal(productCompletion(outcome({ pending: 1 })), "pending");
   assert.equal(productCompletion(outcome({ saved: 0, alreadySaved: 0 })), "empty");
   assert.equal(productCompletion(outcome({ readBack: false })), "unconfirmed");
+  assert.equal(productCompletion(outcome({ status: "processing", readBack: false })), "unconfirmed");
   assert.equal(productCompletion(outcome({ status: "failed" })), "failure");
 });
 

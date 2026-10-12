@@ -17,7 +17,8 @@ import { PdfReadError } from "@/lib/pdf-processing/reader-core";
 import { createValidationService } from "@/lib/pdf-processing/service";
 import type { ValidationService } from "@/lib/pdf-processing/service";
 import type { ImportChannel } from "@/lib/pdf-processing/persistence";
-import { importCreationAvailable, importInfrastructureAvailable, importUserAuthorized } from "@/lib/pdf-import-access";
+import { importCreationAvailable, importOperationAvailable, importUserAuthorized } from "@/lib/pdf-import-access";
+import type { ImportOperation } from "@/lib/pdf-import-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -37,10 +38,6 @@ export function experimentAvailable(): boolean {
 
 export function productImportAvailable(): boolean {
   return importCreationAvailable(importConfig(), "product");
-}
-
-function infrastructureAvailable(): boolean {
-  return importInfrastructureAvailable(importConfig());
 }
 
 function importConfig() {
@@ -161,14 +158,10 @@ export interface GuardedRequest {
 // Session, evaluator allowlist, same-origin mutation and bounded JSON body, in that order.
 export async function guard(
   context: APIContext,
-  options: { channel?: ImportChannel; create?: boolean; mutation: boolean; maxBodyBytes?: number },
+  options: { channel?: ImportChannel; operation: ImportOperation; mutation: boolean; maxBodyBytes?: number },
 ): Promise<GuardedRequest | Response> {
   const channel = options.channel ?? "evaluation";
-  const available = options.create
-    ? channel === "product"
-      ? productImportAvailable()
-      : experimentAvailable()
-    : infrastructureAvailable();
+  const available = importOperationAvailable(importConfig(), channel, options.operation);
   if (!available)
     return privateJson({ error: channel === "product" ? "import_unavailable" : "experiment_unavailable" }, 503);
   const user = context.locals.user;
@@ -179,7 +172,8 @@ export async function guard(
   if (id !== undefined && !UUID.test(id)) return privateJson({ error: "import-not-found" }, 404);
   const client = createAdminClient();
   const apiKey = OPENAI_API_KEY?.trim();
-  if (!client || !apiKey)
+  const providerRequired = options.operation === "create" || options.operation === "batch";
+  if (!client || (providerRequired && !apiKey))
     return privateJson({ error: channel === "product" ? "import_unavailable" : "experiment_unavailable" }, 503);
   let body: unknown = null;
   if (options.maxBodyBytes !== undefined) {
@@ -194,7 +188,11 @@ export async function guard(
       return errorResponse(error, "request-body", channel);
     }
   }
-  return { service: createValidationService({ client, ownerId: user.id, apiKey, channel }), ownerId: user.id, body };
+  return {
+    service: createValidationService({ client, ownerId: user.id, ...(apiKey ? { apiKey } : {}), channel }),
+    ownerId: user.id,
+    body,
+  };
 }
 
 const READ_BACK_CHUNK = 100;

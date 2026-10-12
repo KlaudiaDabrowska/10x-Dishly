@@ -28,7 +28,7 @@ export interface ValidationServiceOptions {
   // Verified session identity, never browser-supplied metadata.
   ownerId: string;
   channel?: ImportChannel;
-  apiKey: string;
+  apiKey?: string;
   fetch?: typeof fetch;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
@@ -94,7 +94,7 @@ export function createValidationService(options: ValidationServiceOptions) {
       const startedAt = now();
       const { importId, source, pages } = parseCreateRequest(body);
       const batches = await (options.prepareBatches ?? prepareOpenAiPdfBatches)(source, pages, {
-        apiKey: options.apiKey,
+        apiKey: options.apiKey ?? "",
         ...(options.fetch ? { fetch: options.fetch } : {}),
         now,
         processingStartedAt: startedAt,
@@ -135,7 +135,7 @@ export function createValidationService(options: ValidationServiceOptions) {
       let recognized: Awaited<ReturnType<typeof recognizePdfBatch>>;
       try {
         recognized = await (options.recognize ?? recognizePdfBatch)({
-          apiKey: options.apiKey,
+          apiKey: options.apiKey ?? "",
           ...(options.fetch ? { fetch: options.fetch } : {}),
           ...(options.sleep ? { sleep: options.sleep } : {}),
           now,

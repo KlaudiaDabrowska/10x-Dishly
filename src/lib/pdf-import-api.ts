@@ -6,7 +6,7 @@ import { errorResponse, guard, privateJson, verifyReadBack } from "@/lib/pdf-val
 async function createImport(context: APIContext, channel: ImportChannel): Promise<Response> {
   const guarded = await guard(context, {
     channel,
-    create: true,
+    operation: "create",
     mutation: true,
     maxBodyBytes: PDF_LIMITS.maxImportInputBytes,
   });
@@ -21,6 +21,7 @@ async function createImport(context: APIContext, channel: ImportChannel): Promis
 async function processBatch(context: APIContext, channel: ImportChannel): Promise<Response> {
   const guarded = await guard(context, {
     channel,
+    operation: "batch",
     mutation: true,
     maxBodyBytes: PDF_LIMITS.maxBatchBodyBytes,
   });
@@ -35,6 +36,7 @@ async function processBatch(context: APIContext, channel: ImportChannel): Promis
 async function finalizeImport(context: APIContext, channel: ImportChannel): Promise<Response> {
   const guarded = await guard(context, {
     channel,
+    operation: "finalize",
     mutation: true,
     maxBodyBytes: PDF_LIMITS.maxFinalizationBodyBytes,
   });
@@ -50,7 +52,7 @@ async function finalizeImport(context: APIContext, channel: ImportChannel): Prom
 }
 
 async function importStatus(context: APIContext, channel: ImportChannel): Promise<Response> {
-  const guarded = await guard(context, { channel, mutation: false });
+  const guarded = await guard(context, { channel, operation: "status", mutation: false });
   if (guarded instanceof Response) return guarded;
   try {
     const status = await guarded.service.status(String(context.params.id));
@@ -64,7 +66,7 @@ async function importStatus(context: APIContext, channel: ImportChannel): Promis
 }
 
 async function cancelImport(context: APIContext, channel: ImportChannel): Promise<Response> {
-  const guarded = await guard(context, { channel, mutation: true });
+  const guarded = await guard(context, { channel, operation: "cancel", mutation: true });
   if (guarded instanceof Response) return guarded;
   try {
     return privateJson(await guarded.service.cancel(String(context.params.id)));

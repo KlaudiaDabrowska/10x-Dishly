@@ -50,7 +50,7 @@ export type ClientImportEvent =
       at: number;
       stage: ClientImportStage;
       errorCode: string | null;
-      importId: string;
+      importId: string | null;
       outcome: ClientImportOutcome | null;
     };
 
@@ -121,6 +121,26 @@ async function recoverStatus(apiBase: string, id: string, request: RequestJson):
   }
 }
 
+const FINALIZE_RECOVERY_DELAYS_MS = [0, 250, 500, 1_000, 2_000] as const;
+const NON_TERMINAL_IMPORT_STATUSES = new Set(["created", "processing", "ready"]);
+
+async function recoverFinalizedStatus(
+  apiBase: string,
+  id: string,
+  request: RequestJson,
+  sleep: (milliseconds: number) => Promise<void>,
+): Promise<ClientImportOutcome | null> {
+  let lastKnown: ClientImportOutcome | null = null;
+  for (const delay of FINALIZE_RECOVERY_DELAYS_MS) {
+    if (delay > 0) await sleep(delay);
+    const recovered = await recoverStatus(apiBase, id, request);
+    if (!recovered) continue;
+    lastKnown = recovered;
+    if (!NON_TERMINAL_IMPORT_STATUSES.has(recovered.status)) return recovered;
+  }
+  return lastKnown;
+}
+
 export interface ExecuteClientImportOptions {
   apiBase: string;
   file: ReaderFile;
@@ -129,6 +149,8 @@ export interface ExecuteClientImportOptions {
   read: (file: ReaderFile, options: { signal: AbortSignal }) => Promise<ReadResult>;
   request?: RequestJson;
   now?: () => number;
+  sleep?: (milliseconds: number) => Promise<void>;
+  onImportDispatched?: () => void;
   update: (state: Partial<ClientImportState>) => void;
   event?: (event: ClientImportEvent) => void;
 }
@@ -139,6 +161,7 @@ export async function executeClientImport(options: ExecuteClientImportOptions): 
 }> {
   const request = options.request ?? requestImportJson;
   const now = options.now ?? (() => performance.now());
+  const sleep = options.sleep ?? ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   options.update({ stage: "reading" });
   let created: ImportCreated;
   let candidates: ReturnedCandidate[] = [];
@@ -146,6 +169,7 @@ export async function executeClientImport(options: ExecuteClientImportOptions): 
     const read = await options.read(options.file, { signal: options.signal });
     options.event?.({ type: "read", at: now(), source: read.source });
     options.update({ stage: "recognizing", importId: options.importId });
+    options.onImportDispatched?.();
     created = await request<ImportCreated>(
       options.apiBase,
       {
@@ -195,7 +219,7 @@ export async function executeClientImport(options: ExecuteClientImportOptions): 
   } catch (failure) {
     // A lost response is resolved by status lookup, never by another model call.
     if (!(failure instanceof ClientRequestFailure && failure.lost)) throw failure;
-    const recovered = await recoverStatus(options.apiBase, options.importId, request);
+    const recovered = await recoverFinalizedStatus(options.apiBase, options.importId, request, sleep);
     if (!recovered) throw failure;
     outcome = recovered;
   }
@@ -204,7 +228,12 @@ export async function executeClientImport(options: ExecuteClientImportOptions): 
 
 export type ProductCompletion = "redirect" | "pending" | "empty" | "unconfirmed" | "failure";
 
+export function importIdForEvidence(importId: string, dispatched: boolean): string | null {
+  return dispatched ? importId : null;
+}
+
 export function productCompletion(outcome: ClientImportOutcome): ProductCompletion {
+  if (NON_TERMINAL_IMPORT_STATUSES.has(outcome.status)) return "unconfirmed";
   if (outcome.status !== "committed") return "failure";
   if (!outcome.readBack) return "unconfirmed";
   if (outcome.pending > 0) return "pending";
@@ -319,7 +348,7 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
 
   useEffect(() => {
     const cancelOnClose = () => {
-      const id = activeImport.current;
+      const id = activeImport.current ?? unconfirmedImport.current;
       if (id) void fetch(`${options.apiBase}/${id}`, { method: "DELETE", keepalive: true });
     };
     window.addEventListener("pagehide", cancelOnClose);
@@ -340,7 +369,7 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
       if (previous)
         await requestImportJson(`${options.apiBase}/${previous}`, { method: "DELETE" }).catch(() => undefined);
       const id = crypto.randomUUID();
-      activeImport.current = id;
+      const importLifecycle = { dispatched: false };
       try {
         const { readPdf } = await import("./browser-reader.ts");
         const result = await executeClientImport({
@@ -349,9 +378,14 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
           signal: abort.signal,
           importId: id,
           read: readPdf,
+          onImportDispatched: () => {
+            importLifecycle.dispatched = true;
+            activeImport.current = id;
+          },
           update,
           event: (event) => eventRef.current?.(event),
         });
+        if (NON_TERMINAL_IMPORT_STATUSES.has(result.outcome.status)) unconfirmedImport.current = id;
         activeImport.current = null;
         const pending = result.candidates.filter((candidate) => candidate.status !== "complete");
         const terminal =
@@ -366,12 +400,14 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
           at: performance.now(),
           stage: terminal,
           errorCode: null,
-          importId: id,
+          importId: importIdForEvidence(id, importLifecycle.dispatched),
           outcome: result.outcome,
         });
       } catch (failure) {
         const code = failure instanceof Error && "code" in failure ? String(failure.code) : "unexpected-error";
-        const recovered = await recoverStatus(options.apiBase, id, requestImportJson);
+        const recovered = importLifecycle.dispatched
+          ? await recoverStatus(options.apiBase, id, requestImportJson)
+          : null;
         if (recovered?.status === "committed") {
           activeImport.current = null;
           update({ stage: "done", outcome: recovered, errorCode: code });
@@ -380,14 +416,14 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
             at: performance.now(),
             stage: "done",
             errorCode: code,
-            importId: id,
+            importId: importIdForEvidence(id, importLifecycle.dispatched),
             outcome: recovered,
           });
           return;
         }
         if (recovered?.status === "processing")
           await requestImportJson(`${options.apiBase}/${id}`, { method: "DELETE" }).catch(() => undefined);
-        if (!recovered) unconfirmedImport.current = id;
+        if (!recovered && importLifecycle.dispatched) unconfirmedImport.current = id;
         activeImport.current = null;
         const terminal = code === "cancelled" ? "cancelled" : "failed";
         update({ stage: terminal, outcome: recovered, errorCode: code });
@@ -396,7 +432,7 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
           at: performance.now(),
           stage: terminal,
           errorCode: code,
-          importId: id,
+          importId: importIdForEvidence(id, importLifecycle.dispatched),
           outcome: recovered,
         });
       } finally {

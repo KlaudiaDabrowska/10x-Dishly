@@ -1,9 +1,9 @@
 ---
 change_id: import-complete-recipes
 title: Import complete recipes
-status: implemented
+status: impl_reviewed
 created: 2026-10-09
-updated: 2026-10-10
+updated: 2026-10-12
 archived_at: null
 ---
 
