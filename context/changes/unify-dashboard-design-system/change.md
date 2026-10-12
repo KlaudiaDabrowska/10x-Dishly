@@ -1,7 +1,7 @@
 ---
 change_id: unify-dashboard-design-system
 title: Design system and dashboard UI consistency
-status: new
+status: planned
 created: 2026-10-12
 updated: 2026-10-12
 archived_at: null
@@ -13,7 +13,7 @@ Roadmap: S-08, working title “UI-01 — Design system i ujednolicenie UI”. S
 
 One target view: `/dashboard` (`src/pages/dashboard.astro`), including `src/components/pdf-processing/ImportOutcomeBanner.tsx`. Token source: `src/styles/global.css`, configured by `components.json`; shared primitives: `src/components/ui`.
 
-Contract variant: existing design system, bypassed by the target view. Extend the existing `:root` / `.dark` values and `@theme inline` mappings; reuse existing primitives. Do not initialise another theme or component system. Connect the dashboard to the existing contract before choosing new token values. Establish coherent colours, typography, spacing and layout, with only the base components needed by this view.
+Contract variant: existing design system, bypassed by the target view. Extend the existing `:root` / `.dark` values and `@theme inline` mappings; reuse existing primitives. Do not initialise another theme or component system. Connect the dashboard to the existing contract and map the selected motif onto its semantic roles. Establish coherent colours, typography, spacing and layout, with only the base components needed by this view.
 
 Out of scope: new functionality, recipe listing/filtering/details, PDF-import business logic, a redesign of all screens, and reopening parked real-phone/Firefox import verification. Shared changes need regression checks on existing consumers, not a redesign of those consumers.
 
@@ -21,10 +21,10 @@ Out of scope: new functionality, recipe listing/filtering/details, PDF-import bu
 
 Static pre-audit on 2026-10-12; no running-app or screenshot verification has been performed yet. `context/foundation/lessons.md` contains no recorded lessons.
 
-| Target file | Hardcoded-value matching lines | Matching occurrences | Semantic colour-class occurrences | Imports from `components/ui` |
-| --- | --- | --- | --- | --- |
-| `src/pages/dashboard.astro` | 9 | 17 | 0 | 0 |
-| `src/components/pdf-processing/ImportOutcomeBanner.tsx` | 4 | 6 | 0 | 0 |
+| Target file                                             | Hardcoded-value matching lines | Matching occurrences | Semantic colour-class occurrences | Imports from `components/ui` |
+| ------------------------------------------------------- | ------------------------------ | -------------------- | --------------------------------- | ---------------------------- |
+| `src/pages/dashboard.astro`                             | 9                              | 17                   | 0                                 | 0                            |
+| `src/components/pdf-processing/ImportOutcomeBanner.tsx` | 4                              | 6                    | 0                                 | 0                            |
 
 Counts use the `/10x-ui` hardcoded-value pattern on the view files, excluding the token source. They are candidates, not confirmed defects. The dashboard imports one feature component, `ImportOutcomeBanner`; the banner imports no shared UI components. `Layout.astro` imports global CSS, so the token source is loaded, but the view does not use its semantic colour classes.
 
@@ -39,3 +39,9 @@ Research brief for `/10x-research unify-dashboard-design-system`: perform the so
 The later plan must order phases as environment/library → token values → one view → states. Preserve each charge or explicitly defer it with a reason. Store chosen raw token values and their provenance in this change folder when selected; no palette has been selected during pre-audit.
 
 Completion evidence: default, hover, focus-visible, disabled, error, empty and loading states, each shown or marked N/A with a reason; visible keyboard focus, accessible names and contrast; desktop and one mobile-width screenshots through a kitchen sink or an existing screenshot tool. Check both themes where supported without adding a theme toggle as new functionality. Repeat the literal scan after visual phases. Leave project UI rules in `AGENTS.md` outside the CLI-managed block and use the existing checking mechanism to prevent drift. Finish through `/10x-impl-review`.
+
+### Selected theme — 2026-10-12
+
+The user selected [cagops on tweakcn](https://tweakcn.com/themes/cmnjexv1n000304jse9nq2jra). Contract variant: named motif mapped onto the existing design system. The exact light/dark style dictionaries retrieved from the theme page are stored in `theme-source.json`, with source URL and retrieval date. This is a source snapshot, not applied application configuration.
+
+Use this motif for the palette, font families, radius, spacing base, tracking and shadow values. Preserve existing semantic names and shared components; do not initialise another theme system. Font loading, derived shadow utilities, layout hierarchy and contrast verification remain planning work. Both theme variants are recorded; selecting this motif does not add a theme toggle or expand the one-view scope. Any accessibility-driven deviation should be explicit and leave the raw source snapshot intact.
