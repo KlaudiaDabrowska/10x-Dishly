@@ -1,18 +1,34 @@
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Info, LoaderCircle } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-interface ImportOutcomeFeedbackProps {
-  state: "confirmed";
-  saved: number;
-  alreadySaved: number;
-}
+type ImportOutcomeFeedbackProps =
+  | { state: "pending" | "unavailable"; saved?: never; alreadySaved?: never }
+  | { state: "confirmed"; saved: number; alreadySaved: number };
 
-export default function ImportOutcomeFeedback({ saved, alreadySaved }: ImportOutcomeFeedbackProps) {
+export default function ImportOutcomeFeedback({ state, saved, alreadySaved }: ImportOutcomeFeedbackProps) {
+  if (state === "pending") {
+    return (
+      <Alert className="mt-8 min-h-24" role="status" aria-live="polite" aria-busy="true">
+        <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
+        <AlertTitle className="line-clamp-none">Sprawdzanie wyniku importu…</AlertTitle>
+      </Alert>
+    );
+  }
+
+  if (state === "unavailable") {
+    return (
+      <Alert className="mt-8 min-h-24" role="status" aria-live="polite">
+        <Info aria-hidden="true" />
+        <AlertTitle className="line-clamp-none">Nie udało się potwierdzić wyniku importu.</AlertTitle>
+      </Alert>
+    );
+  }
+
   return (
-    <Alert className="mt-8" role="status" aria-live="polite">
+    <Alert className="mt-8 min-h-24" role="status" aria-live="polite">
       <CheckCircle2 aria-hidden="true" />
-      <AlertTitle>Import zakończony</AlertTitle>
+      <AlertTitle className="line-clamp-none">Import zakończony</AlertTitle>
       <AlertDescription>
         <p>
           Dodano nowych przepisów: <strong className="text-foreground">{saved}</strong>. Już zapisanych:{" "}

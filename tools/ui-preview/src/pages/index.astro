@@ -18,6 +18,8 @@ import "../styles/preview.css";
         parameters.get("view") === "dashboard" ? "dashboard" : "components";
       document.documentElement.dataset.importAvailability =
         parameters.get("import") === "unavailable" ? "unavailable" : "available";
+      document.documentElement.dataset.feedbackState = parameters.get("feedback") ?? "confirmed";
+      document.documentElement.dataset.capture = parameters.get("capture") ?? "preview";
     </script>
   </head>
   <body data-ui-preview>
@@ -27,7 +29,15 @@ import "../styles/preview.css";
     <div data-dashboard-preview>
       <div data-dashboard-variant="available">
         <DashboardView email="bardzo.dlugi.adres.email.uzytkownika@przykladowa-domena.example" importAvailable={true}>
-          <ImportOutcomeFeedback slot="feedback" state="confirmed" saved={3} alreadySaved={1} />
+          <div slot="feedback" data-feedback-variant="pending">
+            <ImportOutcomeFeedback state="pending" />
+          </div>
+          <div slot="feedback" data-feedback-variant="confirmed">
+            <ImportOutcomeFeedback state="confirmed" saved={3} alreadySaved={1} />
+          </div>
+          <div slot="feedback" data-feedback-variant="unavailable">
+            <ImportOutcomeFeedback state="unavailable" />
+          </div>
         </DashboardView>
       </div>
       <div data-dashboard-variant="unavailable">

@@ -315,24 +315,24 @@ Brak migracji danych i nowych sekretów. Zwykły build oraz dotychczasowy proces
 
 #### Automated
 
-- [x] 3.1 `npm run lint`, `npx --no-install astro check`, `npm run build` i `node --test scripts/dashboard-import.test.mjs` przechodzą; helper importu i middleware nie są zmienione.
-- [x] 3.2 `BASE_URL=http://localhost:4321 npm run smoke` na lokalnej aplikacji z Supabase przechodzi z polskim dashboardem, natywnym POST, izolacją kont i zachowanymi oczekiwaniami strony głównej.
+- [x] 3.1 `npm run lint`, `npx --no-install astro check`, `npm run build` i `node --test scripts/dashboard-import.test.mjs` przechodzą; helper importu i middleware nie są zmienione. — c06398e
+- [x] 3.2 `BASE_URL=http://localhost:4321 npm run smoke` na lokalnej aplikacji z Supabase przechodzi z polskim dashboardem, natywnym POST, izolacją kont i zachowanymi oczekiwaniami strony głównej. — c06398e
 
 #### Manual
 
-- [x] 3.3 Dashboard i jego wspólny podgląd mają screenshoty 1440×900 oraz 390×844; widoczne są polskie teksty, neutralny placeholder, poprawnie łamany długi email i warianty z dostępnym/niedostępnym importem.
-- [x] 3.4 Skan dashboardu, DashboardView i feedbacku nie wykazuje lokalnych kolorów palety, funkcji kolorów ani arbitralnych wymiarów; klawiatura obsługuje wylogowanie i link importu z widocznym focusem.
+- [x] 3.3 Dashboard i jego wspólny podgląd mają screenshoty 1440×900 oraz 390×844; widoczne są polskie teksty, neutralny placeholder, poprawnie łamany długi email i warianty z dostępnym/niedostępnym importem. — c06398e
+- [x] 3.4 Skan dashboardu, DashboardView i feedbacku nie wykazuje lokalnych kolorów palety, funkcji kolorów ani arbitralnych wymiarów; klawiatura obsługuje wylogowanie i link importu z widocznym focusem. — c06398e
 
 ### Phase 4: Stany, dowody i zabezpieczenie spójności
 
 #### Automated
 
-- [ ] 4.1 `npm run check:ui` i `npm run lint` przechodzą; kontrolowane wstrzyknięcie zakazanej klasy do oczyszczonego pliku powoduje błąd checka, a przywrócenie pliku ponownie daje sukces.
-- [ ] 4.2 `node --test scripts/ui-theme.test.mjs`, `npm run test:pdf`, `npx --no-install astro check` i `npm run build` przechodzą; zmienione kontrakty tekstu nie osłabiają kontroli prywatności.
-- [ ] 4.3 Lokalny smoke oraz `scripts/check-preview.mjs` na buildzie preview przechodzą zgodnie z istniejącą sekwencją CI; nieskonfigurowany dashboard nadal zwraca 503 JSON i private/no-store.
+- [x] 4.1 `npm run check:ui` i `npm run lint` przechodzą; kontrolowane wstrzyknięcie zakazanej klasy do oczyszczonego pliku powoduje błąd checka, a przywrócenie pliku ponownie daje sukces.
+- [x] 4.2 `node --test scripts/ui-theme.test.mjs`, `npm run test:pdf`, `npx --no-install astro check` i `npm run build` przechodzą; zmienione kontrakty tekstu nie osłabiają kontroli prywatności.
+- [x] 4.3 Lokalny smoke oraz `scripts/check-preview.mjs` na buildzie preview przechodzą zgodnie z istniejącą sekwencją CI; nieskonfigurowany dashboard nadal zwraca 503 JSON i private/no-store.
 
 #### Manual
 
-- [ ] 4.4 Macierz siedmiu stanów oraz confirmed/unavailable ma screenshoty desktop/mobile w obu wariantach, uzasadnienia N/A i ocenę kontrastu/focus; rzeczywisty dashboard sprawdzono w wariancie jasnym po zalogowaniu.
-- [ ] 4.5 Kontrolowane odpowiedzi odczytu obejmują opóźniony sukces, null, błędny i brakujący ID oraz przerwane żądanie; UI nie twierdzi, że import się nie udał, nie pokazuje starego wyniku i nie zmienia walidacji liczb.
-- [ ] 4.6 Regresja strony głównej, potwierdzenia emaila, globalnego Banner, formularzy konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia.
+- [x] 4.4 Macierz siedmiu stanów oraz confirmed/unavailable ma screenshoty desktop/mobile w obu wariantach, uzasadnienia N/A i ocenę kontrastu/focus; rzeczywisty dashboard sprawdzono w wariancie jasnym po zalogowaniu.
+- [x] 4.5 Kontrolowane odpowiedzi odczytu obejmują opóźniony sukces, null, błędny i brakujący ID oraz przerwane żądanie; UI nie twierdzi, że import się nie udał, nie pokazuje starego wyniku i nie zmienia walidacji liczb.
+- [x] 4.6 Regresja strony głównej, potwierdzenia emaila, globalnego Banner, formularzy konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia.

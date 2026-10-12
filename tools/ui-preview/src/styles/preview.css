@@ -11,3 +11,54 @@ html[data-import-availability="available"] [data-dashboard-variant="unavailable"
 html[data-import-availability="unavailable"] [data-dashboard-variant="available"] {
   display: none;
 }
+
+html:not([data-feedback-state="pending"]) [data-feedback-variant="pending"],
+html:not([data-feedback-state="confirmed"]) [data-feedback-variant="confirmed"],
+html:not([data-feedback-state="unavailable"]) [data-feedback-variant="unavailable"] {
+  display: none;
+}
+
+html[data-capture="states"] [data-preview-overview],
+html[data-capture="states"] [data-preview-foundation] {
+  display: none;
+}
+
+html[data-capture="states"] [data-state-evidence] {
+  margin-block: 0;
+}
+
+html[data-capture="states"] [data-state-matrix] dl {
+  gap: calc(var(--spacing) * 2);
+}
+
+html[data-capture="states"] [data-state-matrix] dl > div {
+  padding: calc(var(--spacing) * 2);
+}
+
+html[data-capture="states"] [data-state-matrix] dd {
+  display: none;
+}
+
+html[data-capture="matrix"] [data-preview-overview],
+html[data-capture="matrix"] [data-preview-foundation],
+html[data-capture="matrix"] [data-button-states],
+html[data-capture="matrix"] [data-feedback-states] {
+  display: none;
+}
+
+html[data-capture="matrix"] [data-state-matrix] {
+  gap: calc(var(--spacing) * 2);
+}
+
+html[data-capture="matrix"] [data-state-matrix] dl {
+  gap: calc(var(--spacing) * 2);
+}
+
+html[data-capture="matrix"] [data-state-matrix] dl > div {
+  padding: calc(var(--spacing) * 2);
+}
+
+html[data-capture="matrix"] [data-state-matrix] dd {
+  margin-top: var(--spacing);
+  line-height: 1.25rem;
+}

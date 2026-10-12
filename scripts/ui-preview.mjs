@@ -8,11 +8,11 @@ import path from "node:path";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const previewRoot = path.join(repositoryRoot, "tools/ui-preview");
 const previewUrl = "http://127.0.0.1:4322/";
-const evidenceDirectory = path.join(repositoryRoot, "context/changes/unify-dashboard-design-system/evidence/phase-1");
+const evidenceDirectory = path.join(repositoryRoot, "context/changes/unify-dashboard-design-system/screenshots");
 const mode = process.argv[2];
 
-if (mode !== "check" && mode !== "capture") {
-  throw new Error("Usage: node scripts/ui-preview.mjs <check|capture>");
+if (mode !== "isolation" && mode !== "check" && mode !== "capture") {
+  throw new Error("Usage: node scripts/ui-preview.mjs <isolation|check|capture>");
 }
 
 function run(command, args, options = {}) {
@@ -97,19 +97,90 @@ async function filesUnder(directory) {
   return files;
 }
 
-async function assertPreviewIsolation() {
-  const sourceFiles = await filesUnder(previewRoot);
-  const bannedSourcePattern = /(?:src\/middleware|@\/lib\/(?:supabase|pdf-processing)|SUPABASE_|OPENAI_API_KEY)/;
+const sourceExtensions = [".astro", ".css", ".js", ".mjs", ".ts", ".tsx"];
 
-  for (const file of sourceFiles.filter((candidate) => /\.(?:astro|css|js|mjs|ts|tsx)$/.test(candidate))) {
-    const contents = await readFile(file, "utf8");
-    if (bannedSourcePattern.test(contents)) {
-      throw new Error(
-        `Preview isolation check found a production service reference in ${path.relative(repositoryRoot, file)}.`,
-      );
+async function resolveLocalImport(importer, specifier) {
+  let candidate;
+  if (specifier.startsWith("@/")) candidate = path.join(repositoryRoot, "src", specifier.slice(2));
+  else if (specifier.startsWith(".")) candidate = path.resolve(path.dirname(importer), specifier);
+  else return null;
+
+  const candidates = path.extname(candidate)
+    ? [candidate]
+    : [
+        ...sourceExtensions.map((extension) => candidate + extension),
+        ...sourceExtensions.map((extension) => path.join(candidate, `index${extension}`)),
+      ];
+
+  for (const resolved of candidates) {
+    try {
+      if ((await stat(resolved)).isFile()) return resolved;
+    } catch {
+      // Try the next supported source extension.
     }
   }
 
+  throw new Error(
+    `Preview isolation check could not resolve ${specifier} imported by ${path.relative(repositoryRoot, importer)}.`,
+  );
+}
+
+function localImportSpecifiers(contents) {
+  const specifiers = [];
+  const patterns = [
+    /(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g,
+    /import\s*\(\s*["']([^"']+)["']\s*\)/g,
+    /@import\s+["']([^"']+)["']/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of contents.matchAll(pattern)) specifiers.push(match[1]);
+  }
+  return specifiers;
+}
+
+async function previewSourceGraph() {
+  const previewSources = (await filesUnder(path.join(previewRoot, "src"))).filter((candidate) =>
+    sourceExtensions.includes(path.extname(candidate)),
+  );
+  const pending = [path.join(previewRoot, "astro.config.mjs"), ...previewSources];
+  const visited = new Set();
+
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (visited.has(file)) continue;
+    visited.add(file);
+
+    const contents = await readFile(file, "utf8");
+    for (const specifier of localImportSpecifiers(contents)) {
+      const imported = await resolveLocalImport(file, specifier);
+      if (imported && !visited.has(imported)) pending.push(imported);
+    }
+  }
+
+  return [...visited];
+}
+
+async function assertPreviewSourceIsolation() {
+  const sourceFiles = await previewSourceGraph();
+  const bannedSourcePattern = /(?:SUPABASE_|OPENAI_API_KEY|import\.meta\.env|process\.env)/;
+  const bannedPathPattern = /(?:^|\/)(?:middleware|lib\/(?:supabase|pdf-processing))(?:\.|\/)/;
+
+  for (const file of sourceFiles) {
+    const relativePath = path.relative(repositoryRoot, file).replaceAll(path.sep, "/");
+    if (bannedPathPattern.test(relativePath)) {
+      throw new Error(`Preview isolation check reached a production service module: ${relativePath}.`);
+    }
+    const contents = await readFile(file, "utf8");
+    if (bannedSourcePattern.test(contents)) {
+      throw new Error(`Preview isolation check found a production environment reference in ${relativePath}.`);
+    }
+  }
+
+  console.log(`Preview source isolation passed for ${sourceFiles.length} reachable files.`);
+}
+
+async function assertPreviewBuildIsolation() {
   const outputFiles = await filesUnder(path.join(previewRoot, "dist"));
   for (const file of outputFiles.filter((candidate) => /\.(?:css|html|js)$/.test(candidate))) {
     const contents = await readFile(file, "utf8");
@@ -141,10 +212,18 @@ async function captureScreenshots() {
   await mkdir(evidenceDirectory, { recursive: true });
 
   const variants = [
-    { name: "preview-light-desktop.png", theme: "light", width: 1440, height: 900 },
-    { name: "preview-light-mobile.png", theme: "light", width: 390, height: 844 },
-    { name: "preview-dark-desktop.png", theme: "dark", width: 1440, height: 900 },
-    { name: "preview-dark-mobile.png", theme: "dark", width: 390, height: 844 },
+    { name: "preview-light-desktop.png", query: "theme=light", width: 1440, height: 900 },
+    { name: "preview-light-mobile.png", query: "theme=light", width: 390, height: 844 },
+    { name: "preview-dark-desktop.png", query: "theme=dark", width: 1440, height: 900 },
+    { name: "preview-dark-mobile.png", query: "theme=dark", width: 390, height: 844 },
+    { name: "states-light-desktop.png", query: "theme=light&capture=states", width: 1440, height: 900 },
+    { name: "states-light-mobile.png", query: "theme=light&capture=states", width: 390, height: 844 },
+    { name: "states-dark-desktop.png", query: "theme=dark&capture=states", width: 1440, height: 900 },
+    { name: "states-dark-mobile.png", query: "theme=dark&capture=states", width: 390, height: 844 },
+    { name: "matrix-light-desktop.png", query: "theme=light&capture=matrix", width: 1440, height: 900 },
+    { name: "matrix-light-mobile.png", query: "theme=light&capture=matrix", width: 390, height: 844 },
+    { name: "matrix-dark-desktop.png", query: "theme=dark&capture=matrix", width: 1440, height: 900 },
+    { name: "matrix-dark-mobile.png", query: "theme=dark&capture=matrix", width: 390, height: 844 },
   ];
 
   for (const variant of variants) {
@@ -157,7 +236,7 @@ async function captureScreenshots() {
       "--force-device-scale-factor=1",
       `--window-size=${variant.width},${variant.height}`,
       `--screenshot=${output}`,
-      `${previewUrl}?theme=${variant.theme}`,
+      `${previewUrl}?${variant.query}`,
     ]);
     await waitForExit(screenshot, `Chrome capture for ${variant.name}`);
 
@@ -166,17 +245,21 @@ async function captureScreenshots() {
   }
 }
 
-await assertPreviewIsolation();
+await assertPreviewSourceIsolation();
 
-const astroExecutable = path.join(repositoryRoot, "node_modules/.bin/astro");
-const preview = run(astroExecutable, ["preview", "--root", previewRoot, "--host", "127.0.0.1", "--port", "4322"], {
-  env: { ...process.env, ASTRO_PREVIEW_BACKGROUND: "0" },
-  stdio: "inherit",
-});
+if (mode !== "isolation") {
+  await assertPreviewBuildIsolation();
 
-try {
-  await waitForPreview(preview);
-  if (mode === "capture") await captureScreenshots();
-} finally {
-  await stopPreview(preview);
+  const astroExecutable = path.join(repositoryRoot, "node_modules/.bin/astro");
+  const preview = run(astroExecutable, ["preview", "--root", previewRoot, "--host", "127.0.0.1", "--port", "4322"], {
+    env: { ...process.env, ASTRO_PREVIEW_BACKGROUND: "0" },
+    stdio: "inherit",
+  });
+
+  try {
+    await waitForPreview(preview);
+    if (mode === "capture") await captureScreenshots();
+  } finally {
+    await stopPreview(preview);
+  }
 }
