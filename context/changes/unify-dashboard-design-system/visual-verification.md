@@ -71,3 +71,32 @@ Accepted by the user on 2026-10-12 after reviewing all four Phase 2 screenshots 
 surfaces. The cagops palette, Montserrat, surface shadow, focus treatment, and responsive flow are readable in both
 variants. The home, sign-in, sign-up, email-confirmation, global Banner, product-import, and diagnostic-import
 surfaces show no accepted readability or shared-Button regression; they remain outside redesign scope.
+
+## Phase 3 dashboard preview
+
+The production route and the isolated preview render the same `DashboardView`. The preview supplies a long synthetic
+email and deterministic import feedback; it does not fetch production data. Query parameters choose the previewed
+state without changing the component contract:
+
+- `?view=dashboard&import=available` shows the import link and a confirmed outcome.
+- `?view=dashboard&import=unavailable` hides both the import link and feedback.
+
+### Evidence matrix
+
+Screenshots are stored in `context/changes/unify-dashboard-design-system/evidence/phase-3/`.
+
+| File                                        | Query                                | Viewport   | Required evidence                                   |
+| ------------------------------------------- | ------------------------------------ | ---------- | --------------------------------------------------- |
+| `dashboard-preview-available-desktop.png`   | `?view=dashboard&import=available`   | 1440 × 900 | Polish copy, long email, confirmed feedback and CTA |
+| `dashboard-preview-available-mobile.png`    | `?view=dashboard&import=available`   | 390 × 844  | Wrapped identity and responsive controls            |
+| `dashboard-preview-unavailable-desktop.png` | `?view=dashboard&import=unavailable` | 1440 × 900 | Neutral placeholder without import controls         |
+| `dashboard-preview-unavailable-mobile.png`  | `?view=dashboard&import=unavailable` | 390 × 844  | Mobile placeholder without horizontal overflow      |
+
+### Manual acceptance
+
+Accepted by the user on 2026-10-12 after reviewing both import-availability variants at both required viewports and
+the shared focus behavior. The screenshots show Polish copy, a neutral placeholder, a wrapped long email, and no
+horizontal overflow. A static scan of `dashboard.astro`, `DashboardView.astro`, `ImportOutcomeFeedback.tsx`, and
+`ImportOutcomeBanner.tsx` found no local palette colours, CSS colour functions, or arbitrary dimensions. The
+authenticated smoke suite passed all 27 steps against the local Astro and Supabase services, including Polish
+dashboard copy, native POST sign-out, account isolation, and the existing English home navigation contract.

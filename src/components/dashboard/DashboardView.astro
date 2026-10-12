@@ -1,0 +1,55 @@
+---
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+
+interface Props {
+  email?: string;
+  importAvailable: boolean;
+}
+
+const { email, importAvailable } = Astro.props;
+---
+
+<main class="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6 sm:py-12">
+  <div class="mx-auto w-full max-w-4xl">
+    <header class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+      <div class="min-w-0">
+        <p class="text-sm font-semibold text-primary">Dishly</p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Twoje przepisy</h1>
+        <p class="mt-3 text-sm text-muted-foreground">
+          Zalogowano jako <span class="break-all font-semibold text-foreground">{email}</span>
+        </p>
+      </div>
+      <form method="POST" action="/api/auth/signout" class="shrink-0">
+        <button type="submit" class:list={[buttonVariants({ variant: "outline" })]}>
+          Wyloguj się
+        </button>
+      </form>
+    </header>
+
+    <slot name="feedback" />
+
+    {importAvailable && (
+      <div class="mt-8">
+        <a href="/dashboard/import" class:list={[buttonVariants()]}>
+          Importuj przepisy z PDF
+        </a>
+      </div>
+    )}
+
+    <section aria-labelledby="collection-placeholder-title" class="mt-8">
+      <Card className="shadow-surface text-center">
+        <CardHeader>
+          <h2 id="collection-placeholder-title" class="text-xl font-semibold sm:text-2xl">
+            Twoja kolekcja przepisów
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <p class="text-sm text-muted-foreground sm:text-base">
+            Przeglądanie zapisanych przepisów będzie dostępne wkrótce.
+          </p>
+        </CardContent>
+      </Card>
+    </section>
+  </div>
+</main>

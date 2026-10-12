@@ -303,25 +303,25 @@ Brak migracji danych i nowych sekretów. Zwykły build oraz dotychczasowy proces
 
 #### Automated
 
-- [x] 2.1 `node --test scripts/ui-theme.test.mjs`, `npm run lint`, `npx --no-install astro check` i `npm run build` przechodzą; wynikowy CSS ma poprawne mapowania fontów i cienia bez cykli zmiennych.
-- [x] 2.2 Snapshot `theme-source.json` pozostaje niezmieniony, a theme-contract dokumentuje źródło, korekty kontrastu i reguły typografii, odstępów, radius oraz cieni.
+- [x] 2.1 `node --test scripts/ui-theme.test.mjs`, `npm run lint`, `npx --no-install astro check` i `npm run build` przechodzą; wynikowy CSS ma poprawne mapowania fontów i cienia bez cykli zmiennych. — bb6e7ba
+- [x] 2.2 Snapshot `theme-source.json` pozostaje niezmieniony, a theme-contract dokumentuje źródło, korekty kontrastu i reguły typografii, odstępów, radius oraz cieni. — bb6e7ba
 
 #### Manual
 
-- [x] 2.3 Screenshoty podglądu w obu wariantach i obu szerokościach pokazują czytelne komponenty; focus jest widoczny, font załadowany, a layout nie przepełnia ekranu.
-- [x] 2.4 Punktowa kontrola strony głównej, logowania, rejestracji, potwierdzenia emaila, globalnego Banner oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności ani zachowania wspólnych przycisków; nie rozszerzono ich redesignu.
+- [x] 2.3 Screenshoty podglądu w obu wariantach i obu szerokościach pokazują czytelne komponenty; focus jest widoczny, font załadowany, a layout nie przepełnia ekranu. — bb6e7ba
+- [x] 2.4 Punktowa kontrola strony głównej, logowania, rejestracji, potwierdzenia emaila, globalnego Banner oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności ani zachowania wspólnych przycisków; nie rozszerzono ich redesignu. — bb6e7ba
 
 ### Phase 3: Dashboard oparty na wspólnym kontrakcie
 
 #### Automated
 
-- [ ] 3.1 `npm run lint`, `npx --no-install astro check`, `npm run build` i `node --test scripts/dashboard-import.test.mjs` przechodzą; helper importu i middleware nie są zmienione.
-- [ ] 3.2 `BASE_URL=http://localhost:4321 npm run smoke` na lokalnej aplikacji z Supabase przechodzi z polskim dashboardem, natywnym POST, izolacją kont i zachowanymi oczekiwaniami strony głównej.
+- [x] 3.1 `npm run lint`, `npx --no-install astro check`, `npm run build` i `node --test scripts/dashboard-import.test.mjs` przechodzą; helper importu i middleware nie są zmienione.
+- [x] 3.2 `BASE_URL=http://localhost:4321 npm run smoke` na lokalnej aplikacji z Supabase przechodzi z polskim dashboardem, natywnym POST, izolacją kont i zachowanymi oczekiwaniami strony głównej.
 
 #### Manual
 
-- [ ] 3.3 Dashboard i jego wspólny podgląd mają screenshoty 1440×900 oraz 390×844; widoczne są polskie teksty, neutralny placeholder, poprawnie łamany długi email i warianty z dostępnym/niedostępnym importem.
-- [ ] 3.4 Skan dashboardu, DashboardView i feedbacku nie wykazuje lokalnych kolorów palety, funkcji kolorów ani arbitralnych wymiarów; klawiatura obsługuje wylogowanie i link importu z widocznym focusem.
+- [x] 3.3 Dashboard i jego wspólny podgląd mają screenshoty 1440×900 oraz 390×844; widoczne są polskie teksty, neutralny placeholder, poprawnie łamany długi email i warianty z dostępnym/niedostępnym importem.
+- [x] 3.4 Skan dashboardu, DashboardView i feedbacku nie wykazuje lokalnych kolorów palety, funkcji kolorów ani arbitralnych wymiarów; klawiatura obsługuje wylogowanie i link importu z widocznym focusem.
 
 ### Phase 4: Stany, dowody i zabezpieczenie spójności
 

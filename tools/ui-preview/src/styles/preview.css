@@ -1,5 +1,13 @@
 @import "../../../../src/styles/global.css";
 
+@source "../../../../src/components/dashboard";
 @source "../../../../src/components/ui";
 @source "../components";
 @source "../pages";
+
+html:not([data-preview-view="dashboard"]) [data-dashboard-preview],
+html[data-preview-view="dashboard"] [data-component-preview],
+html[data-import-availability="available"] [data-dashboard-variant="unavailable"],
+html[data-import-availability="unavailable"] [data-dashboard-variant="available"] {
+  display: none;
+}

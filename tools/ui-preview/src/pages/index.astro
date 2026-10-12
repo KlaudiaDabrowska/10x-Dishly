@@ -1,4 +1,6 @@
 ---
+import DashboardView from "@/components/dashboard/DashboardView.astro";
+import ImportOutcomeFeedback from "@/components/dashboard/ImportOutcomeFeedback";
 import ComponentPreview from "../components/ComponentPreview";
 import "../styles/preview.css";
 ---
@@ -10,12 +12,30 @@ import "../styles/preview.css";
     <meta name="viewport" content="width=device-width" />
     <title>Dishly UI preview</title>
     <script is:inline>
-      document.documentElement.classList.toggle("dark", new URLSearchParams(location.search).get("theme") === "dark");
+      const parameters = new URLSearchParams(location.search);
+      document.documentElement.classList.toggle("dark", parameters.get("theme") === "dark");
+      document.documentElement.dataset.previewView =
+        parameters.get("view") === "dashboard" ? "dashboard" : "components";
+      document.documentElement.dataset.importAvailability =
+        parameters.get("import") === "unavailable" ? "unavailable" : "available";
     </script>
   </head>
-  <body>
-    <main class="min-h-screen bg-background px-4 py-10 text-foreground sm:px-8" data-ui-preview>
+  <body data-ui-preview>
+    <main class="min-h-screen bg-background px-4 py-10 text-foreground sm:px-8" data-component-preview>
       <ComponentPreview />
     </main>
+    <div data-dashboard-preview>
+      <div data-dashboard-variant="available">
+        <DashboardView email="bardzo.dlugi.adres.email.uzytkownika@przykladowa-domena.example" importAvailable={true}>
+          <ImportOutcomeFeedback slot="feedback" state="confirmed" saved={3} alreadySaved={1} />
+        </DashboardView>
+      </div>
+      <div data-dashboard-variant="unavailable">
+        <DashboardView
+          email="bardzo.dlugi.adres.email.uzytkownika@przykladowa-domena.example"
+          importAvailable={false}
+        />
+      </div>
+    </div>
   </body>
 </html>
