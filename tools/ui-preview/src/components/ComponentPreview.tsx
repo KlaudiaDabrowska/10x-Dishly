@@ -16,7 +16,7 @@ export default function ComponentPreview() {
       </header>
 
       <section className="grid gap-6 md:grid-cols-2" aria-label="Powierzchnie i komunikaty">
-        <Card>
+        <Card className="shadow-surface">
           <CardHeader>
             <CardTitle>Twoja kolekcja przepisów</CardTitle>
             <CardDescription>Przeglądanie zapisanych przepisów będzie dostępne wkrótce.</CardDescription>
@@ -44,6 +44,23 @@ export default function ComponentPreview() {
         </div>
       </section>
 
+      <section className="space-y-4" aria-labelledby="theme-roles-title">
+        <div className="space-y-1">
+          <h2 id="theme-roles-title" className="text-xl font-semibold">
+            Role semantyczne
+          </h2>
+          <p className="text-muted-foreground text-sm">Kolor tekstu zawsze pochodzi z pary przypisanej do tła.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="bg-primary text-primary-foreground rounded-lg p-4">Primary</div>
+          <div className="bg-secondary text-secondary-foreground rounded-lg p-4">Secondary</div>
+          <div className="bg-accent text-accent-foreground rounded-lg p-4">Accent</div>
+          <div className="bg-destructive text-destructive-foreground rounded-lg p-4">Destructive</div>
+          <div className="bg-muted text-muted-foreground rounded-lg p-4">Muted</div>
+          <div className="bg-card text-card-foreground shadow-surface rounded-lg border p-4">Card</div>
+        </div>
+      </section>
+
       <section className="space-y-4" aria-labelledby="button-states-title">
         <h2 id="button-states-title" className="text-xl font-semibold">
           Stany przycisków
@@ -54,6 +71,7 @@ export default function ComponentPreview() {
           <Button variant="outline">Obrys</Button>
           <Button variant="destructive">Usuń</Button>
           <Button disabled>Wyłączony</Button>
+          <Button className="ring-ring ring-offset-background ring-3 ring-offset-2">Focus</Button>
           <Button aria-busy="true">
             <LoaderCircle className="animate-spin" /> Ładowanie
           </Button>

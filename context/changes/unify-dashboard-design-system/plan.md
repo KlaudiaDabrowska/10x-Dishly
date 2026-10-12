@@ -292,24 +292,24 @@ Brak migracji danych i nowych sekretów. Zwykły build oraz dotychczasowy proces
 
 #### Automated
 
-- [x] 1.1 `npx --no-install astro check` i `npm run lint` przechodzą po dodaniu komponentów; diff nie zawiera ponownej inicjalizacji shadcn ani nadpisania tokenów.
-- [x] 1.2 `npm run check:ui-preview` kończy się sukcesem po checku, buildzie i sondzie HTTP podglądu, zawsze zatrzymuje proces, a konfiguracja i graf importów nie korzystają z produkcyjnych sekretów, middleware ani klientów danych.
+- [x] 1.1 `npx --no-install astro check` i `npm run lint` przechodzą po dodaniu komponentów; diff nie zawiera ponownej inicjalizacji shadcn ani nadpisania tokenów. — a1e32db
+- [x] 1.2 `npm run check:ui-preview` kończy się sukcesem po checku, buildzie i sondzie HTTP podglądu, zawsze zatrzymuje proces, a konfiguracja i graf importów nie korzystają z produkcyjnych sekretów, middleware ani klientów danych. — a1e32db
 
 #### Manual
 
-- [x] 1.3 `npm run capture:ui-preview` zapisuje cztery nazwane screenshoty Card, Alert i istniejącego Button; font Montserrat wyświetla polskie znaki, sumy plików są zgodne, a Network nie pokazuje zewnętrznych żądań fontów.
+- [x] 1.3 `npm run capture:ui-preview` zapisuje cztery nazwane screenshoty Card, Alert i istniejącego Button; font Montserrat wyświetla polskie znaki, sumy plików są zgodne, a Network nie pokazuje zewnętrznych żądań fontów. — a1e32db
 
 ### Phase 2: Tokeny motywu cagops
 
 #### Automated
 
-- [ ] 2.1 `node --test scripts/ui-theme.test.mjs`, `npm run lint`, `npx --no-install astro check` i `npm run build` przechodzą; wynikowy CSS ma poprawne mapowania fontów i cienia bez cykli zmiennych.
-- [ ] 2.2 Snapshot `theme-source.json` pozostaje niezmieniony, a theme-contract dokumentuje źródło, korekty kontrastu i reguły typografii, odstępów, radius oraz cieni.
+- [x] 2.1 `node --test scripts/ui-theme.test.mjs`, `npm run lint`, `npx --no-install astro check` i `npm run build` przechodzą; wynikowy CSS ma poprawne mapowania fontów i cienia bez cykli zmiennych.
+- [x] 2.2 Snapshot `theme-source.json` pozostaje niezmieniony, a theme-contract dokumentuje źródło, korekty kontrastu i reguły typografii, odstępów, radius oraz cieni.
 
 #### Manual
 
-- [ ] 2.3 Screenshoty podglądu w obu wariantach i obu szerokościach pokazują czytelne komponenty; focus jest widoczny, font załadowany, a layout nie przepełnia ekranu.
-- [ ] 2.4 Punktowa kontrola strony głównej, logowania, rejestracji, potwierdzenia emaila, globalnego Banner oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności ani zachowania wspólnych przycisków; nie rozszerzono ich redesignu.
+- [x] 2.3 Screenshoty podglądu w obu wariantach i obu szerokościach pokazują czytelne komponenty; focus jest widoczny, font załadowany, a layout nie przepełnia ekranu.
+- [x] 2.4 Punktowa kontrola strony głównej, logowania, rejestracji, potwierdzenia emaila, globalnego Banner oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności ani zachowania wspólnych przycisków; nie rozszerzono ich redesignu.
 
 ### Phase 3: Dashboard oparty na wspólnym kontrakcie
 

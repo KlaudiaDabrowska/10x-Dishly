@@ -43,3 +43,31 @@ Accepted by the user on 2026-10-12 after reviewing all four Phase 1 screenshots.
 clearly at both viewports, Polish diacritics use Montserrat, and the mobile layout does not overflow. The automated
 preview isolation check found no external Google Fonts URLs. Keyboard and focus-state evaluation remains part of the
 later token and seven-state phases; Phase 1 does not change the existing Button interaction contract.
+
+## Phase 2 token preview
+
+The cagops values are applied through semantic roles in `src/styles/global.css`. The raw `theme-source.json` snapshot
+remains unchanged. Automated contrast checks cover the text/background, hover, and focus-ring pairs documented in
+`theme-contract.md`.
+
+### Evidence matrix
+
+Screenshots are stored separately from the Phase 1 baseline in
+`context/changes/unify-dashboard-design-system/evidence/phase-2/`.
+
+| File                        | Query          | Viewport   | Required evidence                                                |
+| --------------------------- | -------------- | ---------- | ---------------------------------------------------------------- |
+| `preview-light-desktop.png` | `?theme=light` | 1440 × 900 | Cagops palette, semantic-role matrix, surface shadow, focus ring |
+| `preview-light-mobile.png`  | `?theme=light` | 390 × 844  | Responsive flow without horizontal overflow                      |
+| `preview-dark-desktop.png`  | `?theme=dark`  | 1440 × 900 | Dark role pairs, corrected ring, readable destructive Alert      |
+| `preview-dark-mobile.png`   | `?theme=dark`  | 390 × 844  | Dark responsive flow and readable feedback                       |
+
+Visual inspection found the generated destructive Alert too weak on the dark card surface. Its variant now uses the
+tested `destructive` / `destructive-foreground` pair; the screenshots above contain the corrected result.
+
+### Manual acceptance
+
+Accepted by the user on 2026-10-12 after reviewing all four Phase 2 screenshots and the requested regression
+surfaces. The cagops palette, Montserrat, surface shadow, focus treatment, and responsive flow are readable in both
+variants. The home, sign-in, sign-up, email-confirmation, global Banner, product-import, and diagnostic-import
+surfaces show no accepted readability or shared-Button regression; they remain outside redesign scope.
