@@ -13,6 +13,7 @@ for (const path of [
   "/api/auth/signout",
   "/api/ops/deployment-probe",
   "/api/pdf-validation/imports",
+  "/api/imports",
 ]) {
   const api = path.startsWith("/api/");
   const response = await fetch(base + path, {
@@ -32,7 +33,11 @@ for (const path of [
   }
   if (expected === 503)
     assert.deepEqual(await response.json(), {
-      error: path.startsWith("/api/pdf-validation/") ? "experiment_unavailable" : "infrastructure_unavailable",
+      error: path.startsWith("/api/pdf-validation/")
+        ? "experiment_unavailable"
+        : path.startsWith("/api/imports")
+          ? "import_unavailable"
+          : "infrastructure_unavailable",
     });
   console.log(`PASS ${path}: ${expected}`);
 }

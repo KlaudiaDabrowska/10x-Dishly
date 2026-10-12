@@ -1,0 +1,32 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import RecipeImportPanel from "@/components/pdf-processing/RecipeImportPanel";
+import { productImportAvailable } from "@/lib/pdf-validation";
+
+const available = productImportAvailable();
+---
+
+<Layout title="Import przepisów z PDF | Dishly">
+  <main class="bg-cosmic min-h-screen px-4 py-8 text-white sm:px-6 sm:py-12">
+    <div class="mx-auto w-full max-w-4xl">
+      <header class="flex flex-col gap-2">
+        <a href="/dashboard" class="text-sm text-purple-200 hover:underline">
+          Wróć do swoich przepisów
+        </a>
+        <h1 class="bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent sm:text-4xl">
+          Import przepisów z PDF
+        </h1>
+        <p class="text-sm text-blue-100/70">Dodaj kompletne przepisy z ebooka do swojej prywatnej kolekcji.</p>
+      </header>
+
+      {available ? (
+        <RecipeImportPanel client:load />
+      ) : (
+        <section class="mt-8 rounded-2xl border border-white/10 bg-white/10 px-5 py-10 text-center backdrop-blur-xl">
+          <h2 class="text-xl font-semibold">Import PDF jest teraz niedostępny</h2>
+          <p class="mt-2 text-sm text-blue-100/70">Spróbuj ponownie później.</p>
+        </section>
+      )}
+    </div>
+  </main>
+</Layout>

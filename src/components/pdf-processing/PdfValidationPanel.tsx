@@ -1,45 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { ClipboardCopy, Download, FileText, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { RecipeCandidate } from "@/lib/pdf-processing/contracts";
-import { batchFromManifest } from "@/lib/pdf-processing/manifest";
-import type { SourceManifest } from "@/lib/pdf-processing/manifest";
-
-type Stage = "idle" | "reading" | "recognizing" | "saving" | "done" | "failed" | "cancelled";
-
-interface ReturnedCandidate {
-  batchIndex: number;
-  candidateIndex: number;
-  status: "complete" | "incomplete";
-  candidate: RecipeCandidate;
-  warnings: string[];
-  explanations: string[];
-}
-
-interface Outcome {
-  status: string;
-  saved: number;
-  alreadySaved: number;
-  pending: number;
-  readBack: boolean;
-}
-
-interface ImportCreated {
-  importId: string;
-  manifestDigest: string;
-  manifest: SourceManifest;
-}
-
-class RequestFailure extends Error {
-  readonly code: string;
-  readonly lost: boolean;
-  constructor(code: string, lost = false) {
-    super(code);
-    this.code = code;
-    this.lost = lost;
-  }
-}
+import { useClientImport } from "@/lib/pdf-processing/client-import";
+import type {
+  ClientImportEvent,
+  ClientImportOutcome as Outcome,
+  ClientImportStage as Stage,
+} from "@/lib/pdf-processing/client-import";
 
 const STAGE_LABELS: Record<Stage, string> = {
   idle: "Select a PDF to start.",
@@ -50,34 +18,6 @@ const STAGE_LABELS: Record<Stage, string> = {
   failed: "The import did not finish.",
   cancelled: "The import was cancelled.",
 };
-
-// Private JSON calls only. Bodies stay in memory and are never logged or cached.
-async function api<T>(path: string, init: RequestInit = {}, signal?: AbortSignal): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(path, {
-      ...init,
-      ...(signal ? { signal } : {}),
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: init.body ? { "content-type": "application/json" } : {},
-    });
-  } catch {
-    if (signal?.aborted) throw new RequestFailure("cancelled");
-    throw new RequestFailure("network-error", true);
-  }
-  let body: unknown = null;
-  try {
-    body = await response.json();
-  } catch {
-    if (response.ok) throw new RequestFailure("invalid-response", true);
-  }
-  if (!response.ok) {
-    const code = (body as { error?: unknown } | null)?.error;
-    throw new RequestFailure(typeof code === "string" ? code : `http-${response.status}`);
-  }
-  return body as T;
-}
 
 function seconds(milliseconds: number): string {
   return (milliseconds / 1000).toFixed(1) + " s";
@@ -228,41 +168,69 @@ function buildRunRecord(
 }
 
 export default function PdfValidationPanel() {
-  const [stage, setStage] = useState<Stage>("idle");
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [pending, setPending] = useState<ReturnedCandidate[]>([]);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
-  const [importId, setImportId] = useState<string | null>(null);
   const [runRecord, setRunRecord] = useState<RunRecord | null>(null);
   const [copied, setCopied] = useState<"copied" | "copy-failed" | null>(null);
-  const controller = useRef<AbortController | null>(null);
-  const activeImport = useRef<string | null>(null);
-  // An id whose create may still complete after a cancel; closed before the next import starts.
-  const unconfirmedImport = useRef<string | null>(null);
-  const busy = stage === "reading" || stage === "recognizing" || stage === "saving";
+  const metricsRef = useRef<RunMetrics | null>(null);
 
-  useEffect(() => {
-    // Best effort only: provider calls already submitted can still incur cost.
-    const cancelOnClose = () => {
-      const id = activeImport.current;
-      if (id) void fetch(`/api/pdf-validation/imports/${id}`, { method: "DELETE", keepalive: true });
-    };
-    window.addEventListener("pagehide", cancelOnClose);
-    return () => {
-      window.removeEventListener("pagehide", cancelOnClose);
-    };
-  }, []);
+  function onImportEvent(event: ClientImportEvent) {
+    if (event.type === "started") {
+      const metrics: RunMetrics = {
+        startedAt: event.at,
+        readAt: null,
+        recognizedAt: null,
+        source: null,
+        batchCount: null,
+        batchMs: [],
+        heap: null,
+        longTasks: null,
+        observer: null,
+      };
+      metricsRef.current = metrics;
+      observeLongTasks(metrics);
+      sampleHeap(metrics);
+      setElapsedMs(null);
+      setRunRecord(null);
+      setCopied(null);
+      return;
+    }
+    const metrics = metricsRef.current;
+    if (!metrics) return;
+    if (event.type === "read") {
+      metrics.readAt = event.at;
+      metrics.source = {
+        sha256: event.source.sha256,
+        byteLength: event.source.byteLength,
+        pageCount: event.source.pageCount,
+      };
+      sampleHeap(metrics);
+    } else if (event.type === "manifest") {
+      metrics.batchCount = event.batchCount;
+    } else if (event.type === "batch") {
+      metrics.batchMs.push(event.durationMs);
+      sampleHeap(metrics);
+    } else if (event.type === "recognized") {
+      metrics.recognizedAt = event.at;
+    } else {
+      sampleHeap(metrics);
+      setElapsedMs(event.at - metrics.startedAt);
+      setRunRecord(
+        buildRunRecord(metrics, event.at, {
+          importId: event.importId,
+          stage: event.stage,
+          error: event.errorCode,
+          outcome: event.outcome,
+        }),
+      );
+    }
+  }
+
+  const importFlow = useClientImport({ apiBase: "/api/pdf-validation/imports", onEvent: onImportEvent });
+  const { stage, progress, errorCode: error, outcome, pending, importId, busy } = importFlow;
 
   function reset() {
-    setStage("idle");
-    setProgress(null);
-    setError(null);
-    setOutcome(null);
-    setPending([]);
+    importFlow.reset();
     setElapsedMs(null);
-    setImportId(null);
     setRunRecord(null);
     setCopied(null);
   }
@@ -293,179 +261,10 @@ export default function PdfValidationPanel() {
     }, 0);
   }
 
-  async function recoverStatus(id: string): Promise<Outcome | null> {
-    try {
-      const status = await api<{
-        status: string;
-        outcome: Omit<Outcome, "status" | "readBack"> | null;
-        readBack: boolean;
-      }>(`/api/pdf-validation/imports/${id}`);
-      if (status.status === "committed" && status.outcome)
-        return { status: status.status, ...status.outcome, readBack: status.readBack };
-      return { status: status.status, saved: 0, alreadySaved: 0, pending: 0, readBack: false };
-    } catch {
-      return null;
-    }
-  }
-
-  async function run(file: File) {
-    reset();
-    const startedAt = performance.now(); // Before hashing/reading; stops after commit read-back.
-    let id: string | null = null;
-    const metrics: RunMetrics = {
-      startedAt,
-      readAt: null,
-      recognizedAt: null,
-      source: null,
-      batchCount: null,
-      batchMs: [],
-      heap: null,
-      longTasks: null,
-      observer: null,
-    };
-    observeLongTasks(metrics);
-    sampleHeap(metrics);
-    // Ends timing at the confirmed outcome and keeps a non-content record for the benchmark.
-    const finish = (stageReached: Stage, outcomeReached: Outcome | null, errorCode: string | null) => {
-      const finishedAt = performance.now();
-      sampleHeap(metrics);
-      setElapsedMs(finishedAt - startedAt);
-      setRunRecord(
-        buildRunRecord(metrics, finishedAt, {
-          importId: id,
-          stage: stageReached,
-          error: errorCode,
-          outcome: outcomeReached,
-        }),
-      );
-    };
-    const abort = new AbortController();
-    controller.current = abort;
-    const previous = unconfirmedImport.current;
-    unconfirmedImport.current = null;
-    if (previous) await api(`/api/pdf-validation/imports/${previous}`, { method: "DELETE" }).catch(() => undefined);
-    let candidates: ReturnedCandidate[] = [];
-    try {
-      setStage("reading");
-      const { readPdf } = await import("@/lib/pdf-processing/browser-reader");
-      let read: Awaited<ReturnType<typeof readPdf>> | null = await readPdf(file, { signal: abort.signal });
-      metrics.readAt = performance.now();
-      metrics.source = {
-        sha256: read.source.sha256,
-        byteLength: read.source.byteLength,
-        pageCount: read.source.pageCount,
-      };
-      sampleHeap(metrics);
-      setStage("recognizing");
-      // Chosen before sending, so cancel and status lookup work even if the create response is lost.
-      id = crypto.randomUUID();
-      activeImport.current = id;
-      setImportId(id);
-      const created = await api<ImportCreated>(
-        "/api/pdf-validation/imports",
-        { method: "POST", body: JSON.stringify({ importId: id, source: read.source, pages: read.pages }) },
-        abort.signal,
-      );
-      if (created.importId !== id) throw new RequestFailure("invalid-response");
-      const total = created.manifest.batches.length;
-      metrics.batchCount = total;
-      setProgress({ done: 0, total });
-      for (const entry of created.manifest.batches) {
-        if (abort.signal.aborted) throw new RequestFailure("cancelled");
-        const batchStartedAt = performance.now();
-        const batch = batchFromManifest(read.source, read.pages, entry);
-        const result = await api<{ candidates: ReturnedCandidate[] }>(
-          `/api/pdf-validation/imports/${id}/batch`,
-          { method: "POST", body: JSON.stringify(batch) },
-          abort.signal,
-        );
-        metrics.batchMs.push(performance.now() - batchStartedAt);
-        sampleHeap(metrics);
-        candidates = [...candidates, ...result.candidates];
-        setProgress({ done: entry.batchIndex + 1, total });
-      }
-      read = null; // Release source text once recognition has finished.
-      metrics.recognizedAt = performance.now();
-      setStage("saving");
-      let finalized: Outcome;
-      try {
-        finalized = await api<Outcome>(
-          `/api/pdf-validation/imports/${id}/finalize`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              manifestDigest: created.manifestDigest,
-              candidates: candidates.map(({ batchIndex, candidateIndex, candidate }) => ({
-                batchIndex,
-                candidateIndex,
-                candidate,
-              })),
-            }),
-          },
-          abort.signal,
-        );
-      } catch (failure) {
-        // A lost response is resolved by status lookup, never by another model call.
-        if (!(failure instanceof RequestFailure && failure.lost)) throw failure;
-        const recovered = await recoverStatus(id);
-        if (!recovered) throw failure;
-        finalized = recovered;
-      }
-      activeImport.current = null;
-      setOutcome(finalized);
-      if (finalized.status === "committed") {
-        finish("done", finalized, null);
-        setPending(candidates.filter((item) => item.status !== "complete"));
-        setStage("done");
-      } else {
-        const terminal = finalized.status === "cancelled" ? "cancelled" : "failed";
-        finish(terminal, finalized, null);
-        setStage(terminal);
-      }
-    } catch (failure) {
-      const code =
-        failure instanceof RequestFailure || failure instanceof Error ? (failure as { code?: string }).code : null;
-      setError(code ?? "unexpected-error");
-      let recovered: Outcome | null = null;
-      if (id) {
-        recovered = await recoverStatus(id);
-        if (recovered) setOutcome(recovered);
-        if (recovered?.status === "committed") {
-          activeImport.current = null;
-          finish("done", recovered, code ?? "unexpected-error");
-          setStage("done");
-          return;
-        }
-        if (recovered?.status === "processing")
-          await api(`/api/pdf-validation/imports/${id}`, { method: "DELETE" }).catch(() => undefined);
-        // Not found yet: the create request may still complete on the server after this cancel.
-        if (!recovered) unconfirmedImport.current = id;
-      }
-      activeImport.current = null;
-      const terminal = code === "cancelled" ? "cancelled" : "failed";
-      finish(terminal, recovered, code ?? "unexpected-error");
-      setStage(terminal);
-    } finally {
-      controller.current = null;
-    }
-  }
-
-  async function cancel() {
-    controller.current?.abort();
-    const id = activeImport.current;
-    if (!id) return;
-    try {
-      const result = await api<Outcome>(`/api/pdf-validation/imports/${id}`, { method: "DELETE" });
-      setOutcome({ ...result, readBack: false });
-    } catch {
-      // The run loop reports the confirmed status after aborting.
-    }
-  }
-
   function onFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (file) void run(file);
+    if (file) void importFlow.run(file);
   }
 
   return (
@@ -492,7 +291,7 @@ export default function PdfValidationPanel() {
             <input type="file" accept="application/pdf,.pdf" className="sr-only" disabled={busy} onChange={onFile} />
           </label>
           {busy && (
-            <Button type="button" variant="destructive" className="min-h-11" onClick={() => void cancel()}>
+            <Button type="button" variant="destructive" className="min-h-11" onClick={() => void importFlow.cancel()}>
               <XCircle /> Cancel
             </Button>
           )}

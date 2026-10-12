@@ -12,6 +12,7 @@ export interface RecordedCandidate {
 
 export interface ValidationImportRecord {
   importId: string;
+  channel: ImportChannel;
   status: string;
   fileFingerprint: string;
   manifestDigest: string;
@@ -24,6 +25,8 @@ export interface ValidationImportRecord {
   results: { batchIndex: number; invalidCount: number; candidates: RecordedCandidate[] }[];
   outcome: ImportOutcome | null;
 }
+
+export type ImportChannel = "product" | "evaluation";
 
 export interface ImportOutcome {
   saved: number;
@@ -69,7 +72,11 @@ const RPC_REJECTIONS: Record<string, string> = {
 };
 
 // Narrow, typed access to the backend-only finalization RPCs. Never constructed with user cookies.
-export function createPersistence(client: AccountingRpcClient, authenticatedOwnerId: string | null | undefined) {
+export function createPersistence(
+  client: AccountingRpcClient,
+  authenticatedOwnerId: string | null | undefined,
+  channel: ImportChannel = "evaluation",
+) {
   const ownerId = authenticatedOwnerId?.trim();
   if (!ownerId) throw new SpendingControlError("authentication-required");
 
@@ -109,9 +116,10 @@ export function createPersistence(client: AccountingRpcClient, authenticatedOwne
       expiresAt: string;
     }): Promise<{ importId: string; status: string; expiresAt: string }> {
       const data = await call(
-        "create_pdf_validation_import",
+        "create_pdf_import",
         {
           p_import_id: input.importId,
+          p_channel: channel,
           p_file_fingerprint: input.fileFingerprint,
           p_manifest_digest: input.manifestDigest,
           p_source_filename: input.sourceFilename,
@@ -126,11 +134,12 @@ export function createPersistence(client: AccountingRpcClient, authenticatedOwne
     },
 
     async getImport(importId: string): Promise<ValidationImportRecord | null> {
-      const data = await call("get_pdf_validation_import", { p_import_id: importId }, "import-read-failed");
+      const data = await call("get_pdf_import", { p_import_id: importId, p_channel: channel }, "import-read-failed");
       const row = (data as Record<string, unknown>[] | null)?.[0];
       if (!row) return null;
       return {
         importId: String(row.import_id),
+        channel: String(row.channel) as ImportChannel,
         status: String(row.status),
         fileFingerprint: String(row.file_fingerprint),
         manifestDigest: String(row.manifest_digest),

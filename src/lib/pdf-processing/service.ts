@@ -16,6 +16,7 @@ import type { SourceManifest } from "./manifest.ts";
 import { prepareOpenAiPdfBatches, recognizePdfBatch } from "./openai.ts";
 import { createPersistence } from "./persistence.ts";
 import type { FinalizedRecipe, RecordedCandidate, TerminalOutcome, ValidationImportRecord } from "./persistence.ts";
+import type { ImportChannel } from "./persistence.ts";
 import { PDF_RECIPE_SCHEMA_NAME } from "./prompt.ts";
 import { reconcileCandidates } from "./reconcile.ts";
 import { digestValidatedCandidate, explainOmission, validateRecipeCandidate } from "./validation.ts";
@@ -26,7 +27,8 @@ export interface ValidationServiceOptions {
   client: AccountingRpcClient;
   // Verified session identity, never browser-supplied metadata.
   ownerId: string;
-  apiKey: string;
+  channel?: ImportChannel;
+  apiKey?: string;
   fetch?: typeof fetch;
   now?: () => number;
   sleep?: (milliseconds: number) => Promise<void>;
@@ -75,7 +77,7 @@ function isOpen(record: ValidationImportRecord, now: () => number): boolean {
 
 export function createValidationService(options: ValidationServiceOptions) {
   const now = options.now ?? Date.now;
-  const persistence = createPersistence(options.client, options.ownerId);
+  const persistence = createPersistence(options.client, options.ownerId, options.channel);
   const ownerId = persistence.ownerId;
 
   async function requireImport(importId: string): Promise<ValidationImportRecord> {
@@ -92,7 +94,7 @@ export function createValidationService(options: ValidationServiceOptions) {
       const startedAt = now();
       const { importId, source, pages } = parseCreateRequest(body);
       const batches = await (options.prepareBatches ?? prepareOpenAiPdfBatches)(source, pages, {
-        apiKey: options.apiKey,
+        apiKey: options.apiKey ?? "",
         ...(options.fetch ? { fetch: options.fetch } : {}),
         now,
         processingStartedAt: startedAt,
@@ -133,7 +135,7 @@ export function createValidationService(options: ValidationServiceOptions) {
       let recognized: Awaited<ReturnType<typeof recognizePdfBatch>>;
       try {
         recognized = await (options.recognize ?? recognizePdfBatch)({
-          apiKey: options.apiKey,
+          apiKey: options.apiKey ?? "",
           ...(options.fetch ? { fetch: options.fetch } : {}),
           ...(options.sleep ? { sleep: options.sleep } : {}),
           now,
@@ -299,6 +301,7 @@ export function createValidationService(options: ValidationServiceOptions) {
     },
 
     async cancel(importId: string): Promise<TerminalOutcome> {
+      await requireImport(importId);
       return persistence.cancelImport(importId);
     },
 

@@ -490,10 +490,11 @@ function mockRecognize({ fail = false, calls = [], title } = {}) {
     });
   };
 }
-function service(ownerId, options = {}) {
+function service(ownerId, options = {}, channel = "evaluation") {
   return createValidationService({
     client: admin(),
     ownerId,
+    channel,
     apiKey: "unused-test-key",
     prepareBatches: async (source, pages) => createTextBatches(source, pages, { corePagesPerBatch: 1 }),
     recognize: mockRecognize(options),
@@ -542,10 +543,12 @@ test("browser roles cannot call finalization RPCs or mutate recipes", async () =
   for (const caller of [publicClient(), client]) {
     for (const [name, parameters] of [
       ["create_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      ["create_pdf_import", { p_owner_id: user.id, p_import_id: randomUUID(), p_channel: "product" }],
       ["record_pdf_batch_result", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["finalize_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["cancel_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["get_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      ["get_pdf_import", { p_owner_id: user.id, p_import_id: randomUUID(), p_channel: "product" }],
     ])
       assert.ok((await caller.rpc(name, parameters)).error, name);
     const insert = await caller.from("recipes").insert({
@@ -728,6 +731,54 @@ test("a client-chosen import id recovers a lost create response and cannot be re
   assert.equal((await svc.cancel(importId)).status, "cancelled");
   const next = roundTrip(await svc.createImport(createBody(sourceDocument(sha(), "next.pdf"))));
   await svc.cancel(next.importId);
+});
+
+test("import channel is immutable, route-scoped, and product reservations do not consume F-01", async () => {
+  const user = await createUser(`pdf-channel-${randomUUID()}@example.test`);
+  const evaluation = service(user.id);
+  const evaluationCreated = roundTrip(
+    await evaluation.createImport(createBody(sourceDocument(sha(), "evaluation.pdf"))),
+  );
+  const evaluationRead = await admin().rpc("get_pdf_import", {
+    p_owner_id: user.id,
+    p_import_id: evaluationCreated.importId,
+    p_channel: "evaluation",
+  });
+  assert.ifError(evaluationRead.error);
+  assert.equal(evaluationRead.data[0].channel, "evaluation");
+  const productCrossRead = await admin().rpc("get_pdf_import", {
+    p_owner_id: user.id,
+    p_import_id: evaluationCreated.importId,
+    p_channel: "product",
+  });
+  assert.ifError(productCrossRead.error);
+  assert.deepEqual(productCrossRead.data, []);
+  await assert.rejects(service(user.id, {}, "product").status(evaluationCreated.importId), {
+    code: "import-not-found",
+  });
+  assert.throws(() =>
+    sql(`update public.pdf_imports set channel = 'product' where id = '${evaluationCreated.importId}'`),
+  );
+  const afterRejectedUpdate = await admin().rpc("get_pdf_import", {
+    p_owner_id: user.id,
+    p_import_id: evaluationCreated.importId,
+    p_channel: "evaluation",
+  });
+  assert.ifError(afterRejectedUpdate.error);
+  assert.equal(afterRejectedUpdate.data[0].channel, "evaluation");
+  await evaluation.cancel(evaluationCreated.importId);
+
+  const product = service(user.id, {}, "product");
+  const beforeF01 = await scope("f01");
+  const document = sourceDocument(sha(), "product.pdf");
+  const created = roundTrip(await product.createImport(createBody(document)));
+  const firstBatch = batchFromManifest(document.source, document.pages, created.manifest.batches[0]);
+  await product.processBatch(created.importId, roundTrip(firstBatch));
+  assert.deepEqual(await scope("f01"), beforeF01);
+  assert.equal((await scope(`import:${created.importId}`)).spent_nano_usd, 2);
+  const month = await scope(`month:${new Date().toISOString().slice(0, 7)}`);
+  assert.ok(month.spent_nano_usd >= 2);
+  await product.cancel(created.importId);
 });
 
 test("an import that expired before finalize saves nothing, even with valid content", async () => {

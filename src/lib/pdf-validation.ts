@@ -2,6 +2,7 @@ import type { APIContext } from "astro";
 import {
   DEPLOYMENT_ENV,
   OPENAI_API_KEY,
+  PDF_IMPORT_ENABLED,
   PDF_VALIDATION_ENABLED,
   PDF_VALIDATION_EVALUATOR_IDS,
   SUPABASE_SECRET_KEY,
@@ -15,6 +16,9 @@ import { OpenAiPdfError } from "@/lib/pdf-processing/openai";
 import { PdfReadError } from "@/lib/pdf-processing/reader-core";
 import { createValidationService } from "@/lib/pdf-processing/service";
 import type { ValidationService } from "@/lib/pdf-processing/service";
+import type { ImportChannel } from "@/lib/pdf-processing/persistence";
+import { importCreationAvailable, importOperationAvailable, importUserAuthorized } from "@/lib/pdf-import-access";
+import type { ImportOperation } from "@/lib/pdf-import-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -29,12 +33,22 @@ function evaluatorIds(): Set<string> {
 
 // Missing configuration, preview, or the default-off switch all disable the experiment.
 export function experimentAvailable(): boolean {
-  return (
-    DEPLOYMENT_ENV !== "preview" &&
-    PDF_VALIDATION_ENABLED === "true" &&
-    Boolean(OPENAI_API_KEY?.trim() && SUPABASE_URL && SUPABASE_SECRET_KEY) &&
-    evaluatorIds().size > 0
-  );
+  return importCreationAvailable(importConfig(), "evaluation") && evaluatorIds().size > 0;
+}
+
+export function productImportAvailable(): boolean {
+  return importCreationAvailable(importConfig(), "product");
+}
+
+function importConfig() {
+  return {
+    deploymentEnv: DEPLOYMENT_ENV,
+    openAiApiKey: OPENAI_API_KEY,
+    productEnabled: PDF_IMPORT_ENABLED,
+    validationEnabled: PDF_VALIDATION_ENABLED,
+    supabaseUrl: SUPABASE_URL,
+    supabaseSecretKey: SUPABASE_SECRET_KEY,
+  };
 }
 
 export function isEvaluator(userId: string | undefined): boolean {
@@ -62,13 +76,14 @@ const STATUS_BY_CODE: Record<string, number> = {
 
 // Content-free server trace for 5xx outcomes: fixed codes and identifiers only, never messages,
 // provider/database bodies, source text or recipe content.
-function logFailure(error: unknown, status: number, route: string) {
+function logFailure(error: unknown, status: number, route: string, channel: ImportChannel) {
   const cause = error instanceof Error ? error.cause : undefined;
   const dbCode = (cause as { code?: unknown } | undefined)?.code;
   // eslint-disable-next-line no-console
   console.error(
     JSON.stringify({
-      event: "pdf_validation_error",
+      event: "pdf_import_error",
+      channel,
       route,
       status,
       error: error instanceof Error ? error.name : typeof error,
@@ -87,9 +102,9 @@ function errorStatus(error: unknown): { code: string; status: number } {
 }
 
 // Sanitized error codes only: never provider bodies, source text or database messages.
-export function errorResponse(error: unknown, route = "unknown"): Response {
+export function errorResponse(error: unknown, route = "unknown", channel: ImportChannel = "evaluation"): Response {
   const { code, status } = errorStatus(error);
-  if (status >= 500) logFailure(error, status, route);
+  if (status >= 500) logFailure(error, status, route, channel);
   return privateJson({ error: code }, status);
 }
 
@@ -143,18 +158,23 @@ export interface GuardedRequest {
 // Session, evaluator allowlist, same-origin mutation and bounded JSON body, in that order.
 export async function guard(
   context: APIContext,
-  options: { mutation: boolean; maxBodyBytes?: number },
+  options: { channel?: ImportChannel; operation: ImportOperation; mutation: boolean; maxBodyBytes?: number },
 ): Promise<GuardedRequest | Response> {
-  if (!experimentAvailable()) return privateJson({ error: "experiment_unavailable" }, 503);
+  const channel = options.channel ?? "evaluation";
+  const available = importOperationAvailable(importConfig(), channel, options.operation);
+  if (!available)
+    return privateJson({ error: channel === "product" ? "import_unavailable" : "experiment_unavailable" }, 503);
   const user = context.locals.user;
   if (!user) return privateJson({ error: "authentication_required" }, 401);
-  if (!isEvaluator(user.id)) return privateJson({ error: "forbidden" }, 403);
+  if (!importUserAuthorized(channel, user.id, evaluatorIds())) return privateJson({ error: "forbidden" }, 403);
   if (options.mutation && !sameOrigin(context)) return privateJson({ error: "cross_origin_forbidden" }, 403);
   const id = context.params.id;
   if (id !== undefined && !UUID.test(id)) return privateJson({ error: "import-not-found" }, 404);
   const client = createAdminClient();
   const apiKey = OPENAI_API_KEY?.trim();
-  if (!client || !apiKey) return privateJson({ error: "experiment_unavailable" }, 503);
+  const providerRequired = options.operation === "create" || options.operation === "batch";
+  if (!client || (providerRequired && !apiKey))
+    return privateJson({ error: channel === "product" ? "import_unavailable" : "experiment_unavailable" }, 503);
   let body: unknown = null;
   if (options.maxBodyBytes !== undefined) {
     const contentType = context.request.headers.get("content-type") ?? "";
@@ -165,10 +185,14 @@ export async function guard(
     } catch (error) {
       if (error instanceof PdfRequestError && error.code === "request-too-large")
         return privateJson({ error: error.code }, 413);
-      return errorResponse(error, "request-body");
+      return errorResponse(error, "request-body", channel);
     }
   }
-  return { service: createValidationService({ client, ownerId: user.id, apiKey }), ownerId: user.id, body };
+  return {
+    service: createValidationService({ client, ownerId: user.id, ...(apiKey ? { apiKey } : {}), channel }),
+    ownerId: user.id,
+    body,
+  };
 }
 
 const READ_BACK_CHUNK = 100;

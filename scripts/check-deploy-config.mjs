@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
-// The F-01 experiment secrets are optional, server-only secrets: when any is missing the experiment is
-// disabled at runtime (PDF_VALIDATION_ENABLED must be exactly "true"), so deploys never depend on them.
-// They must never be plain vars or preview secrets.
+// PDF import credentials and channel switches are optional, server-only secrets: missing switches
+// disable new imports at runtime, so deploys never depend on them. Preview receives none of them.
 export const experimentSecrets = [
   "OPENAI_API_KEY",
+  "PDF_IMPORT_ENABLED",
   "PDF_VALIDATION_ENABLED",
   "PDF_VALIDATION_EVALUATOR_IDS",
   "SUPABASE_SECRET_KEY",
