@@ -10,7 +10,7 @@ S-08 porządkuje istniejący system UI i stosuje motyw cagops do `/dashboard`, w
 
 Placeholder jest bezwarunkowy (`src/pages/dashboard.astro:48`), więc po udanym imporcie może przeczyć bannerowi. Początkowy stan bannera i brak potwierdzenia są reprezentowane przez null (`ImportOutcomeBanner.tsx:11`, `:27`). Helper celowo odrzuca niepotwierdzone wyniki; nie wolno interpretować null jako porażki importu (`src/lib/pdf-processing/dashboard-import.ts:43`).
 
-Tokeny i Button mają odbiorców poza dashboardem: formularze konta oraz produktowy i diagnostyczny import. Wspólne zmiany wymagają sprawdzenia regresji, nie redesignu tych ekranów. Repo ma ESLint, lint-staged, testy kontraktów i smoke, ale w zbadanej konfiguracji nie ma runnera screenshotów. Lokalnie dostępny jest Google Chrome; dowody wizualne nie wymagają instalowania Playwrighta.
+Tokeny i Button mają odbiorców poza dashboardem: strona główna, formularze konta wraz z potwierdzeniem emaila oraz produktowy i diagnostyczny import. Globalny Layout renderuje też Banner z własnymi kolorami. Wspólne zmiany wymagają sprawdzenia regresji tych powierzchni, nie ich redesignu. Repo ma ESLint, lint-staged, testy kontraktów i smoke, ale w zbadanej konfiguracji nie ma runnera screenshotów. Lokalnie dostępny jest Google Chrome; dowody wizualne nie wymagają instalowania Playwrighta.
 
 ## Desired End State
 
@@ -44,7 +44,7 @@ Uzgodnione teksty i zachowania:
 - Zmiana operacyjnego 503 JSON, middleware lub zasad izolacji użytkowników; ta część C4 jest odłożona.
 - Przełącznik motywu, wykrywanie preferencji systemowych, zapisywanie motywu użytkownika.
 - Redesign logowania, strony importu, narzędzia diagnostycznego lub strony głównej; pełna lokalizacja aplikacji.
-- Nowy katalog komponentów, Storybook, runner screenshotów ani nowy framework testowy.
+- Nowy katalog komponentów, Storybook, automatyczne porównywanie screenshotów ani nowy framework testowy.
 - Publikacja aplikacji, ponowny płatny import dla screenshotów, rozszerzenie deklarowanego wsparcia importu na telefon/Firefox.
 
 ## Implementation Approach
@@ -53,13 +53,17 @@ Kolejność: komponenty i środowisko → tokeny → dashboard → stany i zabez
 
 Dashboard pozostaje renderowany na serwerze. Wydzielony `DashboardView.astro` przyjmuje email i dostępność importu, a slot feedback mieści dotychczasową wyspę React. Reużywa stylów Button przez `buttonVariants`, lokalnego Card i prezentacyjnego feedbacku. Interaktywność pozostaje w istniejącym bannerze; nie hydratować całego dashboardu.
 
-Stanowisko wizualne będzie oddzielnym, lokalnym projektem Astro w `tools/ui-preview/`, uruchamianym przez `npm run dev:ui`. Importuje te same komponenty i global CSS, używa fikcyjnej tożsamości i deterministycznych danych; nie jest trasą produkcyjnej aplikacji. Nie importuje middleware, klientów Supabase ani modułów importu. W kontrolkach prezentacyjnych przechwytuje akcje, aby nie uruchamiać wylogowania lub importu. Prawdziwą autoryzację sprawdza smoke i przeglądarka na lokalnej aplikacji.
+Stanowisko wizualne będzie oddzielnym, lokalnym projektem Astro w `tools/ui-preview/`, uruchamianym przez `npm run dev:ui`. Importuje te same komponenty i global CSS, używa fikcyjnej tożsamości i deterministycznych danych; nie jest trasą produkcyjnej aplikacji. Nie importuje middleware, klientów Supabase ani modułów importu. W kontrolkach prezentacyjnych przechwytuje akcje, aby nie uruchamiać wylogowania lub importu. Kończący się `npm run check:ui-preview` sprawdza i buduje ten projekt, uruchamia jego build, czeka na gotowość HTTP i zawsze zatrzymuje proces. `npm run capture:ui-preview` wykonuje ten sam cykl i zapisuje deterministyczne obrazy przez lokalny Chrome. Prawdziwą autoryzację sprawdza smoke i przeglądarka na lokalnej aplikacji.
 
 ## Critical Implementation Details
 
 ### Granica prezentacji i danych
 
 Wydzielenie widoku nie przenosi sprawdzania uprawnień do klienta. Helper nadal zwraca wyłącznie potwierdzone liczniki albo null. Banner rozróżnia lokalnie pending, confirmed i unavailable, ale unavailable nie ujawnia przyczyny odmowy ani informacji o właścicielu. Cleanup efektu nadal przerywa żądanie i zapobiega aktualizacji po odmontowaniu.
+
+### Granica Astro i React
+
+W `DashboardView.astro` natywne `<button>` i `<a>` dostają klasy z `buttonVariants`; nie używać tam `Button asChild`, ponieważ dzieci przekazane z Astro do komponentu React mogą zostać opakowane w `astro-static-slot`. Całe wnętrze Alert — ikona, tytuł i opis — renderuje `ImportOutcomeFeedback.tsx`, dzięki czemu selektory bezpośrednich dzieci komponentu nie zależą od opakowania slotu Astro.
 
 ### Tokeny i wynikowy CSS
 
@@ -83,22 +87,24 @@ Przygotować minimalne współdzielone elementy i powtarzalny podgląd bez zmian
 
 #### 2. Font i lokalny podgląd
 
-**File**: `src/assets/fonts/`, `src/styles/fonts.css`, `tools/ui-preview/astro.config.mjs`, `tools/ui-preview/src/pages/index.astro`, `package.json`, `context/changes/unify-dashboard-design-system/visual-verification.md`
+**File**: `src/assets/fonts/`, `src/styles/fonts.css`, `tools/ui-preview/astro.config.mjs`, `tools/ui-preview/src/pages/index.astro`, `scripts/ui-preview.mjs`, `package.json`, `context/changes/unify-dashboard-design-system/visual-verification.md`
 
 **Intent**: Zapewnić Montserrat i możliwość obejrzenia stanów bez usług zewnętrznych.
 
-**Contract**: Przechowywać lokalne pliki Montserrat z legalnego źródła wraz z licencją i adresem pochodzenia, obejmujące polskie znaki i używane wagi 400–700. Zadeklarować font-face z font-display swap; nie dodawać zależności runtime ani żądań Google Fonts w przeglądarce. Podgląd używa istniejących integracji Astro/React/Tailwind, aliasu do głównego `src` i jawnego źródła klas komponentów; nie dziedziczy adaptera i sekretów produkcyjnego configu. Skrypt `dev:ui` uruchamia go lokalnie. Zapisać instrukcję podglądu, screenshotów 1440×900 i 390×844 oraz początkową macierz dowodów.
+**Contract**: Zapisać lokalnie dwa zmienne pliki Montserrat v31 z oficjalnego CSS API Google Fonts: latin-ext `JTUSjIg1_i6t8kCHKm459Wdhyzbi.woff2` (SHA-256 `54d9a78b7ff60b689ad9f3017ffac8547b5d871afec733f6c1c3ae36577ee504`) i latin `JTUSjIg1_i6t8kCHKm459Wlhyw.woff2` (SHA-256 `06b16db7a969135d48d38c49183be7fb88d4452e2a3011957c7851941f4e4879`). Źródłowy arkusz to `https://fonts.googleapis.com/css2?family=Montserrat:wght@400..700&display=swap`, pobrany 2026-10-12 dla nowoczesnego Chrome; pliki pochodzą z `fonts.gstatic.com/s/montserrat/v31/`. Dołączyć `OFL.txt` ze źródła Montserrat wskazanego przez Google Fonts, przypiętego do commitu `cc8daf2e7085006b9c112542fc82b58afc13521d`, i odnotować URL-e oraz sumy w `fonts.css` lub pliku provenance. Zadeklarować osobne `@font-face` z odpowiadającymi zakresami unicode, `font-weight: 400 700`, formatem woff2 i `font-display: swap`; nie dodawać zależności runtime ani żądań Google Fonts w przeglądarce.
+
+Podgląd używa istniejących integracji Astro/React/Tailwind, aliasu do głównego `src` i jawnego źródła klas komponentów; nie dziedziczy adaptera i sekretów produkcyjnego configu. `dev:ui` uruchamia serwer na `127.0.0.1:4322`. `check:ui-preview` wykonuje `astro check` i `astro build` z rootem `tools/ui-preview`, po czym `scripts/ui-preview.mjs check` uruchamia `astro preview`, czeka na odpowiedź HTTP i kończy proces w `finally`. `capture:ui-preview` używa tego samego lifecycle, wykrywa Chrome przez `CHROME_BIN` lub `/usr/bin/google-chrome` i zapisuje cztery obrazy: `preview-light-desktop.png`, `preview-light-mobile.png`, `preview-dark-desktop.png`, `preview-dark-mobile.png` dla 1440×900 i 390×844. Skrypt kończy się błędem, jeśli serwer, Chrome albo którykolwiek plik dowodu jest niedostępny. Zapisać komendy, parametry wariantów i macierz dowodów w `visual-verification.md`.
 
 ### Success Criteria:
 
 #### Automated Verification:
 
 - `npx --no-install astro check` i `npm run lint` przechodzą po dodaniu komponentów; diff nie zawiera ponownej inicjalizacji shadcn ani nadpisania tokenów.
-- `npm run dev:ui` serwuje lokalny podgląd, a jego konfiguracja i graf importów nie korzystają z produkcyjnych sekretów, middleware ani klientów danych.
+- `npm run check:ui-preview` kończy się sukcesem po checku, buildzie i sondzie HTTP podglądu, zawsze zatrzymuje proces, a konfiguracja i graf importów nie korzystają z produkcyjnych sekretów, middleware ani klientów danych.
 
 #### Manual Verification:
 
-- Podgląd Card, Alert i istniejącego Button ma screenshoty desktop/mobile; font Montserrat wyświetla polskie znaki, a Network nie pokazuje zewnętrznych żądań fontów.
+- `npm run capture:ui-preview` zapisuje cztery nazwane screenshoty Card, Alert i istniejącego Button; font Montserrat wyświetla polskie znaki, sumy plików są zgodne, a Network nie pokazuje zewnętrznych żądań fontów.
 
 **Implementation Note**: Zapisać dowody i wynik skanu klas; ręczną akceptację wizualną odnotować przed zamknięciem fazy.
 
@@ -145,7 +151,7 @@ Konkretny kontrakt:
 #### Manual Verification:
 
 - Screenshoty podglądu w obu wariantach i obu szerokościach pokazują czytelne komponenty; focus jest widoczny, font załadowany, a layout nie przepełnia ekranu.
-- Kontrola formularzy konta oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności lub zachowania wspólnych przycisków; nie rozszerzono ich redesignu.
+- Punktowa kontrola strony głównej, logowania, rejestracji, potwierdzenia emaila, globalnego Banner oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności ani zachowania wspólnych przycisków; nie rozszerzono ich redesignu.
 
 **Implementation Note**: Po zmianie tokenów zapisać screenshoty i skan; wynik dotychczasowego dashboardu może nadal zawierać stare klasy aż do fazy 3.
 
@@ -163,7 +169,7 @@ Zastosować system na jednym widoku i usunąć nieprawdziwe twierdzenie o pustej
 
 **Intent**: Udostępnić ten sam układ produkcyjnej stronie i lokalnemu podglądowi; ujednolicić język dashboardu.
 
-**Contract**: Route zachowuje obecne odczyty Astro.locals, productImportAvailable i dashboardImportId. DashboardView przyjmuje email, importAvailable i slot feedback; nie pobiera danych. Natywny button POST i link korzystają z buttonVariants; placeholder z Card. Layout dostaje opcjonalny lang z domyślnym en, dashboard podaje pl i polski tytuł. Pozostałe strony nie są lokalizowane. Użyć dokładnych tekstów Desired End State. Zachować łamanie długiego emaila, heading hierarchy i aria-labelledby. Smoke zmienia oczekiwania dashboardu oraz sprawdzanie braku jego prywatnego markup; angielskie testy nawigacji strony głównej pozostają.
+**Contract**: Route zachowuje obecne odczyty Astro.locals, productImportAvailable i dashboardImportId. DashboardView przyjmuje email, importAvailable i slot feedback; nie pobiera danych. Natywny button POST i link korzystają bezpośrednio z `buttonVariants`; nie owijać ich w React `Button asChild`. Placeholder korzysta z Card. Layout dostaje opcjonalny lang z domyślnym en, dashboard podaje pl i polski tytuł. Pozostałe strony nie są lokalizowane. Użyć dokładnych tekstów Desired End State. Zachować łamanie długiego emaila, heading hierarchy i aria-labelledby. Smoke zmienia oczekiwania dashboardu oraz sprawdzanie braku jego prywatnego markup; angielskie testy nawigacji strony głównej pozostają.
 
 #### 2. Prezentacja wyniku
 
@@ -171,7 +177,7 @@ Zastosować system na jednym widoku i usunąć nieprawdziwe twierdzenie o pustej
 
 **Intent**: Reużywać prezentacji wyniku bez przenoszenia importu do warstwy widoku.
 
-**Contract**: Czysty komponent feedbacku przyjmuje stan prezentacji i zweryfikowane liczniki; nie wykonuje fetch ani nawigacji. W tej fazie dotychczasowy sukces używa Alert i tokenów, zachowując role=status, aria-live=polite oraz dekoracyjną ikonę aria-hidden. Podgląd wykorzystuje ten sam komponent. Pozostałe stany zostają podłączone w fazie 4.
+**Contract**: Czysty komponent feedbacku przyjmuje stan prezentacji i zweryfikowane liczniki; nie wykonuje fetch ani nawigacji. W tej fazie dotychczasowy sukces używa Alert i tokenów, zachowując role=status, aria-live=polite oraz dekoracyjną ikonę aria-hidden. Ikona, AlertTitle i AlertDescription powstają wewnątrz `ImportOutcomeFeedback.tsx`; Astro nie przekazuje ich jako dzieci komponentu React. Podgląd wykorzystuje ten sam komponent. Pozostałe stany zostają podłączone w fazie 4.
 
 ### Success Criteria:
 
@@ -223,7 +229,7 @@ Stany confirmed i unavailable są dodatkowymi przykładami feedbacku. Symulacja 
 
 **Intent**: Włączyć kontrolę kontraktu do istniejącego lint/CI i udostępnić przyszłym agentom zasady oraz wizualne dowody.
 
-**Contract**: `npm run check:ui` skanuje jawny zbiór oczyszczonych plików dashboardu i feedbacku według wzorca 10x-ui; wyklucza źródło tokenów, legacy views i bazowe komponenty biblioteki. `npm run lint` uruchamia ESLint oraz ten check, więc istniejące CI go egzekwuje. Check zgłasza plik/linię i kończy się błędem przy naruszeniu. W AGENTS poza blokiem CLI wpisać źródło tokenów, komponenty, reużycie przed tworzeniem, dodawanie brakujących przez shadcn, zakaz kolorów literalnych/arbitralnych wartości w widokach, konwencje skali i miejsce podglądu/dowodów. Screenshoty mają fikcyjne dane i opis wariantu, viewportu, stanu oraz ocenionych różnic. Nie aktualizować dowodów wyłącznie dla zielonego checka.
+**Contract**: `npm run check:ui` skanuje jawny zbiór oczyszczonych plików dashboardu i feedbacku według wzorca 10x-ui; wyklucza źródło tokenów, legacy views i bazowe komponenty biblioteki. `npm run lint` uruchamia ESLint oraz ten check, więc istniejące CI go egzekwuje. Check zgłasza plik/linię i kończy się błędem przy naruszeniu. W AGENTS poza blokiem CLI wpisać źródło tokenów, komponenty, reużycie przed tworzeniem, dodawanie brakujących przez shadcn, zakaz kolorów literalnych/arbitralnych wartości w widokach, konwencje skali i miejsce podglądu/dowodów. Screenshoty preview zachowują nazwy z fazy 1; rzeczywisty dashboard zapisuje `dashboard-light-desktop.png` i `dashboard-light-mobile.png`. Wszystkie mają fikcyjne dane i opis wariantu, viewportu, stanu oraz ocenionych różnic. Nie aktualizować dowodów wyłącznie dla zielonego checka.
 
 ### Success Criteria:
 
@@ -237,7 +243,7 @@ Stany confirmed i unavailable są dodatkowymi przykładami feedbacku. Symulacja 
 
 - Macierz siedmiu stanów oraz confirmed/unavailable ma screenshoty desktop/mobile w obu wariantach, uzasadnienia N/A i ocenę kontrastu/focus; rzeczywisty dashboard sprawdzono w wariancie jasnym po zalogowaniu.
 - Kontrolowane odpowiedzi odczytu obejmują opóźniony sukces, null, błędny i brakujący ID oraz przerwane żądanie; UI nie twierdzi, że import się nie udał, nie pokazuje starego wyniku i nie zmienia walidacji liczb.
-- Regresja konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia.
+- Regresja strony głównej, potwierdzenia emaila, globalnego Banner, formularzy konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia.
 
 **Implementation Note**: Nie oznaczać ręcznych kryteriów jako ukończonych na podstawie samych testów. Brak działającego środowiska lub screenshotu pozostawia odpowiedni punkt otwarty z konkretnym powodem.
 
@@ -257,8 +263,8 @@ Stany confirmed i unavailable są dodatkowymi przykładami feedbacku. Symulacja 
 
 ### Manual Testing Steps:
 
-1. Uruchomić lokalny podgląd i aplikację z konfiguracją testową; używać fikcyjnych danych w zapisanych screenshotach.
-2. Po każdej fazie wizualnej zapisać screenshoty desktop/mobile oraz wynik skanu; po tokenach porównać oba warianty.
+1. Uruchomić `npm run check:ui-preview`, potem `npm run capture:ui-preview`; uruchomić aplikację z konfiguracją testową i używać fikcyjnych danych w zapisanych screenshotach.
+2. Po każdej fazie wizualnej odtworzyć nazwane screenshoty 1440×900 i 390×844 oraz wynik skanu; po tokenach porównać oba warianty. Zalogowany dashboard zapisać ręcznie jako `dashboard-light-desktop.png` i `dashboard-light-mobile.png`.
 3. Na dashboardzie sprawdzić długi email, tab order, wylogowanie, zwykły link importu i jego nieobecność przy wyłączonej funkcji.
 4. Zweryfikować pending → confirmed/unavailable, cleanup URL i reload bez bannera; błędny ID nie generuje żądania.
 5. Porównać punktowe regresje współdzielonych komponentów, uzupełnić macierz i przeprowadzić review.
@@ -287,11 +293,11 @@ Brak migracji danych i nowych sekretów. Zwykły build oraz dotychczasowy proces
 #### Automated
 
 - [ ] 1.1 `npx --no-install astro check` i `npm run lint` przechodzą po dodaniu komponentów; diff nie zawiera ponownej inicjalizacji shadcn ani nadpisania tokenów.
-- [ ] 1.2 `npm run dev:ui` serwuje lokalny podgląd, a jego konfiguracja i graf importów nie korzystają z produkcyjnych sekretów, middleware ani klientów danych.
+- [ ] 1.2 `npm run check:ui-preview` kończy się sukcesem po checku, buildzie i sondzie HTTP podglądu, zawsze zatrzymuje proces, a konfiguracja i graf importów nie korzystają z produkcyjnych sekretów, middleware ani klientów danych.
 
 #### Manual
 
-- [ ] 1.3 Podgląd Card, Alert i istniejącego Button ma screenshoty desktop/mobile; font Montserrat wyświetla polskie znaki, a Network nie pokazuje zewnętrznych żądań fontów.
+- [ ] 1.3 `npm run capture:ui-preview` zapisuje cztery nazwane screenshoty Card, Alert i istniejącego Button; font Montserrat wyświetla polskie znaki, sumy plików są zgodne, a Network nie pokazuje zewnętrznych żądań fontów.
 
 ### Phase 2: Tokeny motywu cagops
 
@@ -303,7 +309,7 @@ Brak migracji danych i nowych sekretów. Zwykły build oraz dotychczasowy proces
 #### Manual
 
 - [ ] 2.3 Screenshoty podglądu w obu wariantach i obu szerokościach pokazują czytelne komponenty; focus jest widoczny, font załadowany, a layout nie przepełnia ekranu.
-- [ ] 2.4 Kontrola formularzy konta oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności lub zachowania wspólnych przycisków; nie rozszerzono ich redesignu.
+- [ ] 2.4 Punktowa kontrola strony głównej, logowania, rejestracji, potwierdzenia emaila, globalnego Banner oraz produktowego i diagnostycznego importu nie wykazuje utraty czytelności ani zachowania wspólnych przycisków; nie rozszerzono ich redesignu.
 
 ### Phase 3: Dashboard oparty na wspólnym kontrakcie
 
@@ -329,4 +335,4 @@ Brak migracji danych i nowych sekretów. Zwykły build oraz dotychczasowy proces
 
 - [ ] 4.4 Macierz siedmiu stanów oraz confirmed/unavailable ma screenshoty desktop/mobile w obu wariantach, uzasadnienia N/A i ocenę kontrastu/focus; rzeczywisty dashboard sprawdzono w wariancie jasnym po zalogowaniu.
 - [ ] 4.5 Kontrolowane odpowiedzi odczytu obejmują opóźniony sukces, null, błędny i brakujący ID oraz przerwane żądanie; UI nie twierdzi, że import się nie udał, nie pokazuje starego wyniku i nie zmienia walidacji liczb.
-- [ ] 4.6 Regresja konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia.
+- [ ] 4.6 Regresja strony głównej, potwierdzenia emaila, globalnego Banner, formularzy konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia.

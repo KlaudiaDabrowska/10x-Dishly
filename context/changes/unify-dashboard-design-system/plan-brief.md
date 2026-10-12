@@ -17,16 +17,16 @@ Polski dashboard ma ciepły motyw cagops, Montserrat, spójne odstępy i kontrol
 
 ## Key Decisions Made
 
-| Decyzja     | Wybór                                                                                    | Powód                                                  | Źródło                    |
-| ----------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------- |
-| Motyw       | cagops; źródło w theme-source.json                                                       | Wygląd wybrany przez użytkowniczkę                     | Użytkowniczka             |
-| Język       | Polski na dashboardzie, lang=pl                                                          | Spójność z importem                                    | Uzgodnienia planu         |
-| Placeholder | „Twoja kolekcja przepisów”; „Przeglądanie zapisanych przepisów będzie dostępne wkrótce.” | Brak niepopartego danymi twierdzenia o pustej kolekcji | Uzgodnienia planu         |
-| Brak wyniku | „Nie udało się potwierdzić wyniku importu.” po loading                                   | Null nie dowodzi porażki importu                       | Uzgodnienia planu         |
-| Kontrast    | Jasne accent-foreground #A6402F, ciemne muted-foreground #9AAEBB                         | Poprawa czytelności przy zachowaniu motywu             | Pomiar podczas planowania |
-| Komponenty  | Istniejący Button/variants, lokalne Card i Alert                                         | Reużycie systemu bez drugiej biblioteki                | Research / Plan           |
-| Font        | Montserrat lokalnie, z licencją i polskimi znakami                                       | Brak żądania Google Fonts w przeglądarce               | Plan                      |
-| Podgląd     | Oddzielny lokalny projekt Astro w tools/ui-preview                                       | Deterministyczne stany bez obejścia produkcyjnego auth | Plan                      |
+| Decyzja     | Wybór                                                                                        | Powód                                                        | Źródło                    |
+| ----------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------- |
+| Motyw       | cagops; źródło w theme-source.json                                                           | Wygląd wybrany przez użytkowniczkę                           | Użytkowniczka             |
+| Język       | Polski na dashboardzie, lang=pl                                                              | Spójność z importem                                          | Uzgodnienia planu         |
+| Placeholder | „Twoja kolekcja przepisów”; „Przeglądanie zapisanych przepisów będzie dostępne wkrótce.”     | Brak niepopartego danymi twierdzenia o pustej kolekcji       | Uzgodnienia planu         |
+| Brak wyniku | „Nie udało się potwierdzić wyniku importu.” po loading                                       | Null nie dowodzi porażki importu                             | Uzgodnienia planu         |
+| Kontrast    | Jasne accent-foreground #A6402F, ciemne muted-foreground #9AAEBB                             | Poprawa czytelności przy zachowaniu motywu                   | Pomiar podczas planowania |
+| Komponenty  | Istniejący Button/variants, lokalne Card i Alert                                             | Reużycie systemu bez drugiej biblioteki                      | Research / Plan           |
+| Font        | Montserrat v31 latin/latin-ext WOFF2, zakres 400–700, przypięte URL-e i SHA-256              | Powtarzalne źródło, OFL i brak żądania fontów w przeglądarce | Google Fonts / Plan       |
+| Podgląd     | Oddzielny projekt Astro z kończącym się checkiem i deterministycznym przechwytywaniem Chrome | Powtarzalne stany bez obejścia produkcyjnego auth            | Plan                      |
 
 ## Scope
 
@@ -40,11 +40,11 @@ Polski dashboard ma ciepły motyw cagops, Montserrat, spójne odstępy i kontrol
 
 - Lista, filtry, szczegóły i odczyt zawartości kolekcji; to S-04.
 - Logika importu PDF, zapisy, API, ponawianie operacji i zmiana operacyjnego 503 JSON.
-- Przełącznik motywu, redesign pozostałych ekranów, nowy runner screenshotów i publikacja.
+- Przełącznik motywu, redesign pozostałych ekranów, automatyczne porównywanie screenshotów i publikacja.
 
 ## Architecture / Approach
 
-Global CSS publikuje semantyczne role, a niezmieniony snapshot motywu zachowuje pochodzenie wartości. DashboardView.astro jest wspólnym widokiem serwerowym dla aplikacji i podglądu; feedback pozostaje niewielką wyspą React. Helper walidacji i middleware pozostają bez zmian. Nowe lokalne stany bannera rozróżniają oczekiwanie, potwierdzenie i jego niedostępność, bez rozpoznawania przyczyny null.
+Global CSS publikuje semantyczne role, a niezmieniony snapshot motywu zachowuje pochodzenie wartości. DashboardView.astro jest wspólnym widokiem serwerowym dla aplikacji i podglądu; natywne akcje używają `buttonVariants`, a całe wnętrze Alert renderuje wyspa React, aby nie polegać na opakowaniu dzieci Astro. Helper walidacji i middleware pozostają bez zmian. Nowe lokalne stany bannera rozróżniają oczekiwanie, potwierdzenie i jego niedostępność, bez rozpoznawania przyczyny null.
 
 ## Phases at a Glance
 
@@ -55,14 +55,15 @@ Global CSS publikuje semantyczne role, a niezmieniony snapshot motywu zachowuje 
 | 3. Dashboard               | Polski widok, reużycie komponentów, neutralny placeholder | Osłabienie dotychczasowych testów prywatności przy zmianie tekstów |
 | 4. Stany i spójność        | Loading/unavailable, macierz, screenshoty, guard i AGENTS | Uznanie null za porażkę importu lub testów za dowód wizualny       |
 
-**Prerequisites:** ukończone S-02; lokalne zależności, przeglądarka i Supabase do smoke; pobranie fontu i komponentów podczas implementacji. S-03 wymaga koordynacji wspólnych plików.
+**Prerequisites:** ukończone S-02; lokalne zależności, Google Chrome lub `CHROME_BIN` i Supabase do smoke; pobranie przypiętych plików fontu i komponentów podczas implementacji. S-03 wymaga koordynacji wspólnych plików.
 **Estimated effort:** cztery weryfikowane fazy; brak estymacji kalendarzowej — koszt zależy głównie od iteracji wizualnych i regresji.
 
 ## Open Risks & Assumptions
 
 - Oryginalny motyw nie gwarantuje kontrastu; korekty są jawne i nie zmieniają snapshotu.
 - Ciemny wariant sprawdzamy w podglądzie, produkcyjny dashboard pozostaje jasny bez przełącznika.
-- Screenshoty 1440×900 i 390×844 używają fikcyjnych danych; brak dowodu pozostawia punkt Progress otwarty.
+- `check:ui-preview` musi zakończyć check/build, sondę HTTP i cleanup procesu; `capture:ui-preview` zapisuje cztery ustalone pliki 1440×900 i 390×844 z fikcyjnymi danymi.
+- Globalne tokeny obejmują też stronę główną, potwierdzenie emaila i Banner w Layout; pozostają poza redesignem, ale wchodzą do punktowej regresji.
 - Podgląd nie zastępuje kontroli prawdziwego dashboardu, izolacji kont i cyklu odczytu potwierdzenia.
 
 ## Success Criteria (Summary)
