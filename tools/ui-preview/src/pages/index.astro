@@ -1,0 +1,21 @@
+---
+import ComponentPreview from "../components/ComponentPreview";
+import "../styles/preview.css";
+---
+
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Dishly UI preview</title>
+    <script is:inline>
+      document.documentElement.classList.toggle("dark", new URLSearchParams(location.search).get("theme") === "dark");
+    </script>
+  </head>
+  <body>
+    <main class="min-h-screen bg-background px-4 py-10 text-foreground sm:px-8" data-ui-preview>
+      <ComponentPreview />
+    </main>
+  </body>
+</html>

@@ -4,7 +4,10 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
+    "dev:ui": "astro dev --root tools/ui-preview --host 127.0.0.1 --port 4322",
     "build": "astro build && npm run build:pdf-reader",
+    "check:ui-preview": "astro check --root tools/ui-preview && astro build --root tools/ui-preview && node scripts/ui-preview.mjs check",
+    "capture:ui-preview": "astro build --root tools/ui-preview && node scripts/ui-preview.mjs capture",
     "build:preview": "CLOUDFLARE_ENV=preview astro build",
     "types:consumer": "wrangler types --config workers/pdf-consumer/wrangler.jsonc --env-interface PdfConsumerEnv workers/pdf-consumer/worker-configuration.d.ts",
     "test:deployment": "node --test scripts/deployment-probe.test.mjs",

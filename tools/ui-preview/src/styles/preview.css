@@ -1,0 +1,10 @@
+@import "../../../../src/styles/fonts.css";
+@import "../../../../src/styles/global.css";
+
+@source "../../../../src/components/ui";
+@source "../components";
+@source "../pages";
+
+body {
+  font-family: "Montserrat", sans-serif;
+}

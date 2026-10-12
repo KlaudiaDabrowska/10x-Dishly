@@ -1,7 +1,7 @@
 ---
 change_id: unify-dashboard-design-system
 title: Design system and dashboard UI consistency
-status: planned
+status: implementing
 created: 2026-10-12
 updated: 2026-10-12
 archived_at: null
