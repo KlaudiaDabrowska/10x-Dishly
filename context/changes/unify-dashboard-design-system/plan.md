@@ -327,12 +327,12 @@ Brak migracji danych i nowych sekretów. Zwykły build oraz dotychczasowy proces
 
 #### Automated
 
-- [x] 4.1 `npm run check:ui` i `npm run lint` przechodzą; kontrolowane wstrzyknięcie zakazanej klasy do oczyszczonego pliku powoduje błąd checka, a przywrócenie pliku ponownie daje sukces.
-- [x] 4.2 `node --test scripts/ui-theme.test.mjs`, `npm run test:pdf`, `npx --no-install astro check` i `npm run build` przechodzą; zmienione kontrakty tekstu nie osłabiają kontroli prywatności.
-- [x] 4.3 Lokalny smoke oraz `scripts/check-preview.mjs` na buildzie preview przechodzą zgodnie z istniejącą sekwencją CI; nieskonfigurowany dashboard nadal zwraca 503 JSON i private/no-store.
+- [x] 4.1 `npm run check:ui` i `npm run lint` przechodzą; kontrolowane wstrzyknięcie zakazanej klasy do oczyszczonego pliku powoduje błąd checka, a przywrócenie pliku ponownie daje sukces. — dee0192
+- [x] 4.2 `node --test scripts/ui-theme.test.mjs`, `npm run test:pdf`, `npx --no-install astro check` i `npm run build` przechodzą; zmienione kontrakty tekstu nie osłabiają kontroli prywatności. — dee0192
+- [x] 4.3 Lokalny smoke oraz `scripts/check-preview.mjs` na buildzie preview przechodzą zgodnie z istniejącą sekwencją CI; nieskonfigurowany dashboard nadal zwraca 503 JSON i private/no-store. — dee0192
 
 #### Manual
 
-- [x] 4.4 Macierz siedmiu stanów oraz confirmed/unavailable ma screenshoty desktop/mobile w obu wariantach, uzasadnienia N/A i ocenę kontrastu/focus; rzeczywisty dashboard sprawdzono w wariancie jasnym po zalogowaniu.
-- [x] 4.5 Kontrolowane odpowiedzi odczytu obejmują opóźniony sukces, null, błędny i brakujący ID oraz przerwane żądanie; UI nie twierdzi, że import się nie udał, nie pokazuje starego wyniku i nie zmienia walidacji liczb.
-- [x] 4.6 Regresja strony głównej, potwierdzenia emaila, globalnego Banner, formularzy konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia.
+- [x] 4.4 Macierz siedmiu stanów oraz confirmed/unavailable ma screenshoty desktop/mobile w obu wariantach, uzasadnienia N/A i ocenę kontrastu/focus; rzeczywisty dashboard sprawdzono w wariancie jasnym po zalogowaniu. — dee0192
+- [x] 4.5 Kontrolowane odpowiedzi odczytu obejmują opóźniony sukces, null, błędny i brakujący ID oraz przerwane żądanie; UI nie twierdzi, że import się nie udał, nie pokazuje starego wyniku i nie zmienia walidacji liczb. — dee0192
+- [x] 4.6 Regresja strony głównej, potwierdzenia emaila, globalnego Banner, formularzy konta i obu widoków importu jest oceniona, zasady AGENTS są poza blokiem CLI, a `/10x-impl-review unify-dashboard-design-system` rozlicza C1–C5 i jawne odroczenia. — dee0192
