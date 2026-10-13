@@ -75,15 +75,19 @@ function assertResponse(
     check(!actual.body.includes(other.email), "another account identity was exposed");
   }
   if (collection) {
-    check(actual.body.includes("<title>Your recipes | Dishly</title>"), "missing collection document title");
-    check(/<h1\b[^>]*>\s*Your recipes\s*<\/h1>/.test(actual.body), "missing collection heading");
-    check(actual.body.includes("No recipes yet"), "missing empty collection title");
-    check(actual.body.includes("Your saved recipes will appear here."), "missing empty collection message");
+    check(/<html\b[^>]*\blang=(?:"pl"|'pl'|pl)(?:\s|>)/.test(actual.body), "missing dashboard language");
+    check(actual.body.includes("<title>Twoje przepisy | Dishly</title>"), "missing collection document title");
+    check(/<h1\b[^>]*>\s*Twoje przepisy\s*<\/h1>/.test(actual.body), "missing collection heading");
+    check(actual.body.includes("Twoja kolekcja przepisów"), "missing collection placeholder title");
+    check(
+      actual.body.includes("Przeglądanie zapisanych przepisów będzie dostępne wkrótce."),
+      "missing collection placeholder message",
+    );
     check(
       /<form\b(?=[^>]*\bmethod="POST")(?=[^>]*\baction="\/api\/auth\/signout")[^>]*>/.test(actual.body),
       "missing POST signout form",
     );
-    check(actual.body.includes("Sign out"), "missing signout control");
+    check(actual.body.includes("Wyloguj się"), "missing signout control");
   }
   if (home) {
     check(
@@ -93,8 +97,11 @@ function assertResponse(
   }
   if (denied) {
     check(!actual.body.includes(actorA.email) && !actual.body.includes(actorB.email), "account identity was exposed");
-    check(!actual.body.includes("No recipes yet"), "private collection markup was exposed");
-    check(!actual.body.includes("Your saved recipes will appear here."), "private collection markup was exposed");
+    check(!actual.body.includes("Twoja kolekcja przepisów"), "private collection markup was exposed");
+    check(
+      !actual.body.includes("Przeglądanie zapisanych przepisów będzie dostępne wkrótce."),
+      "private collection markup was exposed",
+    );
   }
 }
 

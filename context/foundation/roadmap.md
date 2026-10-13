@@ -1,9 +1,9 @@
 ---
 project: Dishly
-version: 5
+version: 6
 status: draft
 created: 2026-09-23
-updated: 2026-10-08
+updated: 2026-10-12
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -41,16 +41,17 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 
 ## At a glance
 
-| ID   | Change ID                  | Outcome (user can …)                                                                                                                                                                                                                              | Prerequisites | PRD refs                                                                                                        | Status      |
-| ---- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- | ----------- |
-| F-01 | validate-pdf-processing    | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.                                                                                 | —             | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy                        | done        |
-| S-01 | private-recipe-collection  | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.                                                                              | —             | FR-001, FR-006, US-02; Access Control                                                                           | done        |
-| S-02 | import-complete-recipes    | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01    | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | in-progress |
-| S-03 | resolve-incomplete-recipes | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | proposed    |
-| S-04 | browse-and-read-recipes    | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02          | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | proposed    |
-| S-05 | find-meal-from-pdf         | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed    |
-| S-06 | edit-saved-recipe          | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | proposed    |
-| S-07 | delete-saved-recipe        | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results.                                                                                                                                 | S-04          | FR-009, US-04; Access Control                                                                                   | proposed    |
+| ID   | Change ID                     | Outcome (user can …)                                                                                                                                                                                                                              | Prerequisites | PRD refs                                                                                                        | Status      |
+| ---- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- | ----------- |
+| F-01 | validate-pdf-processing       | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.                                                                                 | —             | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy                        | done        |
+| S-01 | private-recipe-collection     | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.                                                                              | —             | FR-001, FR-006, US-02; Access Control                                                                           | done        |
+| S-02 | import-complete-recipes       | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01    | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | done        |
+| S-08 | unify-dashboard-design-system | The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.                                                               | S-02          | FR-006, US-02; Non-Functional Requirements — responsiveness                                                     | in-progress |
+| S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | proposed    |
+| S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | proposed    |
+| S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed    |
+| S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | proposed    |
+| S-07 | delete-saved-recipe           | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results.                                                                                                                                 | S-04          | FR-009, US-04; Access Control                                                                                   | proposed    |
 
 ## Baseline
 
@@ -108,11 +109,33 @@ Q3 resolved on 2026-09-23: an unauthenticated user opening a protected screen is
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Repeated processing must not create duplicates or partial writes; correct completion includes confirmed persistence and release of application-held temporary data without deleting the user's original file.
-- **Status:** in-progress
+- **Status:** done
 
 The accepted S-02 flow: local text reading with layout and page numbers → backend sends text to AI → backend code validates and saves. The AI key stays server-side; the model does not determine data ownership. The user keeps the tab open until completion. The four summer dishes must each keep at least one complete, correctly quantified ingredient variant (never mixing quantities across variants) and shared instructions; preserving all three labelled variants is optional (user amendment 2026-10-05). Automatic saving requires all fields specified in the PRD, exactly one category, and the filename and page number. Detected incomplete results stay outside the collection and are marked as requiring a decision; S-03 completes their handling. The message does not guarantee that every recipe was found. Verification covers the accepted representative ebooks (successful import within limits; rejection of the 113-page book), input limits, complete failure, retry, user isolation and the required processing time. S-02 alone does not complete US-01.
 
 S-02 rollout applies the product-import migration before the application code. The code is deployed with `PDF_IMPORT_ENABLED` disabled, owner-scoped status and F-01 are verified, and the flag is enabled only in production. Rollback disables new import creation while preserving already saved recipes, cost-ledger records and the ability to finish or cancel imports that were already created.
+
+### S-08: Design system and UI consistency
+
+- **Outcome:** The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.
+- **Change ID:** unify-dashboard-design-system
+- **PRD refs:** FR-006, US-02; Non-Functional Requirements — responsiveness
+- **Prerequisites:** S-02
+- **Parallel with:** S-03, provided shared-component changes do not conflict
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** Global tokens and shared components can affect other screens; check for regressions without expanding into a full redesign or changing PDF-import business logic.
+- **Status:** in-progress
+
+Working title: **UI-01 — Design system i ujednolicenie UI**, requested on 2026-10-12. S-08 preserves the S-NN convention and existing identifiers; placement follows dependencies rather than numbering. S-02 is done, so work can start now. Complete the design-system contract before implementing the new S-04 views; S-03 is independent provided shared-component changes do not conflict.
+
+Scope follows 10xDevs Week 2 Lesson 5 and `/10x-ui`: audit current tokens, styles and shared components in both directions (source → dashboard and dashboard → source), recording 3–5 findings with file/line evidence and user impact. Establish a coherent palette, typography, spacing and layout; organise semantic Tailwind/shadcn tokens and standardise the base components used by the existing dashboard. Extend the current design system and adapt one existing view, `/dashboard`, including its import-outcome banner.
+
+UI baseline checked on 2026-10-12: `components.json` points to `src/styles/global.css` and `src/components/ui`. The CSS defines `:root` / `.dark` tokens mapped through `@theme inline`, but also a literal-colour `bg-cosmic` gradient. `src/components/ui/button.tsx` provides a shared Button, while `src/pages/dashboard.astro` uses palette classes and custom controls and containers. `src/components/auth/SubmitButton.tsx` overrides Button colours; check shared-change effects there without redesigning authentication screens.
+
+Completion requires desktop and one mobile-width verification, plus evidence for default, hover, focus-visible, disabled, error, empty and loading states (or N/A with a reason). Check keyboard access, accessible names and contrast, including both themes where supported. Gate completion on dashboard screenshots using a kitchen sink or an existing screenshot-testing tool, and recheck hardcoded values. Record token/component locations, reuse rules, no literal colours or arbitrary values in views, and the visual-verification location in the existing `AGENTS.md`, outside the CLI-managed block. Where available, use the existing lint/check mechanism to guard the cleaned view against drift.
+
+Out of scope: new functionality; recipe listing, filtering and details; changes to PDF-import business logic; a full redesign of all existing screens. Mobile layout checks do not claim mobile PDF-import support or reopen parked real-phone/Firefox import verification. Verify shared behaviour after integration with S-03.
 
 ### S-03: Decide on incomplete recipes
 
@@ -120,7 +143,7 @@ S-02 rollout applies the product-import migration before the application code. T
 - **Change ID:** resolve-incomplete-recipes
 - **PRD refs:** FR-005, FR-003, US-01; Business Logic
 - **Prerequisites:** S-02
-- **Parallel with:** S-04, S-06, S-07
+- **Parallel with:** S-08 (provided shared-component changes do not conflict), S-04, S-06, S-07
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** An incomplete result must not enter the collection before an explicit keep decision; a mixed import result must be presented with a warning.
@@ -133,7 +156,7 @@ Decisions do not require retaining the source PDF. Keeping an incomplete recipe 
 - **Outcome:** The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.
 - **Change ID:** browse-and-read-recipes
 - **PRD refs:** FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness
-- **Prerequisites:** S-02
+- **Prerequisites:** S-02, S-08
 - **Parallel with:** S-03
 - **Blockers:** —
 - **Unknowns:** —
@@ -186,20 +209,21 @@ This deletes an already saved recipe, independently of discarding a result in S-
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID                  | Suggested issue title                  | Ready for `/10x-plan` | Notes                                                     |
-| ---------- | -------------------------- | -------------------------------------- | --------------------- | --------------------------------------------------------- |
-| F-01       | validate-pdf-processing    | Verify real import feasibility         | yes                   | Q4 resolved; verify feasibility before marking F-01 done. |
-| S-01       | private-recipe-collection  | Access a private collection            | yes                   | Q3 resolved; `private-recipe-collection` can be planned.  |
-| S-02       | import-complete-recipes    | Import complete recipes from a PDF     | no                    | After completing: F-01, S-01.                             |
-| S-03       | resolve-incomplete-recipes | Decide on incomplete recipes           | no                    | After completing: S-02.                                   |
-| S-04       | browse-and-read-recipes    | Browse and read owned recipes          | no                    | After completing: S-02.                                   |
-| S-05       | find-meal-from-pdf         | Find a meal by category and ingredient | no                    | After completing: S-03, S-04.                             |
-| S-06       | edit-saved-recipe          | Correct a saved recipe                 | no                    | After completing: S-04.                                   |
-| S-07       | delete-saved-recipe        | Delete a saved recipe                  | no                    | After completing: S-04.                                   |
+| Roadmap ID | Change ID                     | Suggested issue title                  | Ready for `/10x-plan` | Notes                                                                                     |
+| ---------- | ----------------------------- | -------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
+| F-01       | validate-pdf-processing       | Verify real import feasibility         | no                    | Done; archived.                                                                           |
+| S-01       | private-recipe-collection     | Access a private collection            | no                    | Done; archived.                                                                           |
+| S-02       | import-complete-recipes       | Import complete recipes from a PDF     | no                    | Done; archived.                                                                           |
+| S-08       | unify-dashboard-design-system | Design system and UI consistency       | yes                   | S-02 done; proposed by request. Start via `/10x-ui`; complete before S-04 implementation. |
+| S-03       | resolve-incomplete-recipes    | Decide on incomplete recipes           | yes                   | S-02 done; independent of S-08 if shared-component changes do not conflict.               |
+| S-04       | browse-and-read-recipes       | Browse and read owned recipes          | no                    | After completing: S-02, S-08.                                                             |
+| S-05       | find-meal-from-pdf            | Find a meal by category and ingredient | no                    | After completing: S-03, S-04.                                                             |
+| S-06       | edit-saved-recipe             | Correct a saved recipe                 | no                    | After completing: S-04.                                                                   |
+| S-07       | delete-saved-recipe           | Delete a saved recipe                  | no                    | After completing: S-04.                                                                   |
 
-`blocked` means the item has an unresolved question that blocks planning; `proposed` means it is waiting for prerequisites. S-01 is `done`. F-01 is `ready` after Q4 was resolved; this does not complete F-01, because feasibility still needs verification.
+`blocked` means an unresolved question blocks planning; `proposed` means work has not entered planning and may still await prerequisites. Handoff readiness is recorded separately. F-01, S-01 and S-02 are `done`. S-08 remains `proposed` by request despite its completed prerequisite; S-03 can also be planned now.
 
-Main sequence: F-01 and S-01 → S-02 → S-03 and S-04 → S-05 → S-06 and S-07. S-06 and S-07 can be planned after S-04, but completing S-05 takes priority for a solo contributor. Parallelism means no product dependency, not a guarantee of conflict-free code changes. Shared behavior must be verified after integration. A separate Streams table is unnecessary: the work converges into one user flow.
+Main sequence: F-01 and S-01 → S-02 → S-08 → S-04; S-03 can proceed after S-02 alongside S-08 if shared-component changes do not conflict. S-03 and S-04 → S-05 → S-06 and S-07. S-06 and S-07 can be planned after S-04, but completing S-05 takes priority for a solo contributor. Parallelism means no product dependency, not a guarantee of conflict-free code changes. Shared behavior must be verified after integration. A separate Streams table is unnecessary: the work converges into one user flow.
 
 ## Open Roadmap Questions
 
@@ -214,7 +238,7 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved
 4. **Q4 — resolved 2026-09-28: AI provider, budget and text-processing terms.** — Owner: user. Block: none.
    - **Accepted:** Google Gemini Developer API Paid, model `gemini-2.5-flash`; USD 5 total for F-01 validation, then USD 10 per month for AI and USD 0.50 per import. Prompts and responses are not used to improve Google products; the accepted abuse-monitoring retention is 55 days, subject to provider policy and legal obligations. This is not zero data retention. The local reading → backend → AI flow remains accepted. F-01 still requires measured extraction quality, cost and performance; Workers Free suitability remains unverified.
 
-**Next move:** `/10x-plan validate-pdf-processing` (F-01). Q4 is resolved and S-01 is done; S-02 still awaits completion of the F-01 feasibility check. The local reading → backend → AI architecture is accepted. The 20 MB / 100-page limit remains in effect; the proposed 150-page limit has not yet been accepted.
+**Next move:** S-08 — Design system and UI consistency (`unify-dashboard-design-system`), starting via `/10x-ui` for the existing `/dashboard` when work is initiated. F-01, S-01 and S-02 are done; complete the UI contract before implementing S-04. S-03 may proceed independently if shared-component changes do not conflict. This update only proposes the work; it does not start a change, plan, branch or implementation.
 
 ## Parked
 
@@ -236,3 +260,4 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved
 
 - **S-01: The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.** — Archived 2026-09-27 → `context/archive/2026-09-26-private-recipe-collection/`. Lesson: —.
 - **F-01: (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.** — Archived 2026-10-08 → `context/archive/2026-09-28-validate-pdf-processing/`. Lesson: —.
+- **S-02: The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device.** — Archived 2026-10-12 → `context/archive/2026-10-09-import-complete-recipes/`. Lesson: —.
