@@ -3,7 +3,7 @@ project: Dishly
 version: 6
 status: draft
 created: 2026-09-23
-updated: 2026-10-12
+updated: 2026-10-13
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -46,7 +46,7 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 | F-01 | validate-pdf-processing       | (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.                                                                                 | —             | FR-002, FR-003, US-01; Non-Functional Requirements — import performance and text privacy                        | done        |
 | S-01 | private-recipe-collection     | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.                                                                              | —             | FR-001, FR-006, US-02; Access Control                                                                           | done        |
 | S-02 | import-complete-recipes       | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01    | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | done        |
-| S-08 | unify-dashboard-design-system | The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.                                                               | S-02          | FR-006, US-02; Non-Functional Requirements — responsiveness                                                     | in-progress |
+| S-08 | unify-dashboard-design-system | The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.                                                               | S-02          | FR-006, US-02; Non-Functional Requirements — responsiveness                                                     | done        |
 | S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | proposed    |
 | S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | proposed    |
 | S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed    |
@@ -125,7 +125,7 @@ S-02 rollout applies the product-import migration before the application code. T
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Global tokens and shared components can affect other screens; check for regressions without expanding into a full redesign or changing PDF-import business logic.
-- **Status:** in-progress
+- **Status:** done
 
 Working title: **UI-01 — Design system i ujednolicenie UI**, requested on 2026-10-12. S-08 preserves the S-NN convention and existing identifiers; placement follows dependencies rather than numbering. S-02 is done, so work can start now. Complete the design-system contract before implementing the new S-04 views; S-03 is independent provided shared-component changes do not conflict.
 
@@ -261,3 +261,4 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved
 - **S-01: The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.** — Archived 2026-09-27 → `context/archive/2026-09-26-private-recipe-collection/`. Lesson: —.
 - **F-01: (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.** — Archived 2026-10-08 → `context/archive/2026-09-28-validate-pdf-processing/`. Lesson: —.
 - **S-02: The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device.** — Archived 2026-10-12 → `context/archive/2026-10-09-import-complete-recipes/`. Lesson: —.
+- **S-08: The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.** — Archived 2026-10-13 → `context/archive/2026-10-12-unify-dashboard-design-system/`. Lesson: —.
