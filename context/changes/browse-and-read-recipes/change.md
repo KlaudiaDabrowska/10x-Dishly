@@ -1,7 +1,7 @@
 ---
 change_id: browse-and-read-recipes
 title: Browse and read recipes
-status: plan_reviewed
+status: implementing
 created: 2026-10-14
 updated: 2026-10-14
 archived_at: null

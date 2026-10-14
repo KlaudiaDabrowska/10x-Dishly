@@ -279,8 +279,8 @@ Lista pobiera projekcję potrzebną karcie i maksymalnie 24 rekordy; detail pobi
 
 #### Automated
 
-- [ ] 1.1 Read-model unit tests pass: `node --test scripts/recipe-read.test.mjs`.
-- [ ] 1.2 Production build accepts the server read contracts: `npm run build`.
+- [x] 1.1 Read-model unit tests pass: `node --test scripts/recipe-read.test.mjs`.
+- [x] 1.2 Production build accepts the server read contracts: `npm run build`.
 
 ### Phase 2: Paginowana lista i szczegóły
 
