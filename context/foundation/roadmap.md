@@ -3,7 +3,7 @@ project: Dishly
 version: 6
 status: draft
 created: 2026-09-23
-updated: 2026-10-13
+updated: 2026-10-14
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -48,7 +48,7 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 | S-02 | import-complete-recipes       | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01    | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | done        |
 | S-08 | unify-dashboard-design-system | The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.                                                               | S-02          | FR-006, US-02; Non-Functional Requirements — responsiveness                                                     | done        |
 | S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | proposed    |
-| S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | proposed    |
+| S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | planning    |
 | S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed    |
 | S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | proposed    |
 | S-07 | delete-saved-recipe           | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results.                                                                                                                                 | S-04          | FR-009, US-04; Access Control                                                                                   | proposed    |
@@ -161,7 +161,7 @@ Decisions do not require retaining the source PDF. Keeping an incomplete recipe 
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Every read must enforce ownership, including direct recipe access; hiding other users' entries from a list is insufficient.
-- **Status:** proposed
+- **Status:** planning
 
 The view preserves separately labelled ingredient variants and shared instructions, without mixing quantities or adding a calorie calculator. It also supports kept incomplete recipes from S-03, marking missing fields. Reading works on mobile and desktop; the app does not provide a PDF library.
 
