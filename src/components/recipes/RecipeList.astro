@@ -1,0 +1,83 @@
+---
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import type { RecipeListItem } from "@/lib/recipes/read";
+
+interface Props {
+  recipes: RecipeListItem[];
+  page: number;
+  totalPages: number;
+}
+
+const { recipes, page, totalPages } = Astro.props;
+---
+
+<section aria-labelledby="recipe-list-title">
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <h2 id="recipe-list-title" class="text-xl font-semibold sm:text-2xl">
+        Twoja kolekcja przepisów
+      </h2>
+      {totalPages > 0 && (
+        <p class="mt-2 text-sm text-muted-foreground">
+          Strona {page} z {totalPages}
+        </p>
+      )}
+    </div>
+  </div>
+
+  {recipes.length === 0 ? (
+    <Card className="mt-6 text-center">
+      <CardHeader>
+        <h3 class="text-lg font-semibold">Nie masz jeszcze zapisanych przepisów</h3>
+      </CardHeader>
+      <CardContent>
+        <p class="text-sm text-muted-foreground sm:text-base">Zaimportowane przepisy pojawią się w tym miejscu.</p>
+      </CardContent>
+    </Card>
+  ) : (
+    <ul class="mt-6 grid gap-4 sm:grid-cols-2">
+      {recipes.map((recipe) => (
+        <li>
+          <Card className="gap-0 py-0">
+            <a
+              href={`/dashboard/recipes/${recipe.id}`}
+              class:list={[
+                buttonVariants({
+                  variant: "ghost",
+                  className:
+                    "h-auto min-h-11 w-full justify-start whitespace-normal break-words px-6 py-6 text-left text-base",
+                }),
+              ]}
+            >
+              {recipe.title}
+            </a>
+          </Card>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  {totalPages > 1 && (
+    <nav aria-label="Paginacja przepisów" class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+      <p class="text-sm text-muted-foreground" aria-live="polite">
+        Strona {page} z {totalPages}
+      </p>
+      <div class="flex flex-wrap justify-center gap-3">
+        {page > 1 && (
+          <a
+            href={page === 2 ? "/dashboard" : `/dashboard?page=${page - 1}`}
+            class:list={[buttonVariants({ variant: "outline" })]}
+          >
+            Poprzednia
+          </a>
+        )}
+        {page < totalPages && (
+          <a href={`/dashboard?page=${page + 1}`} class:list={[buttonVariants({ variant: "outline" })]}>
+            Następna
+          </a>
+        )}
+      </div>
+    </nav>
+  )}
+</section>

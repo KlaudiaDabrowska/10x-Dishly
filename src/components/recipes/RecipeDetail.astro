@@ -1,0 +1,74 @@
+---
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import type { RecipeDetail as RecipeDetailModel } from "@/lib/recipes/read";
+
+interface Props {
+  recipe: RecipeDetailModel;
+}
+
+const { recipe } = Astro.props;
+---
+
+<article class="flex flex-col gap-8">
+  <a href="/dashboard" class:list={[buttonVariants({ variant: "link" }), "self-start"]}>
+    Wróć do swoich przepisów
+  </a>
+
+  <section aria-labelledby="ingredients-title">
+    <h2 id="ingredients-title" class="text-xl font-semibold sm:text-2xl">
+      Składniki
+    </h2>
+    <div class="mt-4 grid gap-4">
+      {recipe.ingredientGroups.map((group, index) => (
+        <Card>
+          <CardHeader>
+            <h3 class="text-lg font-semibold">{group.label ?? `Wariant ${index + 1}`}</h3>
+          </CardHeader>
+          <CardContent>
+            <ul class="list-disc space-y-2 pl-5 text-sm sm:text-base">
+              {group.ingredients.map((ingredient) => (
+                <li>{ingredient.sourceText}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  </section>
+
+  <section aria-labelledby="instructions-title">
+    <h2 id="instructions-title" class="text-xl font-semibold sm:text-2xl">
+      Przygotowanie
+    </h2>
+    <Card className="mt-4">
+      <CardContent>
+        <ol class="list-decimal space-y-3 pl-5 text-sm sm:text-base">
+          {recipe.instructions.map((instruction) => (
+            <li class="pl-1">{instruction}</li>
+          ))}
+        </ol>
+      </CardContent>
+    </Card>
+  </section>
+
+  <section aria-labelledby="source-title">
+    <h2 id="source-title" class="text-xl font-semibold sm:text-2xl">
+      Źródło
+    </h2>
+    <Card className="mt-4">
+      <CardContent>
+        <dl class="grid gap-4 text-sm sm:grid-cols-2 sm:text-base">
+          <div>
+            <dt class="font-semibold">Plik PDF</dt>
+            <dd class="mt-1 break-words text-muted-foreground">{recipe.sourceFilename}</dd>
+          </div>
+          <div>
+            <dt class="font-semibold">Początkowa strona</dt>
+            <dd class="mt-1 text-muted-foreground">{recipe.sourceStartPage}</dd>
+          </div>
+        </dl>
+      </CardContent>
+    </Card>
+  </section>
+</article>

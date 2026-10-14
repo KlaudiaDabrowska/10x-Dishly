@@ -279,21 +279,21 @@ Lista pobiera projekcję potrzebną karcie i maksymalnie 24 rekordy; detail pobi
 
 #### Automated
 
-- [x] 1.1 Read-model unit tests pass: `node --test scripts/recipe-read.test.mjs`.
-- [x] 1.2 Production build accepts the server read contracts: `npm run build`.
+- [x] 1.1 Read-model unit tests pass: `node --test scripts/recipe-read.test.mjs`. — 4c9cb09
+- [x] 1.2 Production build accepts the server read contracts: `npm run build`. — 4c9cb09
 
 ### Phase 2: Paginowana lista i szczegóły
 
 #### Automated
 
-- [ ] 2.1 ESLint accepts the Phase 1–2 reader and product-view files without changing the shared UI guard: `npx eslint src/lib/recipes/read.ts scripts/recipe-read.test.mjs src/pages/dashboard.astro 'src/pages/dashboard/recipes/[id].astro' src/components/dashboard/DashboardView.astro src/components/recipes/RecipeList.astro src/components/recipes/RecipeDetail.astro`.
-- [ ] 2.2 Production build includes `/dashboard/recipes/[id]`: `npm run build`.
+- [x] 2.1 ESLint accepts the Phase 1–2 reader and product-view files without changing the shared UI guard: `npx eslint src/lib/recipes/read.ts scripts/recipe-read.test.mjs src/pages/dashboard.astro 'src/pages/dashboard/recipes/[id].astro' src/components/dashboard/DashboardView.astro src/components/recipes/RecipeList.astro src/components/recipes/RecipeDetail.astro`.
+- [x] 2.2 Production build includes `/dashboard/recipes/[id]`: `npm run build`.
 
 #### Manual
 
-- [ ] 2.3 Complete-recipe list, pagination, detail and 404 are accepted at desktop and mobile widths.
-- [ ] 2.4 Keyboard focus order and accessible link names are accepted for list, pager, back navigation and sign-out.
-- [ ] 2.5 A static S-08 audit confirms semantic tokens, shared primitives and control/surface scales in every new Phase 2 product view; automated guard expansion remains deferred until the post-rebase Phase 4.
+- [x] 2.3 Complete-recipe list, pagination, detail and 404 are accepted at desktop and mobile widths.
+- [x] 2.4 Keyboard focus order and accessible link names are accepted for list, pager, back navigation and sign-out.
+- [x] 2.5 A static S-08 audit confirms semantic tokens, shared primitives and control/surface scales in every new Phase 2 product view; automated guard expansion remains deferred until the post-rebase Phase 4.
 
 ### Phase 3: Konsumpcja kontraktu S-03
 

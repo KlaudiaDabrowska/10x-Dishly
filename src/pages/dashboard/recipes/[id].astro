@@ -1,0 +1,64 @@
+---
+import DashboardView from "@/components/dashboard/DashboardView.astro";
+import RecipeDetail from "@/components/recipes/RecipeDetail.astro";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { buttonVariants } from "@/components/ui/button";
+import Layout from "@/layouts/Layout.astro";
+import { productImportAvailable } from "@/lib/pdf-validation";
+import { readRecipeDetail } from "@/lib/recipes/read";
+import { createSupabaseRecipeReadPort } from "@/lib/recipes/supabase-read";
+import { createClient } from "@/lib/supabase";
+
+const { user } = Astro.locals;
+const id = Astro.params.id ?? "";
+const importAvailable = productImportAvailable();
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+const result = supabase
+  ? await readRecipeDetail(createSupabaseRecipeReadPort(supabase), id)
+  : { status: "error" as const, reason: "query" as const };
+
+if (result.status === "not-found") Astro.response.status = 404;
+if (result.status === "error") Astro.response.status = 500;
+
+const pageTitle =
+  result.status === "ok"
+    ? `${result.recipe.title} | Dishly`
+    : result.status === "not-found"
+      ? "Przepis niedostępny | Dishly"
+      : "Błąd odczytu przepisu | Dishly";
+const shellTitle =
+  result.status === "ok" ? result.recipe.title : result.status === "not-found" ? "Przepis niedostępny" : "Przepis";
+---
+
+<Layout title={pageTitle} lang="pl">
+  <DashboardView email={user?.email} {importAvailable} title={shellTitle}>
+    {result.status === "ok" && <RecipeDetail recipe={result.recipe} />}
+    {result.status === "not-found" && (
+      <Alert>
+        <AlertTitle className="line-clamp-none">Przepis niedostępny</AlertTitle>
+        <AlertDescription>
+          <p>Nie możemy wyświetlić tego przepisu.</p>
+          <a href="/dashboard" class:list={[buttonVariants({ variant: "outline" }), "mt-3"]}>
+            Wróć do swoich przepisów
+          </a>
+        </AlertDescription>
+      </Alert>
+    )}
+    {result.status === "error" && (
+      <Alert variant="destructive">
+        <AlertTitle className="line-clamp-none">Nie udało się wczytać przepisu</AlertTitle>
+        <AlertDescription>
+          <p>Spróbuj ponownie. Jeśli problem nie ustąpi, wróć do kolekcji później.</p>
+          <div class="mt-3 flex flex-wrap gap-3">
+            <a href={Astro.url.pathname} class:list={[buttonVariants({ variant: "secondary" })]}>
+              Wczytaj ponownie
+            </a>
+            <a href="/dashboard" class:list={[buttonVariants({ variant: "secondary" })]}>
+              Wróć do kolekcji
+            </a>
+          </div>
+        </AlertDescription>
+      </Alert>
+    )}
+  </DashboardView>
+</Layout>
