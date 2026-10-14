@@ -439,14 +439,14 @@ Decision handling performs no additional AI calls and stores no pending payload.
 
 #### Automated
 
-- [ ] 1.1 The forward migration backfills existing recipes/outcomes and preserves the exact legacy finalizer, evaluation, and benchmark-reader contracts.
-- [ ] 1.2 Database tests prove structural and semantic omission invariants, immutable import provenance, nullable-category keep linkage, decision-state checks, RLS, grants, and product-channel enforcement.
-- [ ] 1.3 Database tests prove atomic finalize/resolve behavior, source-identity deduplication including origin-preserving reimport keeps, and same-action replay.
-- [ ] 1.4 Migration-equivalence and database suites pass in isolated Supabase projects after explicit user approval.
+- [x] 1.1 The forward migration backfills existing recipes/outcomes and preserves the exact legacy finalizer, evaluation, and benchmark-reader contracts.
+- [x] 1.2 Database tests prove structural and semantic omission invariants, immutable import provenance, nullable-category keep linkage, decision-state checks, RLS, grants, and product-channel enforcement.
+- [x] 1.3 Database tests prove atomic finalize/resolve behavior, source-identity deduplication including origin-preserving reimport keeps, and same-action replay.
+- [x] 1.4 Migration-equivalence and database suites pass in isolated Supabase projects after explicit user approval.
 
 #### Manual
 
-- [ ] 1.5 The migration and rollback notes are reviewed before any Supabase-backed command is authorized.
+- [x] 1.5 The migration and rollback notes are reviewed before any Supabase-backed command is authorized.
 
 ### Phase 2: Canonical Service and Product API
 
