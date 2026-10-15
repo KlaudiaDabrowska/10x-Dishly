@@ -480,15 +480,15 @@ Decision handling performs no additional AI calls and stores no pending payload.
 
 #### Automated
 
-- [x] 4.1 `npm run test:pdf`, `npm run lint`, `npx astro check`, and `npm run build` pass.
-- [x] 4.2 `npm run test:pdf:db` passes after explicit user approval to start isolated Supabase.
-- [x] 4.3 `npm run test:pdf:migration` passes after explicit user approval to start isolated Supabase projects.
-- [x] 4.4 Existing F-01 evaluation tests and legacy finalization behavior pass unchanged.
-- [x] 4.5 UI contract and approved preview checks pass with evidence stored under the S-03 change folder.
+- [x] 4.1 `npm run test:pdf`, `npm run lint`, `npx astro check`, and `npm run build` pass. — 46ba6b8
+- [x] 4.2 `npm run test:pdf:db` passes after explicit user approval to start isolated Supabase. — 46ba6b8
+- [x] 4.3 `npm run test:pdf:migration` passes after explicit user approval to start isolated Supabase projects. — 46ba6b8
+- [x] 4.4 Existing F-01 evaluation tests and legacy finalization behavior pass unchanged. — 46ba6b8
+- [x] 4.5 UI contract and approved preview checks pass with evidence stored under the S-03 change folder. — 46ba6b8
 
 #### Manual
 
-- [x] 4.6 With explicit user approval, an authenticated product import verifies keep-all, discard-all, mixed decisions, refresh/navigation warning, lost-response recovery, and another-owner isolation.
-- [x] 4.7 With explicit user approval, smoke or equivalent authenticated checks use ports 4321/4322 and stop all started processes afterward.
-- [x] 4.8 Rollout review confirms migration first, code with `PDF_IMPORT_ENABLED=false`, owner/status checks, then production enablement; rollback disables creation before code rollback.
-- [x] 4.9 The final review confirms no pending recipe payload, source text, credentials, or provider response was persisted or logged.
+- [x] 4.6 With explicit user approval, an authenticated product import verifies keep-all, discard-all, mixed decisions, refresh/navigation warning, lost-response recovery, and another-owner isolation. — 46ba6b8
+- [x] 4.7 With explicit user approval, smoke or equivalent authenticated checks use ports 4321/4322 and stop all started processes afterward. — 46ba6b8
+- [x] 4.8 Rollout review confirms migration first, code with `PDF_IMPORT_ENABLED=false`, owner/status checks, then production enablement; rollback disables creation before code rollback. — 46ba6b8
+- [x] 4.9 The final review confirms no pending recipe payload, source text, credentials, or provider response was persisted or logged. — 46ba6b8
