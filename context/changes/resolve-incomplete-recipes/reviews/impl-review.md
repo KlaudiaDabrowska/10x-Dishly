@@ -6,19 +6,19 @@
 - **Scope**: Full plan
 - **Reviewed phases**: 1, 2, 3, 4
 - **Date**: 2026-10-15
-- **Verdict**: NEEDS ATTENTION
-- **Findings**: 0 critical, 4 warnings, 1 observation
+- **Verdict**: PASS (after triage)
+- **Findings**: 0 open; 4 warnings and 1 observation resolved
 
 ## Verdicts
 
 | Dimension           | Verdict |
 | ------------------- | ------- |
-| Plan Adherence      | WARNING |
+| Plan Adherence      | PASS    |
 | Scope Discipline    | PASS    |
-| Safety & Quality    | WARNING |
+| Safety & Quality    | PASS    |
 | Architecture        | PASS    |
 | Pattern Consistency | PASS    |
-| Success Criteria    | WARNING |
+| Success Criteria    | PASS    |
 
 ## Findings
 
@@ -86,11 +86,14 @@
 - **Location**: context/foundation/roadmap.md:228
 - **Detail**: The roadmap status remains `in-progress`, which is consistent with the toolkit lifecycle until archive, but the readiness, sequence, and next-move prose still says S-03 “can be planned” or “may proceed.” That prose is stale after implementation and review and weakens the Phase 4 documentation handoff.
 - **Fix**: Update the narrative/readiness rows to describe S-03 as implemented and awaiting archive while leaving the formal roadmap status transition to `/10x-archive`.
-- **Decision**: PENDING
+- **Decision**: FIXED — roadmap readiness, sequence, and next-move prose now describe S-03 as implemented and
+  implementation-reviewed, awaiting `/10x-archive`. Its formal roadmap status remains `in-progress` until that
+  lifecycle step; S-04 is recorded as ready for planning after completed S-02 and S-08.
 
 ## Verification record
 
-- `npm run test:pdf` — PASS, 128/128 tests. The first sandboxed attempt failed only because three CLI tests could not spawn controlled `git` subprocesses (`EPERM`); the required escalated rerun passed.
+- `npm run test:pdf` — PASS, 129/129 tests after triage. The first sandboxed review attempt failed only because three
+  CLI tests could not spawn controlled `git` subprocesses (`EPERM`); the required escalated rerun passed.
 - `npm run lint` — PASS; semantic UI contract passed for seven scoped product files.
 - `npx astro check` — PASS; zero errors and zero warnings, with 35 hints from ignored generated preview output.
 - `npm run build` — PASS, including Cloudflare server and PDF reader builds. Wrangler's optional user-level log write emitted the known read-only-filesystem warning without failing the build.

@@ -213,21 +213,21 @@ This deletes an already saved recipe, independently of discarding a result in S-
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID                     | Suggested issue title                  | Ready for `/10x-plan` | Notes                                                                                     |
-| ---------- | ----------------------------- | -------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
-| F-01       | validate-pdf-processing       | Verify real import feasibility         | no                    | Done; archived.                                                                           |
-| S-01       | private-recipe-collection     | Access a private collection            | no                    | Done; archived.                                                                           |
-| S-02       | import-complete-recipes       | Import complete recipes from a PDF     | no                    | Done; archived.                                                                           |
-| S-08       | unify-dashboard-design-system | Design system and UI consistency       | yes                   | S-02 done; proposed by request. Start via `/10x-ui`; complete before S-04 implementation. |
-| S-03       | resolve-incomplete-recipes    | Decide on incomplete recipes           | yes                   | S-02 done; independent of S-08 if shared-component changes do not conflict.               |
-| S-04       | browse-and-read-recipes       | Browse and read owned recipes          | no                    | After completing: S-02, S-08.                                                             |
-| S-05       | find-meal-from-pdf            | Find a meal by category and ingredient | no                    | After completing: S-03, S-04.                                                             |
-| S-06       | edit-saved-recipe             | Correct a saved recipe                 | no                    | After completing: S-04.                                                                   |
-| S-07       | delete-saved-recipe           | Delete a saved recipe                  | no                    | After completing: S-04.                                                                   |
+| Roadmap ID | Change ID                     | Suggested issue title                  | Ready for `/10x-plan` | Notes                                                             |
+| ---------- | ----------------------------- | -------------------------------------- | --------------------- | ----------------------------------------------------------------- |
+| F-01       | validate-pdf-processing       | Verify real import feasibility         | no                    | Done; archived.                                                   |
+| S-01       | private-recipe-collection     | Access a private collection            | no                    | Done; archived.                                                   |
+| S-02       | import-complete-recipes       | Import complete recipes from a PDF     | no                    | Done; archived.                                                   |
+| S-08       | unify-dashboard-design-system | Design system and UI consistency       | no                    | Done; archived.                                                   |
+| S-03       | resolve-incomplete-recipes    | Decide on incomplete recipes           | no                    | Implemented and implementation-reviewed; awaiting `/10x-archive`. |
+| S-04       | browse-and-read-recipes       | Browse and read owned recipes          | yes                   | S-02 and S-08 are done; ready for planning.                       |
+| S-05       | find-meal-from-pdf            | Find a meal by category and ingredient | no                    | After completing: S-03, S-04.                                     |
+| S-06       | edit-saved-recipe             | Correct a saved recipe                 | no                    | After completing: S-04.                                           |
+| S-07       | delete-saved-recipe           | Delete a saved recipe                  | no                    | After completing: S-04.                                           |
 
-`blocked` means an unresolved question blocks planning; `proposed` means work has not entered planning and may still await prerequisites. Handoff readiness is recorded separately. F-01, S-01 and S-02 are `done`. S-08 remains `proposed` by request despite its completed prerequisite; S-03 can also be planned now.
+`blocked` means an unresolved question blocks planning; `proposed` means work has not entered planning and may still await prerequisites. Handoff readiness is recorded separately. F-01, S-01, S-02 and S-08 are `done`. S-03 is implemented and implementation-reviewed; its formal roadmap status remains `in-progress` until `/10x-archive`. S-04 is ready for planning.
 
-Main sequence: F-01 and S-01 → S-02 → S-08 → S-04; S-03 can proceed after S-02 alongside S-08 if shared-component changes do not conflict. S-03 and S-04 → S-05 → S-06 and S-07. S-06 and S-07 can be planned after S-04, but completing S-05 takes priority for a solo contributor. Parallelism means no product dependency, not a guarantee of conflict-free code changes. Shared behavior must be verified after integration. A separate Streams table is unnecessary: the work converges into one user flow.
+Main sequence: F-01 and S-01 → S-02 → S-08 → S-04. S-03 implementation and integration with S-08 are complete; archive S-03 after closing implementation review. S-03 and S-04 → S-05 → S-06 and S-07. S-06 and S-07 can be planned after S-04, but completing S-05 takes priority for a solo contributor. Parallelism means no product dependency, not a guarantee of conflict-free code changes. Shared behavior must be verified after integration. A separate Streams table is unnecessary: the work converges into one user flow.
 
 ## Open Roadmap Questions
 
@@ -242,7 +242,7 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved
 4. **Q4 — resolved 2026-09-28: AI provider, budget and text-processing terms.** — Owner: user. Block: none.
    - **Accepted:** Google Gemini Developer API Paid, model `gemini-2.5-flash`; USD 5 total for F-01 validation, then USD 10 per month for AI and USD 0.50 per import. Prompts and responses are not used to improve Google products; the accepted abuse-monitoring retention is 55 days, subject to provider policy and legal obligations. This is not zero data retention. The local reading → backend → AI flow remains accepted. F-01 still requires measured extraction quality, cost and performance; Workers Free suitability remains unverified.
 
-**Next move:** S-08 — Design system and UI consistency (`unify-dashboard-design-system`), starting via `/10x-ui` for the existing `/dashboard` when work is initiated. F-01, S-01 and S-02 are done; complete the UI contract before implementing S-04. S-03 may proceed independently if shared-component changes do not conflict. This update only proposes the work; it does not start a change, plan, branch or implementation.
+**Next move:** Archive S-03 (`resolve-incomplete-recipes`) after its implementation review is closed. S-04 (`browse-and-read-recipes`) is ready for `/10x-plan` because S-02 and S-08 are done. S-05 remains gated on archived S-03 and completed S-04.
 
 ## Parked
 
