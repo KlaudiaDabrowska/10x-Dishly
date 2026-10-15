@@ -2,6 +2,7 @@
 import DashboardView from "@/components/dashboard/DashboardView.astro";
 import ImportOutcomeFeedback from "@/components/dashboard/ImportOutcomeFeedback";
 import ComponentPreview from "../components/ComponentPreview";
+import RecipeBrowsePreview from "../components/RecipeBrowsePreview.astro";
 import RecipeDecisionPreview from "../components/RecipeDecisionPreview";
 import "../styles/preview.css";
 ---
@@ -17,12 +18,15 @@ import "../styles/preview.css";
       document.documentElement.classList.toggle("dark", parameters.get("theme") === "dark");
       const requestedView = parameters.get("view");
       document.documentElement.dataset.previewView =
-        requestedView === "dashboard" || requestedView === "decisions" ? requestedView : "components";
+        requestedView === "dashboard" || requestedView === "decisions" || requestedView === "recipes"
+          ? requestedView
+          : "components";
       document.documentElement.dataset.importAvailability =
         parameters.get("import") === "unavailable" ? "unavailable" : "available";
       document.documentElement.dataset.feedbackState = parameters.get("feedback") ?? "confirmed";
       document.documentElement.dataset.capture = parameters.get("capture") ?? "preview";
       document.documentElement.dataset.decisionState = parameters.get("decision") ?? "all";
+      document.documentElement.dataset.recipeState = parameters.get("recipe") ?? "populated";
     </script>
   </head>
   <body data-ui-preview>
@@ -32,6 +36,9 @@ import "../styles/preview.css";
     <main class="min-h-screen bg-background px-4 py-10 text-foreground sm:px-8" data-decision-preview>
       <RecipeDecisionPreview />
     </main>
+    <div data-recipe-browse-preview>
+      <RecipeBrowsePreview />
+    </div>
     <div data-dashboard-preview>
       <div data-dashboard-variant="available">
         <DashboardView email="bardzo.dlugi.adres.email.uzytkownika@przykladowa-domena.example" importAvailable={true}>

@@ -7,6 +7,7 @@ for (const path of [
   "/auth/signin",
   "/auth/signup",
   "/dashboard",
+  "/dashboard/recipes/00000000-0000-4000-8000-000000000001",
   "/dashboard/pdf-validation",
   "/api/auth/signin",
   "/api/auth/signup",

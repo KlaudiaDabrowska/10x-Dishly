@@ -299,26 +299,26 @@ Lista pobiera projekcję potrzebną karcie i maksymalnie 24 rekordy; detail pobi
 
 #### Automated
 
-- [x] 3.1 The exact landed S-03 commit is recorded and verified as an ancestor of S-04 HEAD after integrating main.
-- [x] 3.2 Recipe read tests pass against the landed S-03 persistence contract: `node --test scripts/recipe-read.test.mjs`.
+- [x] 3.1 The exact landed S-03 commit is recorded and verified as an ancestor of S-04 HEAD after integrating main. — 3110bfa
+- [x] 3.2 Recipe read tests pass against the landed S-03 persistence contract: `node --test scripts/recipe-read.test.mjs`. — 3110bfa
 
 #### Manual
 
-- [x] 3.3 All known hotspots preserve both changes, and the landed S-03 migration/contracts/tests were inspected before integration work begins.
-- [x] 3.4 A kept incomplete recipe is identifiable in the list and its S-03-provided missing elements are visible in detail.
-- [x] 3.5 The S-04 diff is reviewed to confirm that no competing missing-field migration or persistence model was introduced.
+- [x] 3.3 All known hotspots preserve both changes, and the landed S-03 migration/contracts/tests were inspected before integration work begins. — 3110bfa
+- [x] 3.4 A kept incomplete recipe is identifiable in the list and its S-03-provided missing elements are visible in detail. — 3110bfa
+- [x] 3.5 The S-04 diff is reviewed to confirm that no competing missing-field migration or persistence model was introduced. — 3110bfa
 
 ### Phase 4: Kontrakty i pełna weryfikacja
 
 #### Automated
 
-- [ ] 4.1 Final lint, UI guard and production build pass: `npm run lint && npm run build`.
-- [ ] 4.2 After explicit user approval, owner-isolation DB checks pass: `npm run test:pdf:db`.
-- [ ] 4.3 After explicit user approval, authenticated HTTP smoke passes: `npm run smoke`.
-- [ ] 4.4 After explicit user approval, credentialless preview build and `node scripts/check-preview.mjs` pass on port 4321 and the process is stopped.
-- [ ] 4.5 After explicit user approval, isolated preview checks and S-04 captures pass without leaving port 4322 active.
+- [x] 4.1 Final lint, UI guard and production build pass: `npm run lint && npm run build`.
+- [x] 4.2 After explicit user approval, owner-isolation DB checks pass: `npm run test:pdf:db`.
+- [x] 4.3 After explicit user approval, authenticated HTTP smoke passes: `npm run smoke`.
+- [x] 4.4 After explicit user approval, credentialless preview build and `node scripts/check-preview.mjs` pass on port 4321 and the process is stopped.
+- [x] 4.5 After explicit user approval, isolated preview checks and S-04 captures pass without leaving port 4322 active.
 
 #### Manual
 
-- [ ] 4.6 The S-04 desktop/mobile screenshot matrix is accepted for complete, empty, error, 404 and kept-incomplete states.
-- [ ] 4.7 Import feedback, sign-out, responsive shell and S-08 focus treatment show no accepted regression.
+- [x] 4.6 The S-04 desktop/mobile screenshot matrix is accepted for complete, empty, error, 404 and kept-incomplete states.
+- [x] 4.7 Import feedback, sign-out, responsive shell and S-08 focus treatment show no accepted regression.

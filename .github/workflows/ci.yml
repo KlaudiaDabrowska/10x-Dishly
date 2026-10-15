@@ -74,7 +74,8 @@ jobs:
           preview_pid=$!
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           node scripts/wait-for-server.mjs
-          npm run smoke
+          eval "$(npx --no-install supabase status -o env)"
+          SUPABASE_DB_URL="$DB_URL" npm run smoke
       - if: always()
         run: npx --no-install supabase stop --no-backup
   preview:
