@@ -312,13 +312,13 @@ Lista pobiera projekcję potrzebną karcie i maksymalnie 24 rekordy; detail pobi
 
 #### Automated
 
-- [x] 4.1 Final lint, UI guard and production build pass: `npm run lint && npm run build`.
-- [x] 4.2 After explicit user approval, owner-isolation DB checks pass: `npm run test:pdf:db`.
-- [x] 4.3 After explicit user approval, authenticated HTTP smoke passes: `npm run smoke`.
-- [x] 4.4 After explicit user approval, credentialless preview build and `node scripts/check-preview.mjs` pass on port 4321 and the process is stopped.
-- [x] 4.5 After explicit user approval, isolated preview checks and S-04 captures pass without leaving port 4322 active.
+- [x] 4.1 Final lint, UI guard and production build pass: `npm run lint && npm run build`. — 4609906
+- [x] 4.2 After explicit user approval, owner-isolation DB checks pass: `npm run test:pdf:db`. — 4609906
+- [x] 4.3 After explicit user approval, authenticated HTTP smoke passes: `npm run smoke`. — 4609906
+- [x] 4.4 After explicit user approval, credentialless preview build and `node scripts/check-preview.mjs` pass on port 4321 and the process is stopped. — 4609906
+- [x] 4.5 After explicit user approval, isolated preview checks and S-04 captures pass without leaving port 4322 active. — 4609906
 
 #### Manual
 
-- [x] 4.6 The S-04 desktop/mobile screenshot matrix is accepted for complete, empty, error, 404 and kept-incomplete states.
-- [x] 4.7 Import feedback, sign-out, responsive shell and S-08 focus treatment show no accepted regression.
+- [x] 4.6 The S-04 desktop/mobile screenshot matrix is accepted for complete, empty, error, 404 and kept-incomplete states. — 4609906
+- [x] 4.7 Import feedback, sign-out, responsive shell and S-08 focus treatment show no accepted regression. — 4609906
