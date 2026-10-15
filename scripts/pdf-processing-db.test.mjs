@@ -619,7 +619,16 @@ test("browser roles cannot call finalization RPCs or mutate recipes", async () =
       ["create_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["create_pdf_import", { p_owner_id: user.id, p_import_id: randomUUID(), p_channel: "product" }],
       ["record_pdf_batch_result", { p_owner_id: user.id, p_import_id: randomUUID() }],
-      ["finalize_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      [
+        "finalize_pdf_validation_import",
+        {
+          p_owner_id: user.id,
+          p_import_id: randomUUID(),
+          p_manifest_digest: digest("m"),
+          p_submitted: [],
+          p_recipes: [],
+        },
+      ],
       ["cancel_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["get_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["get_pdf_import", { p_owner_id: user.id, p_import_id: randomUUID(), p_channel: "product" }],
@@ -758,8 +767,15 @@ test("product decisions are owner-scoped, idempotent, and enforce saved omission
   const other = await createUser(`pdf-decisions-other-${randomUUID()}@example.test`);
   const fixture = await productDecisionFixture(user, sha(), "missing-category.pdf", (candidate) => ({
     ...candidate,
+    title: null,
     category: null,
-    missingFieldReasons: [...candidate.missingFieldReasons, { code: "missing-category", fieldPath: "category" }],
+    ingredientGroups: [],
+    missingFieldReasons: [
+      { code: "missing-title", fieldPath: "title" },
+      { code: "missing-ingredients", fieldPath: "ingredientGroups" },
+      { code: "missing-instructions", fieldPath: "instructions" },
+      { code: "missing-category", fieldPath: "category" },
+    ],
   }));
   assert.deepEqual(
     [
@@ -835,11 +851,20 @@ test("product decisions are owner-scoped, idempotent, and enforce saved omission
   const rows = await ownRecipes(user);
   const incomplete = rows.find((recipe) => recipe.source_start_page === 2);
   assert.ok(incomplete);
+  assert.equal(incomplete.title, null);
   assert.equal(incomplete.category, null);
+  assert.deepEqual(incomplete.ingredient_groups, []);
+  assert.deepEqual(incomplete.instructions, []);
   assert.equal(incomplete.incomplete_at_import, true);
-  assert.deepEqual(incomplete.import_missing_reason_codes, ["missing-instructions", "missing-category"]);
+  assert.deepEqual(incomplete.import_missing_reason_codes, [
+    "missing-title",
+    "missing-ingredients",
+    "missing-instructions",
+    "missing-category",
+  ]);
   assert.deepEqual(incomplete.current_missing_reason_codes, incomplete.import_missing_reason_codes);
   assert.equal(incomplete.kept_from_decision_id, fixture.decisionId);
+  assert.throws(() => sql(`update public.recipes set incomplete_at_import = false where id = '${incomplete.id}'`));
   assert.throws(() =>
     sql(`update public.recipes set kept_from_decision_id = gen_random_uuid() where id = '${incomplete.id}'`),
   );
@@ -847,10 +872,24 @@ test("product decisions are owner-scoped, idempotent, and enforce saved omission
     sql(`update public.recipes set import_missing_reason_codes = '{missing-category}' where id = '${incomplete.id}'`),
   );
   assert.throws(() =>
-    sql(`update public.recipes set current_missing_reason_codes = '{}' where id = '${incomplete.id}'`),
+    sql(`update public.recipes set current_missing_reason_codes =
+      '{missing-ingredients,missing-instructions,missing-category}' where id = '${incomplete.id}'`),
   );
   assert.throws(() =>
-    sql(`update public.recipes set current_missing_reason_codes = '{missing-category,missing-instructions}'
+    sql(`update public.recipes set current_missing_reason_codes =
+      '{missing-title,missing-instructions,missing-category}' where id = '${incomplete.id}'`),
+  );
+  assert.throws(() =>
+    sql(`update public.recipes set current_missing_reason_codes =
+      '{missing-title,missing-ingredients,missing-category}' where id = '${incomplete.id}'`),
+  );
+  assert.throws(() =>
+    sql(`update public.recipes set current_missing_reason_codes =
+      '{missing-title,missing-ingredients,missing-instructions}' where id = '${incomplete.id}'`),
+  );
+  assert.throws(() =>
+    sql(`update public.recipes set current_missing_reason_codes =
+      '{missing-category,missing-instructions,missing-ingredients,missing-title}'
       where id = '${incomplete.id}'`),
   );
   assert.throws(() =>
@@ -859,18 +898,70 @@ test("product decisions are owner-scoped, idempotent, and enforce saved omission
   );
   // Semantic omissions may survive after structural content is repaired, but shape-dependent and
   // optional omission codes must still agree with the current stored values.
-  sql(`update public.recipes set instructions = '["Restored step"]'::jsonb,
-    current_missing_reason_codes = '{missing-category,missing-continuation}' where id = '${incomplete.id}'`);
+  sql(`update public.recipes set title = 'Soup', category = 'lunch',
+    ingredient_groups = '[{"label":null,"ingredients":[{"name":"water","quantity":"200","unit":"ml","sourceText":"200 ml water"}]}]'::jsonb,
+    instructions = '["Restored step"]'::jsonb,
+    current_missing_reason_codes =
+      '{missing-ingredient-content,missing-variant-content,missing-continuation}' where id = '${incomplete.id}'`);
+  for (const structuralCode of ["missing-title", "missing-ingredients", "missing-instructions", "missing-category"])
+    assert.throws(() =>
+      sql(`update public.recipes set current_missing_reason_codes =
+        '{${structuralCode}}' where id = '${incomplete.id}'`),
+    );
+  assert.throws(() =>
+    sql(`update public.recipes set current_missing_reason_codes =
+      '{missing-source-metadata}' where id = '${incomplete.id}'`),
+  );
   assert.throws(() =>
     sql(`update public.recipes set servings = '2',
-      current_missing_reason_codes = '{missing-category,missing-continuation,absent-servings}'
+      current_missing_reason_codes =
+        '{missing-ingredient-content,missing-variant-content,missing-continuation,absent-servings}'
       where id = '${incomplete.id}'`),
   );
   assert.throws(() =>
     sql(`update public.recipes set footnotes = '["note"]'::jsonb,
-      current_missing_reason_codes = '{missing-category,missing-continuation,absent-footnotes}'
+      current_missing_reason_codes =
+        '{missing-ingredient-content,missing-variant-content,missing-continuation,absent-footnotes}'
       where id = '${incomplete.id}'`),
   );
+  assert.throws(() => sql(`update public.recipes set source_filename = null where id = '${incomplete.id}'`));
+  assert.throws(() => sql(`update public.recipes set source_pages = '{}' where id = '${incomplete.id}'`));
+});
+
+test("concurrent opposite decisions serialize to one durable outcome", async () => {
+  const user = await createUser(`pdf-decision-race-${randomUUID()}@example.test`);
+  const fixture = await productDecisionFixture(user);
+  const base = {
+    p_owner_id: user.id,
+    p_import_id: fixture.created.importId,
+    p_decision_id: fixture.decisionId,
+  };
+  const [keep, discard] = await Promise.all([
+    admin().rpc("resolve_pdf_product_decision", {
+      ...base,
+      p_action: "keep",
+      p_payload_digest: fixture.decisionDigest,
+      p_recipe: fixture.incomplete,
+    }),
+    admin().rpc("resolve_pdf_product_decision", { ...base, p_action: "discard" }),
+  ]);
+  assert.equal([keep, discard].filter((result) => !result.error).length, 1);
+  assert.equal([keep, discard].filter((result) => result.error?.message === "decision conflict").length, 1);
+
+  const decisions = await admin().rpc("get_pdf_product_decisions", {
+    p_owner_id: user.id,
+    p_import_id: fixture.created.importId,
+  });
+  assert.ifError(decisions.error);
+  assert.ok(["kept", "discarded"].includes(decisions.data[0].state));
+  const productStatus = await admin().rpc("get_pdf_import", {
+    p_owner_id: user.id,
+    p_import_id: fixture.created.importId,
+    p_channel: "product",
+  });
+  assert.ifError(productStatus.error);
+  assert.equal(productStatus.data[0].outcome.pending, 0);
+  assert.equal(productStatus.data[0].outcome.kept + productStatus.data[0].outcome.discarded, 1);
 });
 
 test("discard resolves without content and product finalization rejects evaluation imports", async () => {
@@ -925,6 +1016,8 @@ test("a reimport keep points D2 at existing R while R retains its D1 origin", as
   assert.ifError(firstKeep.error);
   const recipeId = firstKeep.data[0].decisions[0].recipeId;
   assert.ok(recipeId);
+  const editedTitle = "Owner-edited soup";
+  sql(`update public.recipes set title = '${editedTitle}' where id = '${recipeId}'`);
 
   const second = await productDecisionFixture(user, fingerprint, "renamed.pdf");
   const secondKeep = await admin().rpc("resolve_pdf_product_decision", {
@@ -941,6 +1034,7 @@ test("a reimport keep points D2 at existing R while R retains its D1 origin", as
 
   const recipe = (await ownRecipes(user)).find((row) => row.id === recipeId);
   assert.ok(recipe);
+  assert.equal(recipe.title, editedTitle);
   assert.equal(recipe.import_id, first.created.importId);
   assert.equal(recipe.kept_from_decision_id, first.decisionId);
   const decisions = await admin().rpc("get_pdf_product_decisions", {

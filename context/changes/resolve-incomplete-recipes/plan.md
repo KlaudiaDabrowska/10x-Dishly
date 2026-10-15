@@ -65,14 +65,14 @@ Existing rows are backfilled as complete with empty omission arrays. Complete au
 
 The database and trusted write path enforce these invariants:
 
-| Stored content | Required relationship to `current_missing_reason_codes` |
-| --- | --- |
-| `title` | `title is null` iff `missing-title` is present. Blank strings remain invalid. |
-| `category` | `category is null` iff `missing-category` is present. A non-null value remains one of the four allowed categories. |
-| `instructions` | The array is empty iff `missing-instructions` is present; stored entries remain nonblank. |
-| `ingredient_groups` | The array is empty, or at least one group has an empty `ingredients` array, iff `missing-ingredients` is present. |
-| `servings` | `absent-servings` implies `servings is null`; a null value does not require the optional code because validation does not synthesize it. |
-| `footnotes` | `absent-footnotes` implies an empty array; an empty array does not require the optional code because validation does not synthesize it. |
+| Stored content      | Required relationship to `current_missing_reason_codes`                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`             | `title is null` iff `missing-title` is present. Blank strings remain invalid.                                                            |
+| `category`          | `category is null` iff `missing-category` is present. A non-null value remains one of the four allowed categories.                       |
+| `instructions`      | The array is empty iff `missing-instructions` is present; stored entries remain nonblank.                                                |
+| `ingredient_groups` | The array is empty, or at least one group has an empty `ingredients` array, iff `missing-ingredients` is present.                        |
+| `servings`          | `absent-servings` implies `servings is null`; a null value does not require the optional code because validation does not synthesize it. |
+| `footnotes`         | `absent-footnotes` implies an empty array; an empty array does not require the optional code because validation does not synthesize it.  |
 
 `missing-continuation`, `missing-ingredient-content`, and `missing-variant-content` are semantic omissions: they may remain present when ingredient and instruction structures are nonempty and must not be inferred or cleared solely from shape. `missing-source-metadata` is forbidden on saved recipes because filename, pages, and source anchor are mandatory.
 
@@ -465,30 +465,30 @@ Decision handling performs no additional AI calls and stores no pending payload.
 
 #### Automated
 
-- [x] 3.1 Client tests prove canonical card counts, per-card locking, keep/discard updates, resolve replay recovery, discard-all, mixed outcomes, navigation warning, reset/new-file/re-run protection, and unchanged evaluation/F-01 behavior with the product capability disabled.
-- [x] 3.2 `npm run lint`, `npm run check:ui`, and `npx astro check` pass with the import page/component included in the semantic UI guard.
-- [x] 3.3 `npm run check:ui-preview` passes after explicit approval to use port 4322.
-- [x] 3.4 `npm run capture:ui-preview` writes the named S-03 evidence set after explicit approval to use port 4322.
+- [x] 3.1 Client tests prove canonical card counts, per-card locking, keep/discard updates, resolve replay recovery, discard-all, mixed outcomes, navigation warning, reset/new-file/re-run protection, and unchanged evaluation/F-01 behavior with the product capability disabled. — 880bff1
+- [x] 3.2 `npm run lint`, `npm run check:ui`, and `npx astro check` pass with the import page/component included in the semantic UI guard. — 880bff1
+- [x] 3.3 `npm run check:ui-preview` passes after explicit approval to use port 4322. — 880bff1
+- [x] 3.4 `npm run capture:ui-preview` writes the named S-03 evidence set after explicit approval to use port 4322. — 880bff1
 
 #### Manual
 
-- [x] 3.5 Desktop and mobile screenshots in both themes show readable missing-field warnings, correct hierarchy, no clipped content, and distinct pending/resolved/error states.
-- [x] 3.6 Keyboard review confirms logical tab order, visible focus, stable focus after resolution, correct accessible names, and usable zoom/reflow.
-- [x] 3.7 The user confirms keep, discard, mixed, and discard-all wording before the phase is closed.
+- [x] 3.5 Desktop and mobile screenshots in both themes show readable missing-field warnings, correct hierarchy, no clipped content, and distinct pending/resolved/error states. — 880bff1
+- [x] 3.6 Keyboard review confirms logical tab order, visible focus, stable focus after resolution, correct accessible names, and usable zoom/reflow. — 880bff1
+- [x] 3.7 The user confirms keep, discard, mixed, and discard-all wording before the phase is closed. — 880bff1
 
 ### Phase 4: Regression, Rollout, and Documentation
 
 #### Automated
 
-- [ ] 4.1 `npm run test:pdf`, `npm run lint`, `npx astro check`, and `npm run build` pass.
-- [ ] 4.2 `npm run test:pdf:db` passes after explicit user approval to start isolated Supabase.
-- [ ] 4.3 `npm run test:pdf:migration` passes after explicit user approval to start isolated Supabase projects.
-- [ ] 4.4 Existing F-01 evaluation tests and legacy finalization behavior pass unchanged.
-- [ ] 4.5 UI contract and approved preview checks pass with evidence stored under the S-03 change folder.
+- [x] 4.1 `npm run test:pdf`, `npm run lint`, `npx astro check`, and `npm run build` pass.
+- [x] 4.2 `npm run test:pdf:db` passes after explicit user approval to start isolated Supabase.
+- [x] 4.3 `npm run test:pdf:migration` passes after explicit user approval to start isolated Supabase projects.
+- [x] 4.4 Existing F-01 evaluation tests and legacy finalization behavior pass unchanged.
+- [x] 4.5 UI contract and approved preview checks pass with evidence stored under the S-03 change folder.
 
 #### Manual
 
-- [ ] 4.6 With explicit user approval, an authenticated product import verifies keep-all, discard-all, mixed decisions, refresh/navigation warning, lost-response recovery, and another-owner isolation.
-- [ ] 4.7 With explicit user approval, smoke or equivalent authenticated checks use ports 4321/4322 and stop all started processes afterward.
-- [ ] 4.8 Rollout review confirms migration first, code with `PDF_IMPORT_ENABLED=false`, owner/status checks, then production enablement; rollback disables creation before code rollback.
-- [ ] 4.9 The final review confirms no pending recipe payload, source text, credentials, or provider response was persisted or logged.
+- [x] 4.6 With explicit user approval, an authenticated product import verifies keep-all, discard-all, mixed decisions, refresh/navigation warning, lost-response recovery, and another-owner isolation.
+- [x] 4.7 With explicit user approval, smoke or equivalent authenticated checks use ports 4321/4322 and stop all started processes afterward.
+- [x] 4.8 Rollout review confirms migration first, code with `PDF_IMPORT_ENABLED=false`, owner/status checks, then production enablement; rollback disables creation before code rollback.
+- [x] 4.9 The final review confirms no pending recipe payload, source text, credentials, or provider response was persisted or logged.

@@ -36,7 +36,11 @@ test("product import is fail-closed and unavailable in preview", () => {
 });
 
 test("an existing import can use configured infrastructure after its channel switch is disabled", () => {
-  assert.equal(importInfrastructureAvailable({ ...configured, productEnabled: "false" }), true);
+  const productDisabled = { ...configured, productEnabled: "false" };
+  assert.equal(importInfrastructureAvailable(productDisabled), true);
+  assert.equal(importDatabaseAvailable(productDisabled), true);
+  assert.equal(importOperationAvailable(productDisabled, "product", "resolve"), true);
+  assert.equal(importOperationAvailable(productDisabled, "product", "create"), false);
   assert.equal(importInfrastructureAvailable({ ...configured, validationEnabled: "false" }), true);
 });
 

@@ -149,7 +149,11 @@ Out of scope: new functionality; recipe listing, filtering and details; changes 
 - **Risk:** An incomplete result must not enter the collection before an explicit keep decision; a mixed import result must be presented with a warning.
 - **Status:** in-progress
 
-Decisions do not require retaining the source PDF. Keeping an incomplete recipe does not add editing during import or returning to pending decisions in a later session. Missing source metadata is explicitly marked, not invented. S-02 and S-03 together fulfill US-01.
+Decisions do not require retaining the source PDF: unresolved candidate content remains only in the active tab, while the database stores owner/import/source-scoped decision metadata and counters. Keep re-submits the canonical candidate for verification with a decision-domain digest separate from the unchanged batch digest used by legacy finalization and F-01; discard sends no recipe content. Decisions are product-only, idempotent and recoverable from owner-scoped status, and conflicting reconciliations are not keepable.
+
+Saved incomplete recipes keep strict filename, page and source-anchor provenance plus immutable import-time omission codes and a separately maintainable current-omission state. Nullable title/category and empty ingredient/instruction structures must exactly match their structural current codes; semantic continuation/ingredient/variant omissions may remain with nonempty content. A null category is a deliberate exception to the exactly-one-category rule only for a recipe created by an explicit keep decision. Its origin decision remains immutable: a later reimport may deduplicate to the existing owner/source recipe without changing the recipe's original import, origin link or owner edits.
+
+Keeping an incomplete recipe does not add editing during import or returning to pending decisions in a later session. Legacy `finalize_pdf_validation_import`, evaluation behavior, and the benchmark recipe reader retain their existing contracts. Rollout is migration-before-code with creation disabled; rollback disables new creation first and preserves recipes and content-free decisions. S-02 and S-03 together fulfill US-01.
 
 ### S-04: Browse and read owned recipes
 
