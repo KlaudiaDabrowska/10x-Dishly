@@ -3,7 +3,7 @@ project: Dishly
 version: 6
 status: draft
 created: 2026-09-23
-updated: 2026-10-13
+updated: 2026-10-15
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -47,7 +47,7 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 | S-01 | private-recipe-collection     | The user can use the existing registration and login, enter their own empty collection and see the no-recipes state; another user's collection remains inaccessible.                                                                              | —             | FR-001, FR-006, US-02; Access Control                                                                           | done        |
 | S-02 | import-complete-recipes       | The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device. | F-01, S-01    | FR-001, FR-002, FR-003, FR-004, US-01; Non-Functional Requirements — import, privacy and temporary-data release | done        |
 | S-08 | unify-dashboard-design-system | The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.                                                               | S-02          | FR-006, US-02; Non-Functional Requirements — responsiveness                                                     | done        |
-| S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | in-progress |
+| S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | done        |
 | S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | proposed    |
 | S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed    |
 | S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | proposed    |
@@ -147,7 +147,7 @@ Out of scope: new functionality; recipe listing, filtering and details; changes 
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** An incomplete result must not enter the collection before an explicit keep decision; a mixed import result must be presented with a warning.
-- **Status:** in-progress
+- **Status:** done
 
 Decisions do not require retaining the source PDF: unresolved candidate content remains only in the active tab, while the database stores owner/import/source-scoped decision metadata and counters. Keep re-submits the canonical candidate for verification with a decision-domain digest separate from the unchanged batch digest used by legacy finalization and F-01; discard sends no recipe content. Decisions are product-only, idempotent and recoverable from owner-scoped status, and conflicting reconciliations are not keepable.
 
@@ -266,3 +266,4 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved
 - **F-01: (foundation) The AI provider, budget and text-processing terms have been agreed, and the accepted local-reading and AI recipe-recognition flow has been verified.** — Archived 2026-10-08 → `context/archive/2026-09-28-validate-pdf-processing/`. Lesson: —.
 - **S-02: The user can select a local PDF, follow reading, AI analysis and saving of complete recipes, or see an error with no results saved after complete extraction failure and retry by selecting the file again. The original PDF stays on the device.** — Archived 2026-10-12 → `context/archive/2026-10-09-import-complete-recipes/`. Lesson: —.
 - **S-08: The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.** — Archived 2026-10-13 → `context/archive/2026-10-12-unify-dashboard-design-system/`. Lesson: —.
+- **S-03: The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.** — Archived 2026-10-15 → `context/archive/2026-10-14-resolve-incomplete-recipes/`. Lesson: —.
