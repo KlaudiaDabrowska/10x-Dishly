@@ -452,29 +452,29 @@ Decision handling performs no additional AI calls and stores no pending payload.
 
 #### Automated
 
-- [x] 2.1 Unit tests prove canonical ordering, duplicate reconciliation, conflict exclusion, omission-code preservation, an unchanged `digestValidatedCandidate` contract, decision-digest stability across batch membership, and decision-digest tamper rejection.
-- [x] 2.2 API/access tests prove product-only authorization, same-origin and UUID validation, bounded bodies, flag-off availability, and sanitized errors.
-- [x] 2.3 Service tests prove keep, discard, replay, opposite-action conflict, lost-response status recovery, and cross-owner/cross-import rejection.
-- [x] 2.4 `npm run test:pdf`, `npm run lint`, and `npx astro check` pass without starting Supabase or application ports.
+- [x] 2.1 Unit tests prove canonical ordering, duplicate reconciliation, conflict exclusion, omission-code preservation, an unchanged `digestValidatedCandidate` contract, decision-digest stability across batch membership, and decision-digest tamper rejection. — 3ee5f65
+- [x] 2.2 API/access tests prove product-only authorization, same-origin and UUID validation, bounded bodies, flag-off availability, and sanitized errors. — 3ee5f65
+- [x] 2.3 Service tests prove keep, discard, replay, opposite-action conflict, lost-response status recovery, and cross-owner/cross-import rejection. — 3ee5f65
+- [x] 2.4 `npm run test:pdf`, `npm run lint`, and `npx astro check` pass without starting Supabase or application ports. — 3ee5f65
 
 #### Manual
 
-- [x] 2.5 The final API shapes and error codes are reviewed against the approved data contract before UI integration.
+- [x] 2.5 The final API shapes and error codes are reviewed against the approved data contract before UI integration. — 3ee5f65
 
 ### Phase 3: Client State and Keep/Discard UX
 
 #### Automated
 
-- [ ] 3.1 Client tests prove canonical card counts, per-card locking, keep/discard updates, resolve replay recovery, discard-all, mixed outcomes, navigation warning, reset/new-file/re-run protection, and unchanged evaluation/F-01 behavior with the product capability disabled.
-- [ ] 3.2 `npm run lint`, `npm run check:ui`, and `npx astro check` pass with the import page/component included in the semantic UI guard.
-- [ ] 3.3 `npm run check:ui-preview` passes after explicit approval to use port 4322.
-- [ ] 3.4 `npm run capture:ui-preview` writes the named S-03 evidence set after explicit approval to use port 4322.
+- [x] 3.1 Client tests prove canonical card counts, per-card locking, keep/discard updates, resolve replay recovery, discard-all, mixed outcomes, navigation warning, reset/new-file/re-run protection, and unchanged evaluation/F-01 behavior with the product capability disabled.
+- [x] 3.2 `npm run lint`, `npm run check:ui`, and `npx astro check` pass with the import page/component included in the semantic UI guard.
+- [x] 3.3 `npm run check:ui-preview` passes after explicit approval to use port 4322.
+- [x] 3.4 `npm run capture:ui-preview` writes the named S-03 evidence set after explicit approval to use port 4322.
 
 #### Manual
 
-- [ ] 3.5 Desktop and mobile screenshots in both themes show readable missing-field warnings, correct hierarchy, no clipped content, and distinct pending/resolved/error states.
-- [ ] 3.6 Keyboard review confirms logical tab order, visible focus, stable focus after resolution, correct accessible names, and usable zoom/reflow.
-- [ ] 3.7 The user confirms keep, discard, mixed, and discard-all wording before the phase is closed.
+- [x] 3.5 Desktop and mobile screenshots in both themes show readable missing-field warnings, correct hierarchy, no clipped content, and distinct pending/resolved/error states.
+- [x] 3.6 Keyboard review confirms logical tab order, visible focus, stable focus after resolution, correct accessible names, and usable zoom/reflow.
+- [x] 3.7 The user confirms keep, discard, mixed, and discard-all wording before the phase is closed.
 
 ### Phase 4: Regression, Rollout, and Documentation
 

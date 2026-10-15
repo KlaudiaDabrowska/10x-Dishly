@@ -3,7 +3,7 @@ change_id: resolve-incomplete-recipes
 title: Resolve incomplete recipes
 status: implementing
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 archived_at: null
 ---
 

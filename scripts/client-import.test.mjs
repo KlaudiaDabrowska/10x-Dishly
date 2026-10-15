@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  canResolveClientDecision,
   ClientRequestFailure,
   executeClientImport,
+  hasUnresolvedLocalDecisions,
   importIdForEvidence,
+  joinProductDecisions,
+  mayClearLocalDecisions,
+  mergeDecisionOutcome,
+  mergeDecisionReferences,
   polishImportError,
   productCompletion,
+  resolveClientDecision,
+  warnBeforeUnresolvedDecisionNavigation,
 } from "../src/lib/pdf-processing/client-import.ts";
 
 const importId = "11111111-1111-4111-8111-111111111111";
@@ -195,9 +203,212 @@ test("product completion distinguishes pending, empty and unconfirmed results", 
   assert.equal(productCompletion(outcome()), "redirect");
   assert.equal(productCompletion(outcome({ pending: 1 })), "pending");
   assert.equal(productCompletion(outcome({ saved: 0, alreadySaved: 0 })), "empty");
+  assert.equal(productCompletion(outcome({ saved: 0, alreadySaved: 0, discarded: 2 })), "discarded");
   assert.equal(productCompletion(outcome({ readBack: false })), "unconfirmed");
   assert.equal(productCompletion(outcome({ status: "processing", readBack: false })), "unconfirmed");
   assert.equal(productCompletion(outcome({ status: "failed" })), "failure");
+});
+
+const incompleteCandidate = {
+  ...candidate,
+  status: "incomplete",
+  candidate: {
+    ...candidate.candidate,
+    title: null,
+    category: null,
+    missingFieldReasons: [
+      { code: "missing-category", fieldPath: "category" },
+      { code: "missing-title", fieldPath: "title" },
+    ],
+  },
+  explanations: ["Brakuje kategorii.", "Brakuje tytułu przepisu."],
+};
+const decisionId = "22222222-2222-4222-8222-222222222222";
+
+function pendingProductOutcome(overrides = {}) {
+  return outcome({
+    saved: 0,
+    pending: 1,
+    kept: 0,
+    discarded: 0,
+    decisions: [
+      {
+        decisionId,
+        sourceStart: incompleteCandidate.candidate.sourceStart,
+        state: "pending",
+        missingReasonCodes: ["missing-title", "missing-category"],
+        recipeId: null,
+        resolvedAt: null,
+      },
+    ],
+    ...overrides,
+  });
+}
+
+test("product decisions use one canonical source card and preserve evaluation candidates separately", () => {
+  const duplicate = {
+    ...incompleteCandidate,
+    batchIndex: 1,
+    candidateIndex: 4,
+    candidate: { ...incompleteCandidate.candidate, pages: [1, 2] },
+  };
+  const decisions = joinProductDecisions([incompleteCandidate, duplicate], pendingProductOutcome());
+  assert.equal(decisions.length, 1);
+  assert.deepEqual(decisions[0].candidate.pages, [1, 2]);
+  assert.deepEqual(decisions[0].missingMessages, ["Brakuje tytułu przepisu.", "Brakuje kategorii."]);
+  assert.equal([incompleteCandidate, duplicate].filter((item) => item.status !== "complete").length, 2);
+});
+
+test("decision actions lock only the active card and unresolved payloads protect destructive transitions", () => {
+  const [pending] = joinProductDecisions([incompleteCandidate], pendingProductOutcome());
+  const second = { ...pending, decisionId: "33333333-3333-4333-8333-333333333333" };
+  const keeping = { ...pending, status: "keeping" };
+  assert.equal(canResolveClientDecision(pending, false), true);
+  assert.equal(canResolveClientDecision(pending, true), false);
+  assert.equal(canResolveClientDecision(keeping, false), false);
+  assert.equal(canResolveClientDecision(second, false), true);
+  assert.equal(hasUnresolvedLocalDecisions([keeping]), true);
+
+  for (const action of ["reset", "new-file", "rerun"]) {
+    let confirms = 0;
+    assert.equal(
+      mayClearLocalDecisions(action, [pending], "product", () => {
+        confirms++;
+        return false;
+      }),
+      false,
+    );
+    assert.equal(confirms, 1);
+    assert.equal(
+      mayClearLocalDecisions(action, [pending], undefined, () => false),
+      true,
+    );
+  }
+  assert.equal(hasUnresolvedLocalDecisions([{ ...pending, status: "kept" }]), false);
+  const navigationEvent = {
+    prevented: false,
+    returnValue: undefined,
+    preventDefault() {
+      this.prevented = true;
+    },
+  };
+  assert.equal(warnBeforeUnresolvedDecisionNavigation([pending], navigationEvent), true);
+  assert.equal(navigationEvent.prevented, true);
+  assert.equal(navigationEvent.returnValue, "");
+});
+
+test("a decision response preserves another card's independent submitting state", () => {
+  const [pending] = joinProductDecisions([incompleteCandidate], pendingProductOutcome());
+  const otherId = "33333333-3333-4333-8333-333333333333";
+  const other = { ...pending, decisionId: otherId, status: "discarding" };
+  const references = [
+    { ...pendingProductOutcome().decisions[0], state: "kept", recipeId: "44444444-4444-4444-8444-444444444444" },
+    { ...pendingProductOutcome().decisions[0], decisionId: otherId },
+  ];
+  const merged = mergeDecisionReferences([pending, other], references);
+  assert.equal(merged[0].status, "kept");
+  assert.equal(merged[1].status, "discarding");
+  assert.equal(productCompletion(outcome({ saved: 1, pending: 0, discarded: 1 })), "redirect");
+});
+
+test("late concurrent responses cannot regress resolved cards or outcome counters", () => {
+  const [pending] = joinProductDecisions([incompleteCandidate], pendingProductOutcome());
+  const resolved = { ...pending, status: "discarded", recipeId: null };
+  const staleReference = pendingProductOutcome().decisions[0];
+  const [merged] = mergeDecisionReferences([resolved], [staleReference]);
+  assert.equal(merged.status, "discarded");
+
+  const latest = outcome({ saved: 1, pending: 0, kept: 1, discarded: 1 });
+  const stale = outcome({ saved: 0, pending: 1, kept: 1, discarded: 0 });
+  assert.deepEqual(mergeDecisionOutcome(latest, stale), {
+    ...stale,
+    saved: 1,
+    pending: 0,
+    kept: 1,
+    discarded: 1,
+    readBack: true,
+  });
+});
+
+test("keep and discard responses update decision-aware outcomes", async () => {
+  const [decision] = joinProductDecisions([incompleteCandidate], pendingProductOutcome());
+  for (const action of ["keep", "discard"]) {
+    const state = action === "keep" ? "kept" : "discarded";
+    const reference = {
+      ...pendingProductOutcome().decisions[0],
+      state,
+      recipeId: action === "keep" ? "44444444-4444-4444-8444-444444444444" : null,
+      resolvedAt: "2026-10-15T10:00:00.000Z",
+    };
+    const resolvedOutcome = pendingProductOutcome({
+      pending: 0,
+      kept: action === "keep" ? 1 : 0,
+      discarded: action === "discard" ? 1 : 0,
+      saved: action === "keep" ? 1 : 0,
+      decisions: [reference],
+    });
+    let body;
+    const result = await resolveClientDecision({
+      apiBase: "/api/imports",
+      importId,
+      decision,
+      action,
+      request: async (path, init) => {
+        assert.equal(path, `/api/imports/${importId}/decisions/${decisionId}`);
+        body = JSON.parse(init.body);
+        return { decision: reference, outcome: resolvedOutcome, readBack: true };
+      },
+    });
+    assert.equal(result.decision.state, state);
+    assert.equal(result.outcome.pending, 0);
+    assert.equal("candidate" in body, action === "keep");
+  }
+});
+
+test("a lost decision response recovers the durable result from status without resubmitting", async () => {
+  const [decision] = joinProductDecisions([incompleteCandidate], pendingProductOutcome());
+  const kept = {
+    ...pendingProductOutcome().decisions[0],
+    state: "kept",
+    recipeId: "44444444-4444-4444-8444-444444444444",
+    resolvedAt: "2026-10-15T10:00:00.000Z",
+  };
+  let resolveCalls = 0;
+  let statusCalls = 0;
+  const sleeps = [];
+  const result = await resolveClientDecision({
+    apiBase: "/api/imports",
+    importId,
+    decision,
+    action: "keep",
+    sleep: async (milliseconds) => sleeps.push(milliseconds),
+    request: async (path) => {
+      if (path.endsWith(`/decisions/${decisionId}`)) {
+        resolveCalls++;
+        throw new ClientRequestFailure("network-error", true);
+      }
+      statusCalls++;
+      const reference = statusCalls === 1 ? pendingProductOutcome().decisions[0] : kept;
+      return {
+        status: "committed",
+        readBack: true,
+        outcome: {
+          saved: statusCalls === 1 ? 0 : 1,
+          alreadySaved: 0,
+          pending: statusCalls === 1 ? 1 : 0,
+          kept: statusCalls === 1 ? 0 : 1,
+          discarded: 0,
+          savedIds: [],
+          existingIds: [],
+          decisions: [reference],
+        },
+      };
+    },
+  });
+  assert.equal(resolveCalls, 1);
+  assert.equal(statusCalls, 2);
+  assert.deepEqual(sleeps, [250]);
+  assert.equal(result.decision.state, "kept");
 });
 
 test("known error classes have Polish guidance without exposing internal codes", () => {
