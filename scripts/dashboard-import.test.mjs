@@ -58,6 +58,11 @@ test("dashboard hides invalid, foreign and unconfirmed outcomes", async () => {
       readBack: true,
       outcome: { saved: 1, alreadySaved: 0, pending: 1 },
     }),
+    globalThis.Response.json({
+      status: "committed",
+      readBack: true,
+      outcome: { saved: 0, alreadySaved: 0, pending: 0, kept: 0, discarded: 2 },
+    }),
   ]) {
     assert.equal(await loadDashboardImportOutcome(importId, async () => response), null);
   }

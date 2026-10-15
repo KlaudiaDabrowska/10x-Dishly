@@ -1,12 +1,15 @@
 @import "../../../../src/styles/global.css";
 
 @source "../../../../src/components/dashboard";
+@source "../../../../src/components/pdf-processing";
 @source "../../../../src/components/ui";
 @source "../components";
 @source "../pages";
 
 html:not([data-preview-view="dashboard"]) [data-dashboard-preview],
+html:not([data-preview-view="decisions"]) [data-decision-preview],
 html[data-preview-view="dashboard"] [data-component-preview],
+html[data-preview-view="decisions"] [data-component-preview],
 html[data-import-availability="available"] [data-dashboard-variant="unavailable"],
 html[data-import-availability="unavailable"] [data-dashboard-variant="available"] {
   display: none;
@@ -61,4 +64,51 @@ html[data-capture="matrix"] [data-state-matrix] dl > div {
 html[data-capture="matrix"] [data-state-matrix] dd {
   margin-top: var(--spacing);
   line-height: 1.25rem;
+}
+
+html[data-preview-view="decisions"] [data-recipe-decision="hover"] button:first-of-type {
+  background-color: var(--primary-hover);
+}
+
+html[data-preview-view="decisions"] [data-recipe-decision="focus"] button:last-of-type {
+  border-color: var(--ring);
+  box-shadow:
+    0 0 0 calc(var(--spacing) * 2) var(--background),
+    0 0 0 calc(var(--spacing) * 3) var(--ring);
+}
+
+html[data-decision-state="default"] [data-recipe-decision]:not([data-recipe-decision="default"]),
+html[data-decision-state="hover"] [data-recipe-decision]:not([data-recipe-decision="hover"]),
+html[data-decision-state="focus"] [data-recipe-decision]:not([data-recipe-decision="focus"]),
+html[data-decision-state="keeping"] [data-recipe-decision]:not([data-recipe-decision="keeping"]),
+html[data-decision-state="discarding"] [data-recipe-decision]:not([data-recipe-decision="discarding"]),
+html[data-decision-state="kept"] [data-recipe-decision]:not([data-recipe-decision="kept"]),
+html[data-decision-state="discarded"] [data-recipe-decision]:not([data-recipe-decision="discarded"]),
+html[data-decision-state="error"] [data-recipe-decision]:not([data-recipe-decision="error"]),
+html[data-decision-state="missing-content"] [data-recipe-decision]:not([data-recipe-decision="missing-content"]) {
+  display: none;
+}
+
+html[data-decision-state]:not([data-decision-state="all"]) [data-decision-matrix] {
+  display: none;
+}
+
+html[data-decision-state]:not([data-decision-state="all"]):not([data-decision-state="discard-all"])
+  [data-decision-overview],
+html[data-decision-state]:not([data-decision-state="all"]):not([data-decision-state="discard-all"]) [data-discard-all],
+html[data-decision-state]:not([data-decision-state="all"]):not([data-decision-state="mixed"]) [data-mixed-outcome],
+html[data-decision-state="discard-all"] [data-decision-states],
+html[data-decision-state="discard-all"] [data-decision-matrix],
+html[data-decision-state="discard-all"] [data-mixed-outcome],
+html[data-decision-state="mixed"] [data-discard-all],
+html[data-decision-state="mixed"] [data-decision-states],
+html[data-decision-state="mixed"] [data-decision-matrix] {
+  display: none;
+}
+
+html[data-preview-view="decisions"][data-capture="matrix"] [data-decision-overview],
+html[data-preview-view="decisions"][data-capture="matrix"] [data-discard-all],
+html[data-preview-view="decisions"][data-capture="matrix"] [data-mixed-outcome],
+html[data-preview-view="decisions"][data-capture="matrix"] [data-decision-states] {
+  display: none;
 }

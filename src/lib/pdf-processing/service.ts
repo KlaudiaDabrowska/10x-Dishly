@@ -15,11 +15,24 @@ import {
 import type { SourceManifest } from "./manifest.ts";
 import { prepareOpenAiPdfBatches, recognizePdfBatch } from "./openai.ts";
 import { createPersistence } from "./persistence.ts";
-import type { FinalizedRecipe, RecordedCandidate, TerminalOutcome, ValidationImportRecord } from "./persistence.ts";
+import type {
+  FinalizedRecipe,
+  ProductFinalizationDecision,
+  ProductImportOutcome,
+  ProductTerminalOutcome,
+  RecordedCandidate,
+  TerminalOutcome,
+  ValidationImportRecord,
+} from "./persistence.ts";
 import type { ImportChannel } from "./persistence.ts";
 import { PDF_RECIPE_SCHEMA_NAME } from "./prompt.ts";
-import { reconcileCandidates } from "./reconcile.ts";
-import { digestValidatedCandidate, explainOmission, validateRecipeCandidate } from "./validation.ts";
+import { canonicalIncompleteCandidates, reconcileCandidates } from "./reconcile.ts";
+import {
+  canonicalDecisionDigest,
+  digestValidatedCandidate,
+  explainOmission,
+  validateRecipeCandidate,
+} from "./validation.ts";
 import type { CandidateValidation } from "./validation.ts";
 
 export interface ValidationServiceOptions {
@@ -60,14 +73,22 @@ function processingStart(record: Pick<ValidationImportRecord, "expiresAt">, now:
   return Math.min(Date.parse(record.expiresAt) - PDF_LIMITS.endToEndDeadlineMs, now());
 }
 
-function terminalOutcome(record: ValidationImportRecord): TerminalOutcome {
-  return {
+function terminalOutcome(record: ValidationImportRecord): TerminalOutcome | ProductTerminalOutcome {
+  const shared: TerminalOutcome = {
     status: record.status,
     saved: record.outcome?.saved ?? 0,
     alreadySaved: record.outcome?.alreadySaved ?? 0,
     pending: record.outcome?.pending ?? 0,
     savedIds: record.outcome?.savedIds ?? [],
     existingIds: record.outcome?.existingIds ?? [],
+  };
+  if (record.channel !== "product") return shared;
+  const product = record.outcome as Partial<ProductImportOutcome> | null;
+  return {
+    ...shared,
+    kept: product?.kept ?? 0,
+    discarded: product?.discarded ?? 0,
+    decisions: product?.decisions ?? [],
   };
 }
 
@@ -77,7 +98,8 @@ function isOpen(record: ValidationImportRecord, now: () => number): boolean {
 
 export function createValidationService(options: ValidationServiceOptions) {
   const now = options.now ?? Date.now;
-  const persistence = createPersistence(options.client, options.ownerId, options.channel);
+  const channel = options.channel ?? "evaluation";
+  const persistence = createPersistence(options.client, options.ownerId, channel);
   const ownerId = persistence.ownerId;
 
   async function requireImport(importId: string): Promise<ValidationImportRecord> {
@@ -209,7 +231,7 @@ export function createValidationService(options: ValidationServiceOptions) {
       return { batchIndex: batch.index, invalidCount, candidates };
     },
 
-    async finalize(importId: string, body: unknown): Promise<TerminalOutcome> {
+    async finalize(importId: string, body: unknown): Promise<TerminalOutcome | ProductTerminalOutcome> {
       if (!isRecord(body) || typeof body.manifestDigest !== "string" || !Array.isArray(body.candidates))
         throw new PdfRequestError("invalid-request");
       const record = await requireImport(importId);
@@ -292,12 +314,66 @@ export function createValidationService(options: ValidationServiceOptions) {
           footnotes: candidate.footnotes,
         });
       }
+      const decisions: ProductFinalizationDecision[] = [];
+      if (channel === "product") {
+        for (const { candidate, missingReasonCodes } of canonicalIncompleteCandidates(reconciled)) {
+          decisions.push({
+            decisionId: crypto.randomUUID(),
+            sourceStartPage: candidate.sourceStart.page,
+            sourceStartItem: candidate.sourceStart.itemIndex,
+            digest: await canonicalDecisionDigest({ candidate, ownerId, importId, schemaName: PDF_RECIPE_SCHEMA_NAME }),
+            missingReasonCodes,
+          });
+        }
+      }
       return persistence.finalizeImport({
         importId,
         manifestDigest: record.manifestDigest,
         submitted: submitted.map(({ batchIndex, candidateIndex, digest }) => ({ batchIndex, candidateIndex, digest })),
         recipes,
+        ...(channel === "product" ? { decisions } : {}),
       });
+    },
+
+    async resolve(importId: string, decisionId: string, body: unknown) {
+      if (channel !== "product") throw new SpendingControlError("import-not-found");
+      if (!isRecord(body) || (body.action !== "keep" && body.action !== "discard"))
+        throw new PdfRequestError("invalid-request");
+      const keys = Object.keys(body).sort();
+      const expectedKeys = body.action === "keep" ? ["action", "candidate"] : ["action"];
+      if (keys.length !== expectedKeys.length || !expectedKeys.every((key, index) => key === keys[index]))
+        throw new PdfRequestError("invalid-request");
+      await requireImport(importId);
+      const decision = (await persistence.getProductDecisions(importId)).find((item) => item.decisionId === decisionId);
+      if (!decision) throw new SpendingControlError("import-not-found");
+
+      let outcome: ProductTerminalOutcome;
+      if (body.action === "discard") {
+        outcome = await persistence.resolveProductDecision({ importId, decisionId, action: "discard" });
+      } else {
+        if (!isRecord(body.candidate)) throw new PdfRequestError("invalid-request");
+        let digest: string;
+        try {
+          digest = await canonicalDecisionDigest({
+            candidate: body.candidate as unknown as RecipeCandidate,
+            ownerId,
+            importId,
+            schemaName: PDF_RECIPE_SCHEMA_NAME,
+          });
+        } catch {
+          throw new SpendingControlError("decision-payload-mismatch");
+        }
+        outcome = await persistence.resolveProductDecision({
+          importId,
+          decisionId,
+          action: "keep",
+          digest,
+          candidate: body.candidate as unknown as RecipeCandidate,
+        });
+      }
+      const resolved = outcome.decisions.find((item) => item.decisionId === decisionId);
+      if (!resolved) throw new SpendingControlError("import-read-failed");
+      return { decision: resolved, outcome };
     },
 
     async cancel(importId: string): Promise<TerminalOutcome> {

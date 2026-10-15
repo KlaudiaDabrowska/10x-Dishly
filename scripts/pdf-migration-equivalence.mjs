@@ -3,7 +3,7 @@
 // pg_dump output and catalog snapshots are compared. Exits 0 only when everything is identical.
 import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, URL } from "node:url";
 import { isolatedSupabaseEnv } from "./pdf-processing-db-runner.mjs";
@@ -11,6 +11,7 @@ import { isolatedSupabaseEnv } from "./pdf-processing-db-runner.mjs";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const projectParent = join(root, "evaluation/validate-pdf-processing/local/migration-equivalence");
 const defaultOldCommit = "f1cdd0beba8181d2730996a834e59129c4c87162";
+const consolidatedMigration = "20261008120000_pdf_processing.sql";
 const excludedServices =
   "realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor";
 const projectPattern = /^pdf-mig-eq-[a-f0-9]{24}$/;
@@ -70,6 +71,26 @@ function exportCommitMigrations(commit, target) {
   const files = git("ls-tree", "--name-only", `${commit}:supabase/migrations`).split("\n").filter(Boolean);
   if (files.length === 0) throw new Error(`No migrations found in ${commit}`);
   for (const file of files) writeFileSync(join(target, file), git("show", `${commit}:supabase/migrations/${file}`));
+  return files.length;
+}
+
+// The baseline commit contains the pre-consolidation F-01 chain. Apply every migration created
+// after the consolidated replacement to both sides so intentional forward migrations are tested
+// on top of both equivalent histories instead of being reported as schema drift.
+function appendForwardMigrations(source, target) {
+  const files = readdirSync(source)
+    .filter((file) => file > consolidatedMigration)
+    .sort();
+  for (const file of files) {
+    const destination = join(target, file);
+    if (existsSync(destination)) {
+      if (readFileSync(destination, "utf8") !== readFileSync(join(source, file), "utf8")) {
+        throw new Error(`Forward migration differs between histories: ${file}`);
+      }
+      continue;
+    }
+    cpSync(join(source, file), destination);
+  }
   return files.length;
 }
 
@@ -222,8 +243,11 @@ async function main() {
     let oldDir = options.old;
     if (!oldDir) {
       oldDir = join(scratch, "old");
-      const count = exportCommitMigrations(options.commit, oldDir);
-      console.log(`Old migrations: ${count} files from ${options.commit.slice(0, 12)}`);
+      const historicalCount = exportCommitMigrations(options.commit, oldDir);
+      const forwardCount = appendForwardMigrations(options.new, oldDir);
+      console.log(
+        `Old migrations: ${historicalCount} files from ${options.commit.slice(0, 12)} + ${forwardCount} forward files`,
+      );
     }
     for (const dir of [oldDir, options.new]) if (!existsSync(dir)) throw new Error(`Missing directory ${dir}`);
     const before = await snapshotMigrations("old", oldDir, 2000);

@@ -13,10 +13,14 @@ import {
   recognizePdfBatch,
 } from "../src/lib/pdf-processing/openai.ts";
 import { PDF_LIMITS } from "../src/lib/pdf-processing/limits.ts";
-import { reconcileCandidates } from "../src/lib/pdf-processing/reconcile.ts";
+import { canonicalIncompleteCandidates, reconcileCandidates } from "../src/lib/pdf-processing/reconcile.ts";
 import { createPersistence } from "../src/lib/pdf-processing/persistence.ts";
 import { createValidationService } from "../src/lib/pdf-processing/service.ts";
-import { digestValidatedCandidate, validateRecipeCandidate } from "../src/lib/pdf-processing/validation.ts";
+import {
+  canonicalDecisionDigest,
+  digestValidatedCandidate,
+  validateRecipeCandidate,
+} from "../src/lib/pdf-processing/validation.ts";
 
 const source = {
   version: 1,
@@ -553,6 +557,13 @@ test("validation distinguishes complete, incomplete and invalid provenance", () 
   );
   assert.deepEqual(incomplete.warnings, ["source-category-absent"]);
 
+  for (const title of ["", " \t "]) {
+    const blankTitle = validateRecipeCandidate({ ...candidate, title }, batch);
+    assert.equal(blankTitle.status, "incomplete");
+    assert.equal(blankTitle.candidate.title, null);
+    assert.ok(blankTitle.candidate.missingFieldReasons.some((reason) => reason.code === "missing-title"));
+  }
+
   const optionalNote = validateRecipeCandidate(
     { ...candidate, missingFieldReasons: [{ code: "absent-servings", fieldPath: "servings" }] },
     batch,
@@ -624,6 +635,71 @@ test("payload digest binds validated content to owner, import, batch and schema"
   const changed = globalThis.structuredClone(base.candidate);
   changed.ingredientGroups[0].ingredients[0].quantity = "101";
   assert.notEqual(first, await digestValidatedCandidate({ ...base, candidate: changed }));
+});
+
+test("canonical incomplete decisions are source-ordered, conflict-free and batch-independent", async () => {
+  const missingLater = validateRecipeCandidate(
+    { ...candidate, title: null, category: null, sourceCategory: null, instructions: [] },
+    batch,
+  );
+  const missingEarlier = validateRecipeCandidate(
+    { ...candidate, sourceStart: { page: 1, itemIndex: 0 }, title: null, sourceCategory: null },
+    batch,
+  );
+  assert.equal(missingLater.status, "incomplete");
+  assert.equal(missingEarlier.status, "incomplete");
+  const oneBatch = reconcileCandidates([{ batchIndex: 4, validations: [missingLater, missingEarlier] }]);
+  const duplicated = reconcileCandidates([
+    { batchIndex: 9, validations: [missingLater] },
+    { batchIndex: 2, validations: [missingEarlier, missingLater] },
+  ]);
+  const canonical = canonicalIncompleteCandidates(oneBatch);
+  assert.deepEqual(
+    canonical.map(({ candidate: item }) => item.sourceStart),
+    [
+      { page: 1, itemIndex: 0 },
+      { page: 1, itemIndex: 1 },
+    ],
+  );
+  assert.deepEqual(canonical[1].missingReasonCodes, ["missing-title", "missing-instructions", "missing-category"]);
+  const duplicatedCandidate = canonicalIncompleteCandidates(duplicated).find(
+    ({ candidate: item }) => item.sourceStart.itemIndex === 1,
+  );
+  assert.deepEqual(duplicatedCandidate.candidate, canonical[1].candidate);
+
+  const digestContext = {
+    candidate: canonical[1].candidate,
+    ownerId: "owner-a",
+    importId: "import-a",
+  };
+  const digest = await canonicalDecisionDigest(digestContext);
+  assert.equal(digest, await canonicalDecisionDigest({ ...digestContext, candidate: duplicatedCandidate.candidate }));
+  assert.notEqual(digest, await canonicalDecisionDigest({ ...digestContext, ownerId: "owner-b" }));
+  assert.notEqual(digest, await canonicalDecisionDigest({ ...digestContext, importId: "import-b" }));
+  assert.notEqual(
+    digest,
+    await canonicalDecisionDigest({
+      ...digestContext,
+      candidate: { ...digestContext.candidate, title: "Tampered" },
+    }),
+  );
+  assert.notEqual(
+    digest,
+    await digestValidatedCandidate({ ...digestContext, batchIndex: 0 }),
+    "decision and raw-batch digests must remain separate domains",
+  );
+
+  const conflict = reconcileCandidates([
+    { batchIndex: 0, validations: [missingEarlier] },
+    {
+      batchIndex: 1,
+      validations: [
+        validateRecipeCandidate({ ...candidate, sourceStart: { page: 1, itemIndex: 0 }, title: null }, batch),
+      ],
+    },
+  ]);
+  assert.equal(conflict.conflicts.length, 1);
+  assert.deepEqual(canonicalIncompleteCandidates(conflict), []);
 });
 
 test("actual provider input preserves every geometry field and changes its digest on geometry-only edits", () => {
@@ -911,6 +987,9 @@ test("deterministic finalization RPC rejections map to client codes; unknown err
     ["batch is not reconciled", "batch-results-missing"],
     ["import id conflict", "import-id-conflict"],
     ["import is not processing", "import-not-processing"],
+    ["decision not found", "import-not-found"],
+    ["decision conflict", "decision-conflict"],
+    ["decision payload mismatch", "decision-payload-mismatch"],
   ]) {
     await assert.rejects(rejecting(message).cancelImport(owner), (error) => error.code === code);
   }
@@ -918,6 +997,213 @@ test("deterministic finalization RPC rejections map to client codes; unknown err
     rejecting("connection reset").cancelImport(owner),
     (error) => error.code === "import-cancel-failed" && !error.message.includes("connection"),
   );
+});
+
+test("product service finalizes canonical decisions and resolves keep, discard, replay and recovery", async () => {
+  const ownerId = "00000000-0000-4000-8000-000000000001";
+  const importId = "00000000-0000-4000-8000-000000000002";
+  const recipeId = "00000000-0000-4000-8000-000000000003";
+  const validations = [
+    validateRecipeCandidate(
+      { ...candidate, sourceStart: { page: 1, itemIndex: 0 }, title: null, sourceCategory: null },
+      batch,
+    ),
+    validateRecipeCandidate(
+      { ...candidate, title: null, category: null, sourceCategory: null, instructions: [] },
+      batch,
+    ),
+  ];
+  assert.ok(validations.every((validation) => validation.status === "incomplete"));
+  const rawCandidates = validations.map((validation) => validation.candidate);
+  const rawDigests = await Promise.all(
+    rawCandidates.map((item) => digestValidatedCandidate({ candidate: item, ownerId, importId, batchIndex: 0 })),
+  );
+  let status = "processing";
+  let outcome = null;
+  let decisions = [];
+  const decisionDigests = new Map();
+  const resolveCalls = [];
+  const outcomeRow = () => ({
+    status,
+    saved_count: outcome.saved,
+    existing_count: outcome.alreadySaved,
+    pending_count: outcome.pending,
+    kept_count: outcome.kept,
+    discarded_count: outcome.discarded,
+    saved_ids: outcome.savedIds,
+    existing_ids: outcome.existingIds,
+    decisions,
+  });
+  const importRow = () => ({
+    import_id: importId,
+    channel: "product",
+    status,
+    file_fingerprint: source.sha256,
+    manifest_digest: "m".repeat(64),
+    batch_count: 1,
+    manifest: { version: 2, source, batches: [] },
+    source_filename: source.filename,
+    created_at: "2026-10-14T00:00:00.000Z",
+    expires_at: "2099-01-01T00:00:00.000Z",
+    batches: [{ batchIndex: 0, status: "processed" }],
+    results: [
+      {
+        batchIndex: 0,
+        invalidCount: 0,
+        candidates: rawCandidates.map((item, candidateIndex) => ({
+          candidateIndex,
+          sourceStartPage: item.sourceStart.page,
+          sourceStartItem: item.sourceStart.itemIndex,
+          status: "incomplete",
+          digest: rawDigests[candidateIndex],
+        })),
+      },
+    ],
+    outcome,
+  });
+  const client = {
+    async rpc(name, parameters) {
+      if (name === "get_pdf_import") {
+        if (parameters.p_owner_id !== ownerId || parameters.p_import_id !== importId) return { data: [], error: null };
+        return { data: [importRow()], error: null };
+      }
+      if (name === "finalize_pdf_product_import") {
+        assert.equal(parameters.p_decisions.length, 2);
+        assert.equal(parameters.p_recipes.length, 0);
+        decisions = parameters.p_decisions.map((item) => ({
+          decisionId: item.decisionId,
+          sourceStart: { page: item.sourceStartPage, itemIndex: item.sourceStartItem },
+          state: "pending",
+          missingReasonCodes: item.missingReasonCodes,
+          recipeId: null,
+          resolvedAt: null,
+        }));
+        for (const item of parameters.p_decisions) decisionDigests.set(item.decisionId, item.digest);
+        status = "committed";
+        outcome = {
+          saved: 0,
+          alreadySaved: 0,
+          pending: 2,
+          kept: 0,
+          discarded: 0,
+          savedIds: [],
+          existingIds: [],
+          decisions,
+        };
+        return { data: [outcomeRow()], error: null };
+      }
+      if (name === "get_pdf_product_decisions") {
+        return {
+          data: decisions.map((item) => ({
+            decision_id: item.decisionId,
+            source_start_page: item.sourceStart.page,
+            source_start_item: item.sourceStart.itemIndex,
+            state: item.state,
+            missing_reason_codes: item.missingReasonCodes,
+            recipe_id: item.recipeId,
+            resolved_at: item.resolvedAt,
+          })),
+          error: null,
+        };
+      }
+      if (name === "resolve_pdf_product_decision") {
+        resolveCalls.push(parameters);
+        const decision = decisions.find((item) => item.decisionId === parameters.p_decision_id);
+        const target = parameters.p_action === "keep" ? "kept" : "discarded";
+        if (parameters.p_action === "keep" && parameters.p_payload_digest !== decisionDigests.get(decision.decisionId))
+          return { data: null, error: { message: "decision payload mismatch", code: "P0001" } };
+        if (decision.state !== "pending" && decision.state !== target)
+          return { data: null, error: { message: "decision conflict", code: "P0001" } };
+        if (decision.state === "pending") {
+          decision.state = target;
+          decision.resolvedAt = "2026-10-14T01:00:00.000Z";
+          outcome.pending--;
+          if (target === "kept") {
+            decision.recipeId = recipeId;
+            outcome.kept++;
+            outcome.saved++;
+            outcome.savedIds.push(recipeId);
+          } else {
+            outcome.discarded++;
+          }
+        }
+        outcome.decisions = decisions;
+        return { data: [outcomeRow()], error: null };
+      }
+      throw new Error(`unexpected rpc ${name}`);
+    },
+  };
+  const service = createValidationService({ client, ownerId, channel: "product" });
+  const finalized = await service.finalize(importId, {
+    manifestDigest: "m".repeat(64),
+    candidates: rawCandidates.map((item, candidateIndex) => ({ batchIndex: 0, candidateIndex, candidate: item })),
+  });
+  assert.deepEqual(
+    finalized.decisions.map((item) => item.sourceStart),
+    [
+      { page: 1, itemIndex: 0 },
+      { page: 1, itemIndex: 1 },
+    ],
+  );
+  const canonical = canonicalIncompleteCandidates(reconcileCandidates([{ batchIndex: 0, validations }]));
+  await assert.rejects(
+    service.resolve(importId, decisions[0].decisionId, {
+      action: "keep",
+      candidate: { ...canonical[0].candidate, title: "Tampered" },
+    }),
+    { code: "decision-payload-mismatch" },
+  );
+  const kept = await service.resolve(importId, decisions[0].decisionId, {
+    action: "keep",
+    candidate: canonical[0].candidate,
+  });
+  assert.equal(kept.decision.state, "kept");
+  assert.equal(
+    resolveCalls.at(-1).p_payload_digest,
+    await canonicalDecisionDigest({
+      candidate: canonical[0].candidate,
+      ownerId,
+      importId,
+    }),
+  );
+  const discarded = await service.resolve(importId, decisions[1].decisionId, { action: "discard" });
+  assert.equal(discarded.decision.state, "discarded");
+  assert.equal(discarded.outcome.pending, 0);
+  assert.equal(discarded.outcome.kept, 1);
+  assert.equal(discarded.outcome.discarded, 1);
+  assert.equal(
+    (await service.resolve(importId, decisions[1].decisionId, { action: "discard" })).decision.state,
+    "discarded",
+  );
+  await assert.rejects(
+    service.resolve(importId, decisions[1].decisionId, {
+      action: "keep",
+      candidate: canonical[1].candidate,
+    }),
+    { code: "decision-conflict" },
+  );
+  const recovered = await service.status(importId);
+  assert.equal(recovered.outcome.pending, 0);
+  assert.equal(JSON.stringify(recovered).includes("ingredientGroups"), false);
+  await assert.rejects(
+    service.resolve("00000000-0000-4000-8000-000000000099", decisions[0].decisionId, {
+      action: "keep",
+      candidate: canonical[0].candidate,
+    }),
+    { code: "import-not-found" },
+  );
+  const otherOwner = createValidationService({
+    client,
+    ownerId: "00000000-0000-4000-8000-000000000099",
+    channel: "product",
+  });
+  await assert.rejects(otherOwner.resolve(importId, decisions[0].decisionId, { action: "discard" }), {
+    code: "import-not-found",
+  });
+  const evaluation = createValidationService({ client, ownerId, channel: "evaluation" });
+  await assert.rejects(evaluation.resolve(importId, decisions[0].decisionId, { action: "discard" }), {
+    code: "import-not-found",
+  });
 });
 
 test("oversized and over-page-limit imports are rejected before any token count, reservation or provider call", async () => {
