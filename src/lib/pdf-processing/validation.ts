@@ -300,3 +300,30 @@ export async function digestValidatedCandidate(options: {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
   return Array.from(new Uint8Array(bytes), (value) => value.toString(16).padStart(2, "0")).join("");
 }
+
+const DECISION_DIGEST_DOMAIN = "dishly:pdf-incomplete-recipe-decision:v1";
+
+export async function canonicalDecisionDigest(options: {
+  candidate: RecipeCandidate;
+  ownerId: string;
+  importId: string;
+  schemaName?: string;
+}): Promise<string> {
+  if (
+    !options.ownerId.trim() ||
+    !options.importId.trim() ||
+    !hasCurrentRecipeVersion(options.candidate) ||
+    (options.schemaName !== undefined && options.schemaName !== PDF_RECIPE_SCHEMA_NAME)
+  )
+    throw new Error("invalid-decision-digest-context");
+  const payload = canonicalJson({
+    domain: DECISION_DIGEST_DOMAIN,
+    contractVersion: PDF_RECIPE_CONTRACT_VERSION,
+    schema: options.schemaName ?? PDF_RECIPE_SCHEMA_NAME,
+    ownerId: options.ownerId,
+    importId: options.importId,
+    candidate: options.candidate,
+  });
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(bytes), (value) => value.toString(16).padStart(2, "0")).join("");
+}

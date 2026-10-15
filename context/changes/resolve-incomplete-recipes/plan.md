@@ -439,27 +439,27 @@ Decision handling performs no additional AI calls and stores no pending payload.
 
 #### Automated
 
-- [x] 1.1 The forward migration backfills existing recipes/outcomes and preserves the exact legacy finalizer, evaluation, and benchmark-reader contracts.
-- [x] 1.2 Database tests prove structural and semantic omission invariants, immutable import provenance, nullable-category keep linkage, decision-state checks, RLS, grants, and product-channel enforcement.
-- [x] 1.3 Database tests prove atomic finalize/resolve behavior, source-identity deduplication including origin-preserving reimport keeps, and same-action replay.
-- [x] 1.4 Migration-equivalence and database suites pass in isolated Supabase projects after explicit user approval.
+- [x] 1.1 The forward migration backfills existing recipes/outcomes and preserves the exact legacy finalizer, evaluation, and benchmark-reader contracts. — 8ab2695
+- [x] 1.2 Database tests prove structural and semantic omission invariants, immutable import provenance, nullable-category keep linkage, decision-state checks, RLS, grants, and product-channel enforcement. — 8ab2695
+- [x] 1.3 Database tests prove atomic finalize/resolve behavior, source-identity deduplication including origin-preserving reimport keeps, and same-action replay. — 8ab2695
+- [x] 1.4 Migration-equivalence and database suites pass in isolated Supabase projects after explicit user approval. — 8ab2695
 
 #### Manual
 
-- [x] 1.5 The migration and rollback notes are reviewed before any Supabase-backed command is authorized.
+- [x] 1.5 The migration and rollback notes are reviewed before any Supabase-backed command is authorized. — 8ab2695
 
 ### Phase 2: Canonical Service and Product API
 
 #### Automated
 
-- [ ] 2.1 Unit tests prove canonical ordering, duplicate reconciliation, conflict exclusion, omission-code preservation, an unchanged `digestValidatedCandidate` contract, decision-digest stability across batch membership, and decision-digest tamper rejection.
-- [ ] 2.2 API/access tests prove product-only authorization, same-origin and UUID validation, bounded bodies, flag-off availability, and sanitized errors.
-- [ ] 2.3 Service tests prove keep, discard, replay, opposite-action conflict, lost-response status recovery, and cross-owner/cross-import rejection.
-- [ ] 2.4 `npm run test:pdf`, `npm run lint`, and `npx astro check` pass without starting Supabase or application ports.
+- [x] 2.1 Unit tests prove canonical ordering, duplicate reconciliation, conflict exclusion, omission-code preservation, an unchanged `digestValidatedCandidate` contract, decision-digest stability across batch membership, and decision-digest tamper rejection.
+- [x] 2.2 API/access tests prove product-only authorization, same-origin and UUID validation, bounded bodies, flag-off availability, and sanitized errors.
+- [x] 2.3 Service tests prove keep, discard, replay, opposite-action conflict, lost-response status recovery, and cross-owner/cross-import rejection.
+- [x] 2.4 `npm run test:pdf`, `npm run lint`, and `npx astro check` pass without starting Supabase or application ports.
 
 #### Manual
 
-- [ ] 2.5 The final API shapes and error codes are reviewed against the approved data contract before UI integration.
+- [x] 2.5 The final API shapes and error codes are reviewed against the approved data contract before UI integration.
 
 ### Phase 3: Client State and Keep/Discard UX
 

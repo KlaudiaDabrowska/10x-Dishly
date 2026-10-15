@@ -21,6 +21,7 @@ export const PDF_OMISSION_RULES = {
   "absent-footnotes": { fieldPath: "footnotes", required: false, explanation: "Źródło nie zawiera przypisów." },
 } as const;
 export type OmissionCode = keyof typeof PDF_OMISSION_RULES;
+export const PDF_OMISSION_CODES = Object.freeze(Object.keys(PDF_OMISSION_RULES) as OmissionCode[]);
 export interface OmissionReason {
   code: OmissionCode;
   fieldPath: string;
@@ -99,6 +100,15 @@ export interface RecipeCandidate {
   servings: string | null;
   footnotes: string[];
   missingFieldReasons: OmissionReason[];
+}
+export type DecisionState = "pending" | "kept" | "discarded";
+export interface DecisionReference {
+  decisionId: string;
+  sourceStart: SourceItemAnchor;
+  state: DecisionState;
+  missingReasonCodes: OmissionCode[];
+  recipeId: string | null;
+  resolvedAt: string | null;
 }
 export type ImportStatus = "created" | "processing" | "ready" | "committed" | "failed" | "cancelled";
 export type AccountingStatus = "not-dispatched" | "reserved" | "confirmed" | "unknown";

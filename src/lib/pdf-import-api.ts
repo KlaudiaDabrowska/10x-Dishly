@@ -75,12 +75,37 @@ async function cancelImport(context: APIContext, channel: ImportChannel): Promis
   }
 }
 
+async function resolveDecision(context: APIContext, channel: ImportChannel): Promise<Response> {
+  if (channel !== "product") return privateJson({ error: "import-not-found" }, 404);
+  const guarded = await guard(context, {
+    channel,
+    operation: "resolve",
+    mutation: true,
+    maxBodyBytes: PDF_LIMITS.maxDecisionBodyBytes,
+  });
+  if (guarded instanceof Response) return guarded;
+  try {
+    const result = await guarded.service.resolve(
+      String(context.params.id),
+      String(context.params.decisionId),
+      guarded.body,
+    );
+    const readBack =
+      result.decision.state !== "kept" ||
+      (result.decision.recipeId !== null && (await verifyReadBack(context, [result.decision.recipeId])));
+    return privateJson({ ...result, readBack });
+  } catch (error) {
+    return errorResponse(error, "resolve", channel);
+  }
+}
+
 export function importApi(channel: ImportChannel): {
   create: APIRoute;
   batch: APIRoute;
   finalize: APIRoute;
   status: APIRoute;
   cancel: APIRoute;
+  resolve: APIRoute;
 } {
   return {
     create: (context) => createImport(context, channel),
@@ -88,5 +113,6 @@ export function importApi(channel: ImportChannel): {
     finalize: (context) => finalizeImport(context, channel),
     status: (context) => importStatus(context, channel),
     cancel: (context) => cancelImport(context, channel),
+    resolve: (context) => resolveDecision(context, channel),
   };
 }

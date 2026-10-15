@@ -564,8 +564,7 @@ async function productDecisionFixture(
   assert.ok(incomplete);
   const canonicalIncomplete = transformIncomplete(roundTrip(incomplete.candidate));
   const completeDigest = recorded.find(
-    (candidate) =>
-      candidate.batchIndex === complete.batchIndex && candidate.candidateIndex === complete.candidateIndex,
+    (candidate) => candidate.batchIndex === complete.batchIndex && candidate.candidateIndex === complete.candidateIndex,
   )?.digest;
   assert.ok(completeDigest);
   const decisionId = randomUUID();
@@ -760,13 +759,15 @@ test("product decisions are owner-scoped, idempotent, and enforce saved omission
   const fixture = await productDecisionFixture(user, sha(), "missing-category.pdf", (candidate) => ({
     ...candidate,
     category: null,
-    missingFieldReasons: [
-      ...candidate.missingFieldReasons,
-      { code: "missing-category", fieldPath: "category" },
-    ],
+    missingFieldReasons: [...candidate.missingFieldReasons, { code: "missing-category", fieldPath: "category" }],
   }));
   assert.deepEqual(
-    [fixture.outcome.saved_count, fixture.outcome.pending_count, fixture.outcome.kept_count, fixture.outcome.discarded_count],
+    [
+      fixture.outcome.saved_count,
+      fixture.outcome.pending_count,
+      fixture.outcome.kept_count,
+      fixture.outcome.discarded_count,
+    ],
     [1, 1, 0, 0],
   );
   assert.deepEqual(Object.keys(fixture.outcome.decisions[0]).sort(), [
@@ -783,10 +784,7 @@ test("product decisions are owner-scoped, idempotent, and enforce saved omission
     p_channel: "product",
   });
   assert.ifError(productStatus.error);
-  assert.deepEqual(
-    [productStatus.data[0].outcome.kept, productStatus.data[0].outcome.discarded],
-    [0, 0],
-  );
+  assert.deepEqual([productStatus.data[0].outcome.kept, productStatus.data[0].outcome.discarded], [0, 0]);
   assert.deepEqual(productStatus.data[0].outcome.decisions, fixture.outcome.decisions);
   assert.throws(() =>
     sql(`update public.pdf_incomplete_recipe_decisions
@@ -822,10 +820,7 @@ test("product decisions are owner-scoped, idempotent, and enforce saved omission
   };
   const kept = await admin().rpc("resolve_pdf_product_decision", parameters);
   assert.ifError(kept.error);
-  assert.deepEqual(
-    [kept.data[0].saved_count, kept.data[0].pending_count, kept.data[0].kept_count],
-    [2, 0, 1],
-  );
+  assert.deepEqual([kept.data[0].saved_count, kept.data[0].pending_count, kept.data[0].kept_count], [2, 0, 1]);
   const replay = await admin().rpc("resolve_pdf_product_decision", parameters);
   assert.ifError(replay.error);
   assert.deepEqual(replay.data, kept.data);

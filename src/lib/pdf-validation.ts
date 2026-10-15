@@ -17,7 +17,15 @@ import { PdfReadError } from "@/lib/pdf-processing/reader-core";
 import { createValidationService } from "@/lib/pdf-processing/service";
 import type { ValidationService } from "@/lib/pdf-processing/service";
 import type { ImportChannel } from "@/lib/pdf-processing/persistence";
-import { importCreationAvailable, importOperationAvailable, importUserAuthorized } from "@/lib/pdf-import-access";
+import {
+  importCreationAvailable,
+  importErrorHttpStatus,
+  importMutationIsSameOrigin,
+  importOperationAvailable,
+  importUserAuthorized,
+  isImportResourceId,
+  readBoundedImportJson,
+} from "@/lib/pdf-import-access";
 import type { ImportOperation } from "@/lib/pdf-import-access";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -59,21 +67,6 @@ export function privateJson(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 }
 
-const STATUS_BY_CODE: Record<string, number> = {
-  "import-not-found": 404,
-  "active-import-exists": 409,
-  "import-id-conflict": 409,
-  "import-not-processing": 409,
-  "batch-already-processed": 409,
-  "batch-already-dispatched": 409,
-  "batch-results-missing": 409,
-  "manifest-mismatch": 409,
-  "payload-digest-mismatch": 409,
-  "import-budget-insufficient": 409,
-  "reservation-failed": 409,
-  "invalid-request": 400,
-};
-
 // Content-free server trace for 5xx outcomes: fixed codes and identifiers only, never messages,
 // provider/database bodies, source text or recipe content.
 function logFailure(error: unknown, status: number, route: string, channel: ImportChannel) {
@@ -97,7 +90,7 @@ function errorStatus(error: unknown): { code: string; status: number } {
   if (error instanceof PdfRequestError) return { code: error.code, status: 400 };
   if (error instanceof PdfReadError) return { code: error.code, status: 422 };
   if (error instanceof OpenAiPdfError) return { code: error.code, status: 502 };
-  if (error instanceof SpendingControlError) return { code: error.code, status: STATUS_BY_CODE[error.code] ?? 500 };
+  if (error instanceof SpendingControlError) return { code: error.code, status: importErrorHttpStatus(error.code) };
   return { code: "internal-error", status: 500 };
 }
 
@@ -106,47 +99,6 @@ export function errorResponse(error: unknown, route = "unknown", channel: Import
   const { code, status } = errorStatus(error);
   if (status >= 500) logFailure(error, status, route, channel);
   return privateJson({ error: code }, status);
-}
-
-async function readBoundedJson(request: Request, maximumBytes: number): Promise<unknown> {
-  const declared = request.headers.get("content-length");
-  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > maximumBytes))
-    throw new PdfRequestError("request-too-large");
-  if (!request.body) throw new PdfRequestError("invalid-request");
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    for (;;) {
-      const next = await reader.read();
-      if (next.done) break;
-      size += next.value.byteLength;
-      if (size > maximumBytes) {
-        await reader.cancel().catch(() => undefined);
-        throw new PdfRequestError("request-too-large");
-      }
-      chunks.push(next.value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  try {
-    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)) as unknown;
-  } catch {
-    throw new PdfRequestError("invalid-json");
-  }
-}
-
-function sameOrigin(context: APIContext): boolean {
-  const origin = context.request.headers.get("origin");
-  const site = context.request.headers.get("sec-fetch-site");
-  return origin === context.url.origin && (site === null || site === "same-origin");
 }
 
 export interface GuardedRequest {
@@ -167,9 +119,10 @@ export async function guard(
   const user = context.locals.user;
   if (!user) return privateJson({ error: "authentication_required" }, 401);
   if (!importUserAuthorized(channel, user.id, evaluatorIds())) return privateJson({ error: "forbidden" }, 403);
-  if (options.mutation && !sameOrigin(context)) return privateJson({ error: "cross_origin_forbidden" }, 403);
-  const id = context.params.id;
-  if (id !== undefined && !UUID.test(id)) return privateJson({ error: "import-not-found" }, 404);
+  if (options.mutation && !importMutationIsSameOrigin(context.request, context.url))
+    return privateJson({ error: "cross_origin_forbidden" }, 403);
+  for (const id of [context.params.id, context.params.decisionId])
+    if (!isImportResourceId(id)) return privateJson({ error: "import-not-found" }, 404);
   const client = createAdminClient();
   const apiKey = OPENAI_API_KEY?.trim();
   const providerRequired = options.operation === "create" || options.operation === "batch";
@@ -181,7 +134,7 @@ export async function guard(
     if (!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(contentType.trim()))
       return privateJson({ error: "unsupported-media-type" }, 415);
     try {
-      body = await readBoundedJson(context.request, options.maxBodyBytes);
+      body = await readBoundedImportJson(context.request, options.maxBodyBytes);
     } catch (error) {
       if (error instanceof PdfRequestError && error.code === "request-too-large")
         return privateJson({ error: error.code }, 413);
