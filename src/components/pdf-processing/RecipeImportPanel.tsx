@@ -1,9 +1,21 @@
 import { useEffect } from "react";
 import type { ChangeEvent } from "react";
-import { FileText, Loader2, XCircle } from "lucide-react";
+import { CircleAlert, FileText, Info, Loader2, XCircle } from "lucide-react";
+
+import RecipeDecisionCard from "@/components/pdf-processing/RecipeDecisionCard";
+import type { RecipeDecisionViewModel } from "@/components/pdf-processing/RecipeDecisionCard";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { polishImportError, productCompletion, useClientImport } from "@/lib/pdf-processing/client-import";
-import type { ClientImportStage } from "@/lib/pdf-processing/client-import";
+import type { ClientImportStage, ClientRecipeDecision } from "@/lib/pdf-processing/client-import";
+
+const CATEGORY_LABELS = {
+  breakfast: "Śniadanie",
+  lunch: "Obiad",
+  dinner: "Kolacja",
+  dessert: "Deser",
+} as const;
 
 const STAGE_LABELS: Record<ClientImportStage, string> = {
   idle: "Wybierz plik PDF, aby rozpocząć.",
@@ -15,9 +27,25 @@ const STAGE_LABELS: Record<ClientImportStage, string> = {
   cancelled: "Import został anulowany.",
 };
 
+function decisionView(decision: ClientRecipeDecision): RecipeDecisionViewModel {
+  return {
+    id: decision.decisionId,
+    title: decision.candidate.title,
+    category: decision.candidate.category ? CATEGORY_LABELS[decision.candidate.category] : null,
+    pages: decision.candidate.pages,
+    missingMessages: decision.missingMessages,
+    ingredientGroups: decision.candidate.ingredientGroups.map((group) => ({
+      label: group.label,
+      ingredients: group.ingredients.map((ingredient) => ingredient.sourceText),
+    })),
+    instructions: decision.candidate.instructions,
+    status: decision.status,
+  };
+}
+
 export default function RecipeImportPanel() {
-  const importFlow = useClientImport({ apiBase: "/api/imports" });
-  const { stage, progress, outcome, pending, importId, errorCode, busy } = importFlow;
+  const importFlow = useClientImport({ apiBase: "/api/imports", decisionCapability: "product" });
+  const { stage, progress, outcome, decisions, importId, errorCode, busy } = importFlow;
   const completion = outcome ? productCompletion(outcome) : null;
   const visibleErrorCode =
     completion === "empty"
@@ -41,104 +69,107 @@ export default function RecipeImportPanel() {
   }
 
   return (
-    <div className="mt-8 space-y-6">
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-5 text-sm text-blue-100/80 backdrop-blur-xl sm:p-6">
-        <h2 className="text-base font-semibold text-white">Jak działa import</h2>
-        <p className="mt-2">
-          Plik PDF jest odczytywany lokalnie na tym urządzeniu i nie jest przesyłany. Wyodrębniony tekst trafia do
-          naszego serwera i do OpenAI, aby rozpoznać przepisy.
-        </p>
-        <p className="mt-2">
-          Automatycznie zapisujemy wyłącznie kompletne przepisy. Niekompletne wyniki pozostają niezapisane i zobaczysz
-          je poniżej. Jeden plik może mieć do 20 MB i 115 stron.
-        </p>
-      </section>
+    <div className="mt-8 grid gap-6">
+      <Alert role="status">
+        <Info aria-hidden="true" />
+        <AlertTitle>Jak działa import</AlertTitle>
+        <AlertDescription>
+          <p>
+            Plik PDF jest odczytywany lokalnie na tym urządzeniu i nie jest przesyłany. Wyodrębniony tekst trafia do
+            naszego serwera i do OpenAI, aby rozpoznać przepisy.
+          </p>
+          <p>
+            Kompletne przepisy zapisujemy automatycznie. Przy niekompletnych zdecydujesz osobno, czy chcesz je zachować.
+            Jeden plik może mieć do 20 MB i 115 stron.
+          </p>
+        </AlertDescription>
+      </Alert>
 
-      <section className="rounded-2xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-            <FileText className="size-4" />
-            Wybierz PDF
-            <input type="file" accept="application/pdf,.pdf" className="sr-only" disabled={busy} onChange={onFile} />
-          </label>
-          {busy && (
-            <Button type="button" variant="destructive" className="min-h-11" onClick={() => void importFlow.cancel()}>
-              <XCircle /> Anuluj
+      <Card>
+        <CardContent className="grid gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button asChild className={busy ? "pointer-events-none opacity-50" : undefined}>
+              <label aria-disabled={busy}>
+                <FileText aria-hidden="true" />
+                Wybierz PDF
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="sr-only"
+                  disabled={busy}
+                  onChange={onFile}
+                />
+              </label>
             </Button>
-          )}
-          {!busy && stage !== "idle" && completion !== "redirect" && (
-            <Button type="button" variant="secondary" className="min-h-11" onClick={importFlow.reset}>
-              Wybierz inny plik
-            </Button>
-          )}
-        </div>
-
-        <p className="mt-4 flex items-center gap-2 text-sm text-white" role="status" aria-live="polite">
-          {busy && <Loader2 className="size-4 animate-spin" />}
-          {completion === "redirect" ? "Przenoszenie do zapisanych przepisów…" : STAGE_LABELS[stage]}
-          {stage === "recognizing" && progress && ` Partia ${progress.done} z ${progress.total}.`}
-        </p>
-
-        {error && (
-          <div className="mt-4 rounded-lg border border-red-200/30 bg-red-950/20 p-4 text-sm text-red-100" role="alert">
-            <p className="font-semibold">{error.title}</p>
-            <p className="mt-1 text-red-100/80">{error.action}</p>
+            {busy && (
+              <Button type="button" variant="destructive" onClick={() => void importFlow.cancel()}>
+                <XCircle aria-hidden="true" /> Anuluj
+              </Button>
+            )}
+            {!busy && stage !== "idle" && completion !== "redirect" && (
+              <Button type="button" variant="secondary" onClick={importFlow.reset}>
+                Wybierz inny plik
+              </Button>
+            )}
           </div>
-        )}
-      </section>
+
+          <p className="flex items-center gap-2 text-sm" role="status" aria-live="polite">
+            {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+            {completion === "redirect" ? "Przenoszenie do zapisanych przepisów…" : STAGE_LABELS[stage]}
+            {stage === "recognizing" && progress && ` Partia ${progress.done} z ${progress.total}.`}
+          </p>
+
+          {error && (
+            <Alert variant="destructive" role="alert">
+              <CircleAlert aria-hidden="true" />
+              <AlertTitle>{error.title}</AlertTitle>
+              <AlertDescription>{error.action}</AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       {outcome && completion === "pending" && (
-        <section className="rounded-2xl border border-amber-200/30 bg-white/10 p-5 backdrop-blur-xl sm:p-6">
-          <h2 className="text-base font-semibold text-white">Część przepisów wymaga uzupełnienia</h2>
-          <p className="mt-2 text-sm text-blue-100/80">
-            Zapisano nowych: <strong className="text-white">{outcome.saved}</strong>. Już zapisanych:{" "}
-            <strong className="text-white">{outcome.alreadySaved}</strong>. Niezapisanych:{" "}
-            <strong className="text-white">{outcome.pending}</strong>.
-          </p>
-        </section>
+        <Alert role="status" aria-live="polite">
+          <CircleAlert aria-hidden="true" />
+          <AlertTitle className="line-clamp-none">Część przepisów wymaga decyzji</AlertTitle>
+          <AlertDescription>
+            <p>
+              Łącznie zapisano nowych: <strong>{outcome.saved}</strong> (w tym zachowano decyzją:{" "}
+              <strong>{outcome.kept ?? 0}</strong>). Już zapisanych: <strong>{outcome.alreadySaved}</strong>. Odrzucono:{" "}
+              <strong>{outcome.discarded ?? 0}</strong>. Do rozstrzygnięcia: <strong>{outcome.pending}</strong>.
+            </p>
+          </AlertDescription>
+        </Alert>
       )}
 
-      {completion === "pending" && pending.length > 0 && (
-        <section className="space-y-3" aria-labelledby="incomplete-title">
-          <h2 id="incomplete-title" className="text-base font-semibold text-white">
-            Niekompletne przepisy — nie zostały zapisane
-          </h2>
-          {pending.map((item) => (
-            <article
-              key={`${item.batchIndex}:${item.candidateIndex}`}
-              className="rounded-2xl border border-amber-200/30 bg-white/10 p-4 text-sm text-blue-100/90 backdrop-blur-xl"
-            >
-              <h3 className="font-semibold break-words text-white">{item.candidate.title ?? "Przepis bez tytułu"}</h3>
-              <p className="text-xs text-blue-100/60">Strony: {item.candidate.pages.join(", ")}</p>
-              {item.explanations.length > 0 && (
-                <ul className="mt-2 list-disc pl-5 text-amber-100">
-                  {item.explanations.map((explanation) => (
-                    <li key={explanation}>{explanation}</li>
-                  ))}
-                </ul>
-              )}
-              {item.candidate.ingredientGroups.map((group, groupIndex) => (
-                <div key={groupIndex} className="mt-3">
-                  {group.label && <p className="font-medium text-white">{group.label}</p>}
-                  <ul className="list-disc pl-5">
-                    {group.ingredients.map((ingredient, ingredientIndex) => (
-                      <li key={ingredientIndex} className="break-words">
-                        {ingredient.sourceText}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              {item.candidate.instructions.length > 0 && (
-                <ol className="mt-3 list-decimal pl-5">
-                  {item.candidate.instructions.map((instruction, instructionIndex) => (
-                    <li key={instructionIndex} className="break-words">
-                      {instruction}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </article>
+      {outcome && completion === "discarded" && (
+        <Alert role="status" aria-live="polite">
+          <Info aria-hidden="true" />
+          <AlertTitle className="line-clamp-none">Import zakończony bez zapisywania przepisów</AlertTitle>
+          <AlertDescription>
+            Wszystkie niekompletne przepisy zostały odrzucone. Możesz wybrać inny plik albo wrócić do kolekcji.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {decisions.length > 0 && (
+        <section className="grid gap-4" aria-labelledby="incomplete-title">
+          <div className="grid gap-1">
+            <h2 id="incomplete-title" className="text-xl font-semibold">
+              Niekompletne przepisy
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Sprawdź brakujące elementy. Każdy przepis możesz zachować bez uzupełniania albo odrzucić.
+            </p>
+          </div>
+          {decisions.map((decision) => (
+            <RecipeDecisionCard
+              key={decision.decisionId}
+              decision={decisionView(decision)}
+              onKeep={(id) => void importFlow.resolveDecision(id, "keep")}
+              onDiscard={(id) => void importFlow.resolveDecision(id, "discard")}
+            />
           ))}
         </section>
       )}

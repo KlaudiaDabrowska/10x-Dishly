@@ -5,6 +5,9 @@ const files = [
   "src/components/dashboard/DashboardView.astro",
   "src/components/dashboard/ImportOutcomeFeedback.tsx",
   "src/components/pdf-processing/ImportOutcomeBanner.tsx",
+  "src/components/pdf-processing/RecipeDecisionCard.tsx",
+  "src/components/pdf-processing/RecipeImportPanel.tsx",
+  "src/pages/dashboard/import.astro",
 ];
 
 const palette =

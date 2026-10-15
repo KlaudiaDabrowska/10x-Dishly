@@ -2,6 +2,7 @@
 import DashboardView from "@/components/dashboard/DashboardView.astro";
 import ImportOutcomeFeedback from "@/components/dashboard/ImportOutcomeFeedback";
 import ComponentPreview from "../components/ComponentPreview";
+import RecipeDecisionPreview from "../components/RecipeDecisionPreview";
 import "../styles/preview.css";
 ---
 
@@ -14,17 +15,22 @@ import "../styles/preview.css";
     <script is:inline>
       const parameters = new URLSearchParams(location.search);
       document.documentElement.classList.toggle("dark", parameters.get("theme") === "dark");
+      const requestedView = parameters.get("view");
       document.documentElement.dataset.previewView =
-        parameters.get("view") === "dashboard" ? "dashboard" : "components";
+        requestedView === "dashboard" || requestedView === "decisions" ? requestedView : "components";
       document.documentElement.dataset.importAvailability =
         parameters.get("import") === "unavailable" ? "unavailable" : "available";
       document.documentElement.dataset.feedbackState = parameters.get("feedback") ?? "confirmed";
       document.documentElement.dataset.capture = parameters.get("capture") ?? "preview";
+      document.documentElement.dataset.decisionState = parameters.get("decision") ?? "all";
     </script>
   </head>
   <body data-ui-preview>
     <main class="min-h-screen bg-background px-4 py-10 text-foreground sm:px-8" data-component-preview>
       <ComponentPreview />
+    </main>
+    <main class="min-h-screen bg-background px-4 py-10 text-foreground sm:px-8" data-decision-preview>
+      <RecipeDecisionPreview />
     </main>
     <div data-dashboard-preview>
       <div data-dashboard-variant="available">

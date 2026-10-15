@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { RecipeCandidate } from "./contracts.ts";
+import { PDF_OMISSION_RULES, sourceItemKey } from "./contracts.ts";
+import type { DecisionReference, RecipeCandidate } from "./contracts.ts";
 import { batchFromManifest } from "./manifest.ts";
 import type { SourceManifest } from "./manifest.ts";
+import { canonicalIncompleteCandidates, reconcileCandidates } from "./reconcile.ts";
 import type { ReadResult, ReaderFile } from "./reader-core.ts";
 
 export type ClientImportStage = "idle" | "reading" | "recognizing" | "saving" | "done" | "failed" | "cancelled";
@@ -21,6 +23,21 @@ export interface ClientImportOutcome {
   alreadySaved: number;
   pending: number;
   readBack: boolean;
+  kept?: number;
+  discarded?: number;
+  decisions?: DecisionReference[];
+}
+
+export type ClientDecisionStatus = "pending" | "keeping" | "discarding" | "kept" | "discarded" | "error";
+
+export interface ClientRecipeDecision {
+  decisionId: string;
+  sourceStart: RecipeCandidate["sourceStart"];
+  candidate: RecipeCandidate;
+  missingMessages: string[];
+  status: ClientDecisionStatus;
+  recipeId: string | null;
+  errorCode: string | null;
 }
 
 export interface ClientImportState {
@@ -30,6 +47,7 @@ export interface ClientImportState {
   outcome: ClientImportOutcome | null;
   candidates: ReturnedCandidate[];
   pending: ReturnedCandidate[];
+  decisions: ClientRecipeDecision[];
   importId: string | null;
 }
 
@@ -75,6 +93,7 @@ const INITIAL_STATE: ClientImportState = {
   outcome: null,
   candidates: [],
   pending: [],
+  decisions: [],
   importId: null,
 };
 
@@ -121,6 +140,173 @@ async function recoverStatus(apiBase: string, id: string, request: RequestJson):
   }
 }
 
+function decisionStatus(reference: DecisionReference): ClientDecisionStatus {
+  return reference.state;
+}
+
+export function joinProductDecisions(
+  candidates: readonly ReturnedCandidate[],
+  outcome: ClientImportOutcome,
+): ClientRecipeDecision[] {
+  const byBatch = new Map<
+    number,
+    {
+      batchIndex: number;
+      validations: { status: ReturnedCandidate["status"]; candidate: RecipeCandidate; warnings: string[] }[];
+    }
+  >();
+  for (const item of candidates) {
+    const group = byBatch.get(item.batchIndex) ?? { batchIndex: item.batchIndex, validations: [] };
+    group.validations.push({ status: item.status, candidate: item.candidate, warnings: item.warnings });
+    byBatch.set(item.batchIndex, group);
+  }
+  const canonical = canonicalIncompleteCandidates(reconcileCandidates([...byBatch.values()]));
+  const candidatesBySource = new Map(canonical.map((item) => [sourceItemKey(item.candidate.sourceStart), item]));
+  const references = outcome.decisions ?? [];
+  if (references.length !== canonical.length) throw new ClientRequestFailure("invalid-response");
+
+  return references.map((reference) => {
+    const matched = candidatesBySource.get(sourceItemKey(reference.sourceStart));
+    if (!matched) throw new ClientRequestFailure("invalid-response");
+    return {
+      decisionId: reference.decisionId,
+      sourceStart: reference.sourceStart,
+      candidate: matched.candidate,
+      missingMessages: reference.missingReasonCodes.map((code) => PDF_OMISSION_RULES[code].explanation),
+      status: decisionStatus(reference),
+      recipeId: reference.recipeId,
+      errorCode: null,
+    };
+  });
+}
+
+export function mergeDecisionReferences(
+  current: readonly ClientRecipeDecision[],
+  references: readonly DecisionReference[],
+): ClientRecipeDecision[] {
+  const byId = new Map(references.map((reference) => [reference.decisionId, reference]));
+  return current.map((item) => {
+    const reference = byId.get(item.decisionId);
+    if (!reference) return item;
+    const preserveLocalState = reference.state === "pending" && item.status !== "pending";
+    return {
+      ...item,
+      sourceStart: reference.sourceStart,
+      missingMessages: reference.missingReasonCodes.map((code) => PDF_OMISSION_RULES[code].explanation),
+      status: preserveLocalState ? item.status : decisionStatus(reference),
+      recipeId: reference.recipeId,
+      errorCode: preserveLocalState ? item.errorCode : null,
+    };
+  });
+}
+
+export function mergeDecisionOutcome(
+  current: ClientImportOutcome | null,
+  incoming: ClientImportOutcome,
+): ClientImportOutcome {
+  if (current?.status !== "committed" || incoming.status !== "committed") return incoming;
+  const currentRecipeCount = current.saved + current.alreadySaved;
+  const incomingRecipeCount = incoming.saved + incoming.alreadySaved;
+  const readBack =
+    incomingRecipeCount < currentRecipeCount
+      ? current.readBack
+      : incomingRecipeCount > currentRecipeCount
+        ? incoming.readBack
+        : current.readBack || incoming.readBack;
+  return {
+    ...incoming,
+    saved: Math.max(current.saved, incoming.saved),
+    alreadySaved: Math.max(current.alreadySaved, incoming.alreadySaved),
+    pending: Math.min(current.pending, incoming.pending),
+    kept: Math.max(current.kept ?? 0, incoming.kept ?? 0),
+    discarded: Math.max(current.discarded ?? 0, incoming.discarded ?? 0),
+    readBack,
+  };
+}
+
+export function hasUnresolvedLocalDecisions(decisions: readonly ClientRecipeDecision[]): boolean {
+  return decisions.some(
+    (decision) =>
+      decision.status === "pending" ||
+      decision.status === "keeping" ||
+      decision.status === "discarding" ||
+      decision.status === "error",
+  );
+}
+
+export function warnBeforeUnresolvedDecisionNavigation(
+  decisions: readonly ClientRecipeDecision[],
+  event: Pick<BeforeUnloadEvent, "preventDefault" | "returnValue">,
+): boolean {
+  if (!hasUnresolvedLocalDecisions(decisions)) return false;
+  event.preventDefault();
+  // Legacy browser support still requires returnValue in addition to preventDefault.
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
+  event.returnValue = "";
+  return true;
+}
+
+export type LocalDecisionClearingAction = "reset" | "new-file" | "rerun";
+
+export function mayClearLocalDecisions(
+  _action: LocalDecisionClearingAction,
+  decisions: readonly ClientRecipeDecision[],
+  capability: "product" | undefined,
+  confirm: () => boolean,
+): boolean {
+  return capability !== "product" || !hasUnresolvedLocalDecisions(decisions) || confirm();
+}
+
+export function canResolveClientDecision(
+  decision: ClientRecipeDecision | undefined,
+  alreadyResolving: boolean,
+): decision is ClientRecipeDecision {
+  return Boolean(decision && !alreadyResolving && (decision.status === "pending" || decision.status === "error"));
+}
+
+interface ResolveDecisionResult {
+  decision: DecisionReference;
+  outcome: Omit<ClientImportOutcome, "readBack">;
+  readBack: boolean;
+}
+
+export async function resolveClientDecision(options: {
+  apiBase: string;
+  importId: string;
+  decision: ClientRecipeDecision;
+  action: "keep" | "discard";
+  request?: RequestJson;
+  sleep?: (milliseconds: number) => Promise<void>;
+}): Promise<{ outcome: ClientImportOutcome; decision: DecisionReference }> {
+  const request = options.request ?? requestImportJson;
+  const sleep = options.sleep ?? ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  try {
+    const result = await request<ResolveDecisionResult>(
+      `${options.apiBase}/${options.importId}/decisions/${options.decision.decisionId}`,
+      {
+        method: "POST",
+        body: JSON.stringify(
+          options.action === "keep" ? { action: "keep", candidate: options.decision.candidate } : { action: "discard" },
+        ),
+      },
+    );
+    return { outcome: { ...result.outcome, readBack: result.readBack }, decision: result.decision };
+  } catch (failure) {
+    if (!(failure instanceof ClientRequestFailure && failure.lost)) throw failure;
+    const expected = options.action === "keep" ? "kept" : "discarded";
+    const recovered = await recoverResolvedDecisionStatus(
+      options.apiBase,
+      options.importId,
+      options.decision.decisionId,
+      expected,
+      request,
+      sleep,
+    );
+    if (!recovered) throw failure;
+    return recovered;
+  }
+}
+
 const FINALIZE_RECOVERY_DELAYS_MS = [0, 250, 500, 1_000, 2_000] as const;
 const NON_TERMINAL_IMPORT_STATUSES = new Set(["created", "processing", "ready"]);
 
@@ -139,6 +325,24 @@ async function recoverFinalizedStatus(
     if (!NON_TERMINAL_IMPORT_STATUSES.has(recovered.status)) return recovered;
   }
   return lastKnown;
+}
+
+async function recoverResolvedDecisionStatus(
+  apiBase: string,
+  importId: string,
+  decisionId: string,
+  expected: "kept" | "discarded",
+  request: RequestJson,
+  sleep: (milliseconds: number) => Promise<void>,
+): Promise<{ outcome: ClientImportOutcome; decision: DecisionReference } | null> {
+  for (const delay of FINALIZE_RECOVERY_DELAYS_MS) {
+    if (delay > 0) await sleep(delay);
+    const recovered = await recoverStatus(apiBase, importId, request);
+    const reference = recovered?.decisions?.find((item) => item.decisionId === decisionId);
+    if (recovered && reference?.state === expected) return { outcome: recovered, decision: reference };
+    if (reference && reference.state !== "pending") return null;
+  }
+  return null;
 }
 
 export interface ExecuteClientImportOptions {
@@ -218,15 +422,16 @@ export async function executeClientImport(options: ExecuteClientImportOptions): 
     );
   } catch (failure) {
     // A lost response is resolved by status lookup, never by another model call.
-    if (!(failure instanceof ClientRequestFailure && failure.lost)) throw failure;
+    const recoverable = failure instanceof ClientRequestFailure && (failure.lost || failure.code === "cancelled");
+    if (!recoverable) throw failure;
     const recovered = await recoverFinalizedStatus(options.apiBase, options.importId, request, sleep);
-    if (!recovered) throw failure;
+    if (!recovered || (failure.code === "cancelled" && recovered.status !== "committed")) throw failure;
     outcome = recovered;
   }
   return { outcome, candidates };
 }
 
-export type ProductCompletion = "redirect" | "pending" | "empty" | "unconfirmed" | "failure";
+export type ProductCompletion = "redirect" | "pending" | "discarded" | "empty" | "unconfirmed" | "failure";
 
 export function importIdForEvidence(importId: string, dispatched: boolean): string | null {
   return dispatched ? importId : null;
@@ -237,6 +442,7 @@ export function productCompletion(outcome: ClientImportOutcome): ProductCompleti
   if (outcome.status !== "committed") return "failure";
   if (!outcome.readBack) return "unconfirmed";
   if (outcome.pending > 0) return "pending";
+  if (outcome.saved === 0 && outcome.alreadySaved === 0 && (outcome.discarded ?? 0) > 0) return "discarded";
   if (outcome.saved === 0 && outcome.alreadySaved === 0) return "empty";
   return "redirect";
 }
@@ -315,11 +521,18 @@ export function polishImportError(code: string | null): PolishImportError {
   return { title: "Import nie został zakończony.", action: "Wybierz plik ponownie i spróbuj jeszcze raz." };
 }
 
-export function useClientImport(options: { apiBase: string; onEvent?: (event: ClientImportEvent) => void }) {
+export function useClientImport(options: {
+  apiBase: string;
+  onEvent?: (event: ClientImportEvent) => void;
+  decisionCapability?: "product";
+  confirmClearDecisions?: () => boolean;
+}) {
   const [state, setState] = useState<ClientImportState>(INITIAL_STATE);
   const abortRef = useRef<AbortController | null>(null);
   const activeImport = useRef<string | null>(null);
   const unconfirmedImport = useRef<string | null>(null);
+  const resolvingDecisions = useRef(new Set<string>());
+  const decisionsRef = useRef<ClientRecipeDecision[]>([]);
   const eventRef = useRef(options.onEvent);
 
   useEffect(() => {
@@ -330,9 +543,30 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
     setState((current) => ({ ...current, ...change }));
   }, []);
 
+  useEffect(() => {
+    decisionsRef.current = state.decisions;
+  }, [state.decisions]);
+
+  const confirmClearDecisions = useCallback(
+    (action: LocalDecisionClearingAction) =>
+      mayClearLocalDecisions(
+        action,
+        decisionsRef.current,
+        options.decisionCapability,
+        options.confirmClearDecisions ??
+          (() =>
+            window.confirm(
+              "Nierozstrzygnięte przepisy są dostępne tylko w tej karcie. Czy na pewno chcesz je porzucić?",
+            )),
+      ),
+    [options.confirmClearDecisions, options.decisionCapability],
+  );
+
   const reset = useCallback(() => {
+    if (!confirmClearDecisions("reset")) return false;
     setState(INITIAL_STATE);
-  }, []);
+    return true;
+  }, [confirmClearDecisions]);
 
   const cancel = useCallback(async () => {
     abortRef.current?.abort();
@@ -357,8 +591,20 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
     };
   }, [options.apiBase]);
 
+  useEffect(() => {
+    if (options.decisionCapability !== "product") return;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      warnBeforeUnresolvedDecisionNavigation(decisionsRef.current, event);
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => {
+      window.removeEventListener("beforeunload", warnBeforeLeaving);
+    };
+  }, [options.decisionCapability]);
+
   const run = useCallback(
     async (file: File) => {
+      if (!confirmClearDecisions(state.stage === "done" ? "rerun" : "new-file")) return;
       setState(INITIAL_STATE);
       const startedAt = performance.now();
       eventRef.current?.({ type: "started", at: startedAt });
@@ -388,13 +634,15 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
         if (NON_TERMINAL_IMPORT_STATUSES.has(result.outcome.status)) unconfirmedImport.current = id;
         activeImport.current = null;
         const pending = result.candidates.filter((candidate) => candidate.status !== "complete");
+        const decisions =
+          options.decisionCapability === "product" ? joinProductDecisions(result.candidates, result.outcome) : [];
         const terminal =
           result.outcome.status === "committed"
             ? "done"
             : result.outcome.status === "cancelled"
               ? "cancelled"
               : "failed";
-        update({ stage: terminal, outcome: result.outcome, candidates: result.candidates, pending });
+        update({ stage: terminal, outcome: result.outcome, candidates: result.candidates, pending, decisions });
         eventRef.current?.({
           type: "finished",
           at: performance.now(),
@@ -439,7 +687,48 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
         abortRef.current = null;
       }
     },
-    [options.apiBase, update],
+    [confirmClearDecisions, options.apiBase, options.decisionCapability, state.stage, update],
+  );
+
+  const resolveDecision = useCallback(
+    async (decisionId: string, action: "keep" | "discard") => {
+      if (options.decisionCapability !== "product" || !state.importId) return;
+      const decision = state.decisions.find((item) => item.decisionId === decisionId);
+      if (!canResolveClientDecision(decision, resolvingDecisions.current.has(decisionId))) return;
+      resolvingDecisions.current.add(decisionId);
+      setState((current) => ({
+        ...current,
+        decisions: current.decisions.map((item) =>
+          item.decisionId === decisionId
+            ? { ...item, status: action === "keep" ? "keeping" : "discarding", errorCode: null }
+            : item,
+        ),
+      }));
+      try {
+        const result = await resolveClientDecision({
+          apiBase: options.apiBase,
+          importId: state.importId,
+          decision,
+          action,
+        });
+        setState((current) => ({
+          ...current,
+          outcome: mergeDecisionOutcome(current.outcome, result.outcome),
+          decisions: mergeDecisionReferences(current.decisions, result.outcome.decisions ?? [result.decision]),
+        }));
+      } catch (failure) {
+        const code = failure instanceof Error && "code" in failure ? String(failure.code) : "unexpected-error";
+        setState((current) => ({
+          ...current,
+          decisions: current.decisions.map((item) =>
+            item.decisionId === decisionId ? { ...item, status: "error", errorCode: code } : item,
+          ),
+        }));
+      } finally {
+        resolvingDecisions.current.delete(decisionId);
+      }
+    },
+    [options.apiBase, options.decisionCapability, state.decisions, state.importId],
   );
 
   return {
@@ -448,5 +737,6 @@ export function useClientImport(options: { apiBase: string; onEvent?: (event: Cl
     run,
     cancel,
     reset,
+    resolveDecision,
   };
 }

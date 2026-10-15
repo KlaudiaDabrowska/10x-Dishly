@@ -5,6 +5,7 @@ export const PDF_LIMITS = Object.freeze({
   maxBatchBodyBytes: 512 * 1024,
   maxImportInputBytes: 2 * 1024 * 1024,
   maxFinalizationBodyBytes: 2 * 1024 * 1024,
+  maxDecisionBodyBytes: 256 * 1024,
   maxInputTokens: 98_304,
   candidateCount: 1,
   maxOutputTokens: 16_384,

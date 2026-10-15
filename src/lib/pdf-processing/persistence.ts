@@ -1,6 +1,7 @@
 import type { AccountingRpcClient } from "./import-state.ts";
 import { SpendingControlError } from "./import-state.ts";
 import type { SourceManifest } from "./manifest.ts";
+import type { DecisionReference, OmissionCode, RecipeCandidate } from "./contracts.ts";
 
 export interface RecordedCandidate {
   candidateIndex: number;
@@ -23,7 +24,7 @@ export interface ValidationImportRecord {
   expiresAt: string;
   batches: { batchIndex: number; status: string }[];
   results: { batchIndex: number; invalidCount: number; candidates: RecordedCandidate[] }[];
-  outcome: ImportOutcome | null;
+  outcome: ImportOutcome | ProductImportOutcome | null;
 }
 
 export type ImportChannel = "product" | "evaluation";
@@ -36,8 +37,26 @@ export interface ImportOutcome {
   existingIds: string[];
 }
 
+export interface ProductImportOutcome extends ImportOutcome {
+  kept: number;
+  discarded: number;
+  decisions: DecisionReference[];
+}
+
 export interface TerminalOutcome extends ImportOutcome {
   status: string;
+}
+
+export interface ProductTerminalOutcome extends ProductImportOutcome {
+  status: string;
+}
+
+export interface ProductFinalizationDecision {
+  decisionId: string;
+  sourceStartPage: number;
+  sourceStartItem: number;
+  digest: string;
+  missingReasonCodes: OmissionCode[];
 }
 
 export interface FinalizedRecipe {
@@ -69,6 +88,12 @@ const RPC_REJECTIONS: Record<string, string> = {
   "invalid finalization": "invalid-request",
   "invalid batch result": "invalid-request",
   "invalid validation import": "invalid-request",
+  "invalid product finalization": "invalid-request",
+  "invalid product decision": "invalid-request",
+  "invalid decision action": "invalid-request",
+  "decision not found": "import-not-found",
+  "decision conflict": "decision-conflict",
+  "decision payload mismatch": "decision-payload-mismatch",
 };
 
 // Narrow, typed access to the backend-only finalization RPCs. Never constructed with user cookies.
@@ -91,16 +116,23 @@ export function createPersistence(
     return data;
   }
 
-  function outcome(data: unknown): TerminalOutcome {
+  function outcome(data: unknown): TerminalOutcome | ProductTerminalOutcome {
     const row = (data as Record<string, unknown>[] | null)?.[0];
     if (!row) throw new SpendingControlError("outcome-missing");
-    return {
+    const shared: TerminalOutcome = {
       status: String(row.status),
       saved: Number(row.saved_count),
       alreadySaved: Number(row.existing_count),
       pending: Number(row.pending_count),
       savedIds: (row.saved_ids as string[] | null) ?? [],
       existingIds: (row.existing_ids as string[] | null) ?? [],
+    };
+    if (channel !== "product") return shared;
+    return {
+      ...shared,
+      kept: Number(row.kept_count ?? 0),
+      discarded: Number(row.discarded_count ?? 0),
+      decisions: (row.decisions as DecisionReference[] | null) ?? [],
     };
   }
 
@@ -150,7 +182,7 @@ export function createPersistence(
         expiresAt: String(row.expires_at),
         batches: row.batches as ValidationImportRecord["batches"],
         results: row.results as ValidationImportRecord["results"],
-        outcome: (row.outcome as ImportOutcome | null) ?? null,
+        outcome: (row.outcome as ImportOutcome | ProductImportOutcome | null) ?? null,
       };
     },
 
@@ -191,19 +223,58 @@ export function createPersistence(
       manifestDigest: string;
       submitted: { batchIndex: number; candidateIndex: number; digest: string }[];
       recipes: FinalizedRecipe[];
-    }): Promise<TerminalOutcome> {
+      decisions?: ProductFinalizationDecision[];
+    }): Promise<TerminalOutcome | ProductTerminalOutcome> {
+      const product = channel === "product";
       return outcome(
         await call(
-          "finalize_pdf_validation_import",
+          product ? "finalize_pdf_product_import" : "finalize_pdf_validation_import",
           {
             p_import_id: input.importId,
             p_manifest_digest: input.manifestDigest,
             p_submitted: input.submitted,
             p_recipes: input.recipes,
+            ...(product ? { p_decisions: input.decisions ?? [] } : {}),
           },
           "finalization-failed",
         ),
       );
+    },
+
+    async getProductDecisions(importId: string): Promise<DecisionReference[]> {
+      if (channel !== "product") throw new SpendingControlError("import-not-found");
+      const data = await call("get_pdf_product_decisions", { p_import_id: importId }, "import-read-failed");
+      return ((data as Record<string, unknown>[] | null) ?? []).map((row) => ({
+        decisionId: String(row.decision_id),
+        sourceStart: { page: Number(row.source_start_page), itemIndex: Number(row.source_start_item) },
+        state: String(row.state) as DecisionReference["state"],
+        missingReasonCodes: (row.missing_reason_codes as OmissionCode[] | null) ?? [],
+        recipeId: typeof row.recipe_id === "string" ? row.recipe_id : null,
+        resolvedAt: typeof row.resolved_at === "string" ? row.resolved_at : null,
+      }));
+    },
+
+    async resolveProductDecision(input: {
+      importId: string;
+      decisionId: string;
+      action: "keep" | "discard";
+      digest?: string;
+      candidate?: RecipeCandidate;
+    }): Promise<ProductTerminalOutcome> {
+      if (channel !== "product") throw new SpendingControlError("import-not-found");
+      return outcome(
+        await call(
+          "resolve_pdf_product_decision",
+          {
+            p_import_id: input.importId,
+            p_decision_id: input.decisionId,
+            p_action: input.action,
+            p_payload_digest: input.digest ?? null,
+            p_recipe: input.candidate ?? null,
+          },
+          "decision-resolution-failed",
+        ),
+      ) as ProductTerminalOutcome;
     },
   };
 }

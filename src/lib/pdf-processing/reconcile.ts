@@ -1,5 +1,5 @@
-import { sourceItemKey } from "./contracts.ts";
-import type { RecipeCandidate } from "./contracts.ts";
+import { PDF_OMISSION_CODES, sourceItemKey } from "./contracts.ts";
+import type { OmissionCode, RecipeCandidate } from "./contracts.ts";
 import type { CandidateValidation } from "./validation.ts";
 
 export interface ReconciledCandidate {
@@ -13,6 +13,31 @@ export interface ReconciliationConflict {
   sourceStart: string;
   batches: number[];
   reason: "content-conflict";
+}
+
+export interface CanonicalIncompleteCandidate {
+  candidate: RecipeCandidate;
+  missingReasonCodes: OmissionCode[];
+}
+
+function canonicalReasonOrder(left: OmissionCode, right: OmissionCode): number {
+  return PDF_OMISSION_CODES.indexOf(left) - PDF_OMISSION_CODES.indexOf(right);
+}
+
+export function canonicalIncompleteCandidates(
+  reconciliation: ReturnType<typeof reconcileCandidates>,
+): CanonicalIncompleteCandidate[] {
+  return reconciliation.candidates
+    .filter((entry) => entry.status === "incomplete")
+    .map(({ candidate }) => {
+      const missingFieldReasons = [...candidate.missingFieldReasons].sort((left, right) =>
+        canonicalReasonOrder(left.code, right.code),
+      );
+      return {
+        candidate: { ...candidate, missingFieldReasons },
+        missingReasonCodes: missingFieldReasons.map(({ code }) => code),
+      };
+    });
 }
 
 function comparable(candidate: RecipeCandidate): string {

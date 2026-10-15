@@ -8,11 +8,22 @@ import path from "node:path";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const previewRoot = path.join(repositoryRoot, "tools/ui-preview");
 const previewUrl = "http://127.0.0.1:4322/";
-const evidenceDirectory = path.join(repositoryRoot, "context/changes/unify-dashboard-design-system/screenshots");
 const mode = process.argv[2];
+const option = (name) =>
+  process.argv
+    .slice(3)
+    .find((value) => value.startsWith(`--${name}=`))
+    ?.slice(name.length + 3);
+const changeId = option("change") ?? "unify-dashboard-design-system";
+const captureSet = option("set") ?? "dashboard";
+if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(changeId)) throw new Error("Invalid --change slug.");
+if (captureSet !== "dashboard" && captureSet !== "decisions") throw new Error("Invalid --set value.");
+const evidenceDirectory = path.join(repositoryRoot, "context/changes", changeId, "screenshots");
 
 if (mode !== "isolation" && mode !== "check" && mode !== "capture") {
-  throw new Error("Usage: node scripts/ui-preview.mjs <isolation|check|capture>");
+  throw new Error(
+    "Usage: node scripts/ui-preview.mjs <isolation|check|capture> [--change=<change-id>] [--set=<dashboard|decisions>]",
+  );
 }
 
 function run(command, args, options = {}) {
@@ -211,7 +222,7 @@ async function captureScreenshots() {
   const chrome = await findChrome();
   await mkdir(evidenceDirectory, { recursive: true });
 
-  const variants = [
+  const dashboardVariants = [
     { name: "preview-light-desktop.png", query: "theme=light", width: 1440, height: 900 },
     { name: "preview-light-mobile.png", query: "theme=light", width: 390, height: 844 },
     { name: "preview-dark-desktop.png", query: "theme=dark", width: 1440, height: 900 },
@@ -225,6 +236,84 @@ async function captureScreenshots() {
     { name: "matrix-dark-desktop.png", query: "theme=dark&capture=matrix", width: 1440, height: 900 },
     { name: "matrix-dark-mobile.png", query: "theme=dark&capture=matrix", width: 390, height: 844 },
   ];
+  const decisionVariants = [
+    {
+      name: "decisions-light-desktop.png",
+      query: "theme=light&view=decisions&decision=default",
+      width: 1440,
+      height: 900,
+    },
+    {
+      name: "decisions-light-mobile.png",
+      query: "theme=light&view=decisions&decision=default",
+      width: 390,
+      height: 844,
+    },
+    {
+      name: "decisions-dark-desktop.png",
+      query: "theme=dark&view=decisions&decision=default",
+      width: 1440,
+      height: 900,
+    },
+    { name: "decisions-dark-mobile.png", query: "theme=dark&view=decisions&decision=default", width: 390, height: 844 },
+    {
+      name: "decisions-missing-light-mobile.png",
+      query: "theme=light&view=decisions&decision=missing-content",
+      width: 390,
+      height: 844,
+    },
+    {
+      name: "decisions-missing-dark-mobile.png",
+      query: "theme=dark&view=decisions&decision=missing-content",
+      width: 390,
+      height: 844,
+    },
+    {
+      name: "decisions-discard-all-light-mobile.png",
+      query: "theme=light&view=decisions&decision=discard-all",
+      width: 390,
+      height: 844,
+    },
+    {
+      name: "decisions-discard-all-dark-mobile.png",
+      query: "theme=dark&view=decisions&decision=discard-all",
+      width: 390,
+      height: 844,
+    },
+    {
+      name: "decisions-mixed-light-mobile.png",
+      query: "theme=light&view=decisions&decision=mixed",
+      width: 390,
+      height: 844,
+    },
+    {
+      name: "decisions-mixed-dark-mobile.png",
+      query: "theme=dark&view=decisions&decision=mixed",
+      width: 390,
+      height: 844,
+    },
+    ...["light", "dark"].flatMap((theme) =>
+      ["hover", "focus", "keeping", "discarding", "kept", "discarded", "error"].map((state) => ({
+        name: `decisions-${state}-${theme}-desktop.png`,
+        query: `theme=${theme}&view=decisions&decision=${state}`,
+        width: 1440,
+        height: 900,
+      })),
+    ),
+    {
+      name: "decisions-matrix-light-desktop.png",
+      query: "theme=light&view=decisions&capture=matrix",
+      width: 1440,
+      height: 900,
+    },
+    {
+      name: "decisions-matrix-dark-desktop.png",
+      query: "theme=dark&view=decisions&capture=matrix",
+      width: 1440,
+      height: 900,
+    },
+  ];
+  const variants = captureSet === "decisions" ? decisionVariants : dashboardVariants;
 
   for (const variant of variants) {
     const output = path.join(evidenceDirectory, variant.name);
