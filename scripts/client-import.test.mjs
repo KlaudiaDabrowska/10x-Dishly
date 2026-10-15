@@ -159,6 +159,33 @@ test("controller waits for an in-flight finalize to become committed after a los
   assert.deepEqual(result.outcome, expected);
 });
 
+test("controller preserves local candidates when cancellation races with a committed finalize", async () => {
+  const committed = pendingProductOutcome();
+  const { result } = await runner(async (path) => {
+    if (path === "/api/imports") return { importId, manifestDigest: "digest", manifest };
+    if (path.endsWith("/batch")) return { candidates: [incompleteCandidate] };
+    if (path.endsWith("/finalize")) throw new ClientRequestFailure("cancelled");
+    if (path === `/api/imports/${importId}`)
+      return {
+        status: "committed",
+        outcome: {
+          saved: committed.saved,
+          alreadySaved: committed.alreadySaved,
+          pending: committed.pending,
+          kept: committed.kept,
+          discarded: committed.discarded,
+          decisions: committed.decisions,
+        },
+        readBack: committed.readBack,
+      };
+    throw new Error(`unexpected request ${path}`);
+  });
+
+  assert.equal(result.outcome.status, "committed");
+  assert.deepEqual(result.candidates, [incompleteCandidate]);
+  assert.equal(joinProductDecisions(result.candidates, result.outcome).length, 1);
+});
+
 test("controller stops before dispatching a batch after cancellation", async () => {
   const abort = new globalThis.AbortController();
   await assert.rejects(
@@ -328,6 +355,14 @@ test("late concurrent responses cannot regress resolved cards or outcome counter
     discarded: 1,
     readBack: true,
   });
+
+  const finalizeOnly = outcome({ saved: 0, pending: 1, readBack: true });
+  const unconfirmedKeep = outcome({ saved: 1, pending: 0, kept: 1, readBack: false });
+  assert.equal(mergeDecisionOutcome(finalizeOnly, unconfirmedKeep).readBack, false);
+  assert.equal(mergeDecisionOutcome(unconfirmedKeep, finalizeOnly).readBack, false);
+
+  const confirmedRetry = { ...unconfirmedKeep, readBack: true };
+  assert.equal(mergeDecisionOutcome(unconfirmedKeep, confirmedRetry).readBack, true);
 });
 
 test("keep and discard responses update decision-aware outcomes", async () => {

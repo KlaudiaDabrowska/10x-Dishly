@@ -63,12 +63,14 @@ No Supabase, smoke, database, migration-equivalence, or application-port process
   old-plus-forward and consolidated paths produced identical dumps, catalogs, and rows: 33 functions, 12 tables, one
   policy, 111 constraints, 20 indexes, six triggers, and 122 columns.
 - `BASE_URL=http://127.0.0.1:4321 npm run smoke` — passed all 27 authenticated application/authentication steps on
-  2026-10-15 after explicit approval. A separate temporary S-03 harness then passed authenticated keep-all,
-  discard-all, mixed keep/discard, lost-response status recovery, repeated refresh/read-back, and non-disclosing
-  another-owner GET/POST checks against the product API. It seeded only local content-free decision metadata and did
-  not call the AI provider; the harness and its test users were removed afterward. The navigation-warning state is
-  covered by the passing client controller suite and the reviewed unresolved-card preview, while the authenticated
-  HTTP run proves the durable state recovered after navigation/response loss.
-- Runtime cleanup — passed. The application listener on port 4321 and the local Supabase stack were stopped after
-  verification; port 4322 was not needed for this final run, and subsequent `lsof` checks found no listener on either
-  4321 or 4322.
+  2026-10-15 after explicit approval. A separate temporary API harness passed lost-response status recovery, repeated
+  refresh/read-back, and non-disclosing another-owner GET/POST checks. It seeded only local content-free decision
+  metadata and did not call the AI provider.
+- Full authenticated browser product import — passed on 2026-10-15 after explicit approval for local Supabase, port
+  4321, headless Chrome, and the configured AI provider. Three temporary text PDFs exercised the actual product
+  create → batch → finalize → resolve path: keep-all produced one decision and redirected after owner-scoped read-back;
+  discard-all produced one decision and remained on the neutral no-save completion; mixed produced two decisions,
+  kept one, discarded one, and redirected. Each scenario observed the active-tab `beforeunload` warning before
+  resolution. The temporary account, browser profile, PDFs' repository source files, and E2E harness were removed.
+- Runtime cleanup — passed. The application listener and local Supabase stack were stopped after verification;
+  subsequent `lsof` checks found no listeners on ports 4321, 4322, or 4323.

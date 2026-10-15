@@ -245,7 +245,7 @@ export function validateRecipeCandidate(raw: unknown, batch: PdfTextBatch): Cand
       version: PDF_RECIPE_CONTRACT_VERSION,
       sourceStart,
       pages: pages.map((page) => Number(page)),
-      title: raw.title,
+      title: raw.title?.trim() ? raw.title : null,
       category,
       sourceCategory,
       ingredientGroups: groups,

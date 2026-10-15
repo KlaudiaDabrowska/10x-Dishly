@@ -90,9 +90,7 @@ async function resolveDecision(context: APIContext, channel: ImportChannel): Pro
       String(context.params.decisionId),
       guarded.body,
     );
-    const readBack =
-      result.decision.state !== "kept" ||
-      (result.decision.recipeId !== null && (await verifyReadBack(context, [result.decision.recipeId])));
+    const readBack = await verifyReadBack(context, [...result.outcome.savedIds, ...result.outcome.existingIds]);
     return privateJson({ ...result, readBack });
   } catch (error) {
     return errorResponse(error, "resolve", channel);

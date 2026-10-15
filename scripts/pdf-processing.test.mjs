@@ -557,6 +557,13 @@ test("validation distinguishes complete, incomplete and invalid provenance", () 
   );
   assert.deepEqual(incomplete.warnings, ["source-category-absent"]);
 
+  for (const title of ["", " \t "]) {
+    const blankTitle = validateRecipeCandidate({ ...candidate, title }, batch);
+    assert.equal(blankTitle.status, "incomplete");
+    assert.equal(blankTitle.candidate.title, null);
+    assert.ok(blankTitle.candidate.missingFieldReasons.some((reason) => reason.code === "missing-title"));
+  }
+
   const optionalNote = validateRecipeCandidate(
     { ...candidate, missingFieldReasons: [{ code: "absent-servings", fieldPath: "servings" }] },
     batch,

@@ -205,6 +205,14 @@ export function mergeDecisionOutcome(
   incoming: ClientImportOutcome,
 ): ClientImportOutcome {
   if (current?.status !== "committed" || incoming.status !== "committed") return incoming;
+  const currentRecipeCount = current.saved + current.alreadySaved;
+  const incomingRecipeCount = incoming.saved + incoming.alreadySaved;
+  const readBack =
+    incomingRecipeCount < currentRecipeCount
+      ? current.readBack
+      : incomingRecipeCount > currentRecipeCount
+        ? incoming.readBack
+        : current.readBack || incoming.readBack;
   return {
     ...incoming,
     saved: Math.max(current.saved, incoming.saved),
@@ -212,7 +220,7 @@ export function mergeDecisionOutcome(
     pending: Math.min(current.pending, incoming.pending),
     kept: Math.max(current.kept ?? 0, incoming.kept ?? 0),
     discarded: Math.max(current.discarded ?? 0, incoming.discarded ?? 0),
-    readBack: current.readBack || incoming.readBack,
+    readBack,
   };
 }
 
@@ -414,9 +422,10 @@ export async function executeClientImport(options: ExecuteClientImportOptions): 
     );
   } catch (failure) {
     // A lost response is resolved by status lookup, never by another model call.
-    if (!(failure instanceof ClientRequestFailure && failure.lost)) throw failure;
+    const recoverable = failure instanceof ClientRequestFailure && (failure.lost || failure.code === "cancelled");
+    if (!recoverable) throw failure;
     const recovered = await recoverFinalizedStatus(options.apiBase, options.importId, request, sleep);
-    if (!recovered) throw failure;
+    if (!recovered || (failure.code === "cancelled" && recovered.status !== "committed")) throw failure;
     outcome = recovered;
   }
   return { outcome, candidates };
