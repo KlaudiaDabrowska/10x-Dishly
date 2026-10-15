@@ -13,13 +13,19 @@ const firstId = "00000000-0000-4000-8000-000000000001";
 const secondId = "00000000-0000-4000-8000-000000000002";
 
 function listRow(id, title, createdAt) {
-  return { id, title, created_at: createdAt };
+  return {
+    id,
+    title,
+    current_missing_reason_codes: title === null ? ["missing-title"] : [],
+    created_at: createdAt,
+  };
 }
 
 function detailRow(overrides = {}) {
   return {
     id: firstId,
     title: "Owsianka",
+    category: "breakfast",
     ingredient_groups: [
       {
         label: "Wariant podstawowy",
@@ -29,6 +35,9 @@ function detailRow(overrides = {}) {
     instructions: ["Wymieszaj składniki.", "Gotuj przez pięć minut."],
     source_filename: "jadlospis.pdf",
     source_start_page: 7,
+    incomplete_at_import: false,
+    import_missing_reason_codes: [],
+    current_missing_reason_codes: [],
     created_at: "2026-10-14T08:00:00.000Z",
     ...overrides,
   };
@@ -93,7 +102,7 @@ test("list requests exact count, 24-row ranges and deterministic newest-first or
   assert.equal(first.totalCount, 25);
   assert.equal(first.totalPages, 2);
   assert.deepEqual(port.calls[0].query, {
-    select: "id,title,created_at",
+    select: "id,title,current_missing_reason_codes,created_at",
     count: "exact",
     range: { from: 0, to: 23 },
     order: [
@@ -157,9 +166,110 @@ test("detail maps validated nested ingredient variants and ordered instructions"
   });
   assert.deepEqual(result.recipe.instructions, ["Wymieszaj składniki.", "Gotuj przez pięć minut."]);
   assert.deepEqual(port.calls[0].query, {
-    select: "id,title,ingredient_groups,instructions,source_filename,source_start_page,created_at",
+    select:
+      "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at",
     id: firstId,
   });
+});
+
+test("nullable list titles remain data and require the landed current omission code", async () => {
+  const result = await readRecipePage(fakePort({ rows: [listRow(firstId, null, "2026-10-14T08:00:00.000Z")] }), "1");
+  assert.equal(result.status, "ok");
+  assert.equal(result.recipes[0].title, null);
+
+  for (const row of [
+    { ...listRow(firstId, null, "2026-10-14T08:00:00.000Z"), current_missing_reason_codes: [] },
+    { ...listRow(firstId, "Owsianka", "2026-10-14T08:00:00.000Z"), current_missing_reason_codes: ["missing-title"] },
+    {
+      ...listRow(firstId, "Owsianka", "2026-10-14T08:00:00.000Z"),
+      current_missing_reason_codes: ["unknown-omission"],
+    },
+  ]) {
+    assert.deepEqual(await readRecipePage(fakePort({ rows: [row] }), "1"), {
+      status: "error",
+      reason: "invalid-data",
+    });
+  }
+});
+
+test("kept incomplete detail consumes exact S-03 omissions and maps their published explanations", async () => {
+  const codes = ["missing-title", "missing-ingredients", "missing-instructions", "missing-category"];
+  const row = detailRow({
+    title: null,
+    category: null,
+    ingredient_groups: [],
+    instructions: [],
+    incomplete_at_import: true,
+    import_missing_reason_codes: codes,
+    current_missing_reason_codes: codes,
+  });
+  const result = await readRecipeDetail(fakePort({ detail: row }), firstId);
+  assert.equal(result.status, "ok");
+  assert.equal(result.recipe.title, null);
+  assert.deepEqual(result.recipe.ingredientGroups, []);
+  assert.deepEqual(result.recipe.instructions, []);
+  assert.deepEqual(result.recipe.currentMissingReasonCodes, codes);
+  assert.deepEqual(
+    result.recipe.currentMissingReasons.map(({ code, explanation }) => ({ code, explanation })),
+    [
+      { code: "missing-title", explanation: "Brakuje tytułu przepisu." },
+      { code: "missing-ingredients", explanation: "Brakuje składników." },
+      { code: "missing-instructions", explanation: "Brakuje przygotowania." },
+      { code: "missing-category", explanation: "Brakuje kategorii." },
+    ],
+  );
+});
+
+test("semantic omission codes remain explicit even with nonempty content", async () => {
+  const codes = ["missing-ingredient-content", "missing-variant-content", "missing-continuation"];
+  const result = await readRecipeDetail(
+    fakePort({
+      detail: detailRow({
+        incomplete_at_import: true,
+        import_missing_reason_codes: codes,
+        current_missing_reason_codes: codes,
+      }),
+    }),
+    firstId,
+  );
+  assert.equal(result.status, "ok");
+  assert.deepEqual(result.recipe.currentMissingReasonCodes, codes);
+});
+
+test("corrected fields do not synthesize current omissions from import provenance", async () => {
+  const result = await readRecipeDetail(
+    fakePort({
+      detail: detailRow({
+        incomplete_at_import: true,
+        import_missing_reason_codes: ["missing-title"],
+        current_missing_reason_codes: [],
+      }),
+    }),
+    firstId,
+  );
+  assert.equal(result.status, "ok");
+  assert.deepEqual(result.recipe.currentMissingReasons, []);
+});
+
+test("detail rejects unknown, noncanonical and shape-inconsistent omission contracts", async () => {
+  const invalidRows = [
+    detailRow({ current_missing_reason_codes: ["unknown-omission"] }),
+    detailRow({
+      incomplete_at_import: true,
+      import_missing_reason_codes: ["missing-category", "missing-title"],
+      current_missing_reason_codes: [],
+    }),
+    detailRow({ title: null }),
+    detailRow({ ingredient_groups: [] }),
+    detailRow({ instructions: [] }),
+    detailRow({ current_missing_reason_codes: ["missing-source-metadata"] }),
+  ];
+  for (const row of invalidRows) {
+    assert.deepEqual(await readRecipeDetail(fakePort({ detail: row }), firstId), {
+      status: "error",
+      reason: "invalid-data",
+    });
+  }
 });
 
 test("malformed nested JSON fails mapping instead of being cast into the view model", async () => {

@@ -1,5 +1,6 @@
 ---
 import { buttonVariants } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import type { RecipeDetail as RecipeDetailModel } from "@/lib/recipes/read";
 
@@ -8,6 +9,10 @@ interface Props {
 }
 
 const { recipe } = Astro.props;
+const titleReasons = recipe.currentMissingReasons.filter((reason) => reason.fieldPath === "title");
+const ingredientReasons = recipe.currentMissingReasons.filter((reason) => reason.fieldPath === "ingredientGroups");
+const instructionReasons = recipe.currentMissingReasons.filter((reason) => reason.fieldPath === "instructions");
+const recipeReasons = recipe.currentMissingReasons.filter((reason) => reason.fieldPath === "$");
 ---
 
 <article class="flex flex-col gap-8">
@@ -15,41 +20,64 @@ const { recipe } = Astro.props;
     Wróć do swoich przepisów
   </a>
 
+  {[...titleReasons, ...recipeReasons].map((reason) => (
+    <Alert>
+      <AlertTitle className="line-clamp-none">Brakujący element przepisu</AlertTitle>
+      <AlertDescription>{reason.explanation}</AlertDescription>
+    </Alert>
+  ))}
+
   <section aria-labelledby="ingredients-title">
     <h2 id="ingredients-title" class="text-xl font-semibold sm:text-2xl">
       Składniki
     </h2>
-    <div class="mt-4 grid gap-4">
-      {recipe.ingredientGroups.map((group, index) => (
-        <Card>
-          <CardHeader>
-            <h3 class="text-lg font-semibold">{group.label ?? `Wariant ${index + 1}`}</h3>
-          </CardHeader>
-          <CardContent>
-            <ul class="list-disc space-y-2 pl-5 text-sm sm:text-base">
-              {group.ingredients.map((ingredient) => (
-                <li>{ingredient.sourceText}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    {ingredientReasons.map((reason) => (
+      <Alert className="mt-4">
+        <AlertTitle className="line-clamp-none">Informacja o składnikach</AlertTitle>
+        <AlertDescription>{reason.explanation}</AlertDescription>
+      </Alert>
+    ))}
+    {recipe.ingredientGroups.length > 0 && (
+      <div class="mt-4 grid gap-4">
+        {recipe.ingredientGroups.map((group, index) => (
+          <Card>
+            <CardHeader>
+              <h3 class="text-lg font-semibold">{group.label ?? `Wariant ${index + 1}`}</h3>
+            </CardHeader>
+            <CardContent>
+              <ul class="list-disc space-y-2 pl-5 text-sm sm:text-base">
+                {group.ingredients.map((ingredient) => (
+                  <li>{ingredient.sourceText}</li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )}
   </section>
 
   <section aria-labelledby="instructions-title">
     <h2 id="instructions-title" class="text-xl font-semibold sm:text-2xl">
       Przygotowanie
     </h2>
-    <Card className="mt-4">
-      <CardContent>
-        <ol class="list-decimal space-y-3 pl-5 text-sm sm:text-base">
-          {recipe.instructions.map((instruction) => (
-            <li class="pl-1">{instruction}</li>
-          ))}
-        </ol>
-      </CardContent>
-    </Card>
+    {instructionReasons.map((reason) => (
+      <Alert className="mt-4">
+        <AlertTitle className="line-clamp-none">Informacja o przygotowaniu</AlertTitle>
+        <AlertDescription>{reason.explanation}</AlertDescription>
+      </Alert>
+    ))}
+    {recipe.instructions.length > 0 && (
+      <Card className="mt-4">
+        <CardContent>
+          <ol class="list-decimal space-y-3 pl-5 text-sm sm:text-base">
+            {recipe.instructions.map((instruction) => (
+              <li class="pl-1">{instruction}</li>
+            ))}
+          </ol>
+        </CardContent>
+      </Card>
+    )}
   </section>
 
   <section aria-labelledby="source-title">

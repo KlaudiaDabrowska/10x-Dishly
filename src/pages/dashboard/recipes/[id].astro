@@ -20,14 +20,15 @@ const result = supabase
 if (result.status === "not-found") Astro.response.status = 404;
 if (result.status === "error") Astro.response.status = 500;
 
+const recipeTitle = result.status === "ok" ? (result.recipe.title ?? "Przepis bez tytułu") : null;
 const pageTitle =
   result.status === "ok"
-    ? `${result.recipe.title} | Dishly`
+    ? `${recipeTitle} | Dishly`
     : result.status === "not-found"
       ? "Przepis niedostępny | Dishly"
       : "Błąd odczytu przepisu | Dishly";
 const shellTitle =
-  result.status === "ok" ? result.recipe.title : result.status === "not-found" ? "Przepis niedostępny" : "Przepis";
+  result.status === "ok" ? recipeTitle : result.status === "not-found" ? "Przepis niedostępny" : "Przepis";
 ---
 
 <Layout title={pageTitle} lang="pl">

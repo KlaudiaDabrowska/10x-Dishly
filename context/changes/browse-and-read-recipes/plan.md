@@ -46,11 +46,11 @@ Przepływ pozostaje serwerowy: `Astro page → cookie-bound Supabase client → 
 
 ## Critical Implementation Details
 
-Fazy 1–2 mogą być implementowane równolegle z S-03 i nie dotykają współdzielonych powierzchni konfliktowych. Po Phase 2 następuje twardy checkpoint: S-03 musi być zmergowane do gałęzi bazowej, branch S-04 musi zostać zrebase'owany na ten commit, konflikty muszą zostać rozwiązane, a wylądowane migracja, kontrakty i testy S-03 przeczytane. Phase 3 ani Phase 4 nie mogą rozpocząć się przed przejściem tego checkpointu.
+Fazy 1–2 mogą być implementowane równolegle z S-03 i nie dotykają współdzielonych powierzchni konfliktowych. Po Phase 2 następuje twardy checkpoint: S-03 musi być zmergowane do gałęzi bazowej, aktualna gałąź bazowa musi zostać zintegrowana z branchem S-04 przez merge albo rebase, commit zawierający S-03 musi być przodkiem S-04 `HEAD`, konflikty muszą zostać rozwiązane, a wylądowane migracja, kontrakty i testy S-03 przeczytane. Phase 3 ani Phase 4 nie mogą rozpocząć się przed przejściem tego checkpointu.
 
-Znane rebase hotspots i reguły zachowania zmian:
+Znane integration hotspots i reguły zachowania zmian:
 
-| Powierzchnia | Reguła rozstrzygnięcia po rebase |
+| Powierzchnia | Reguła rozstrzygnięcia po integracji main |
 | --- | --- |
 | `context/foundation/roadmap.md` | Zachować lifecycle S-03 z gałęzi bazowej i nałożyć wyłącznie lifecycle S-04. |
 | `docs/reference/contract-surfaces.md` | Zachować kontrakty decyzji S-03 i dopisać kontrakty list/detail S-04. |
@@ -129,7 +129,7 @@ Zastąpić placeholder rzeczywistą kolekcją i dodać chronioną trasę szczeg�
 
 - Complete-recipe list, pagination, detail and 404 are accepted at desktop and mobile widths.
 - Keyboard focus order and accessible link names are accepted for list, pager, back navigation and sign-out.
-- A static S-08 audit confirms semantic tokens, shared primitives and control/surface scales in every new Phase 2 product view; automated guard expansion remains deferred until the post-rebase Phase 4.
+- A static S-08 audit confirms semantic tokens, shared primitives and control/surface scales in every new Phase 2 product view; automated guard expansion remains deferred until the post-integration Phase 4.
 
 ---
 
@@ -137,17 +137,17 @@ Zastąpić placeholder rzeczywistą kolekcją i dodać chronioną trasę szczeg�
 
 ### Overview
 
-Po merge S-03 i rebase S-04 dostosować reader i widoki do dokładnego, wylądowanego kontraktu brakujących pól. Sama publikacja planu lub dostępność plików w równoległym worktree nie otwiera tej fazy.
+Po merge S-03 i integracji aktualnego main z S-04 dostosować reader i widoki do dokładnego, wylądowanego kontraktu brakujących pól. Sama publikacja planu lub dostępność plików w równoległym worktree nie otwiera tej fazy.
 
 ### Changes Required:
 
-#### 1. Checkpoint merge i rebase
+#### 1. Checkpoint merge i integracji main
 
-**Files**: wylądowana migracja i kontrakty S-03, diff brancha S-04 po rebase
+**Files**: wylądowana migracja i kontrakty S-03, diff brancha S-04 po integracji main
 
 **Intent**: Uniemożliwić integrację z projektem kontraktu albo nadpisanie zmian S-03 podczas rozwiązywania konfliktów.
 
-**Contract**: S-03 jest zmergowane do docelowej gałęzi, S-04 jest zrebase'owane na commit zawierający S-03, wszystkie znane hotspots są rozwiązane zgodnie z tabelą w Critical Implementation Details, a statyczny przegląd potwierdza obecność wylądowanej migracji, pól, typów, omission codes i testów S-03. Bez tego checkpointu Phase 3 i Phase 4 pozostają zablokowane.
+**Contract**: S-03 jest zmergowane do docelowej gałęzi, aktualna gałąź bazowa jest zintegrowana z S-04 przez merge albo rebase, commit zawierający S-03 jest przodkiem S-04 `HEAD`, wszystkie znane hotspots są rozwiązane zgodnie z tabelą w Critical Implementation Details, a statyczny przegląd potwierdza obecność wylądowanej migracji, pól, typów, omission codes i testów S-03. Bez tego checkpointu Phase 3 i Phase 4 pozostają zablokowane.
 
 #### 2. Integracja trwałego read modelu
 
@@ -169,7 +169,7 @@ Po merge S-03 i rebase S-04 dostosować reader i widoki do dokładnego, wylądow
 
 #### Automated Verification:
 
-- The exact landed S-03 commit is recorded and verified as an ancestor of S-04 HEAD after rebase.
+- The exact landed S-03 commit is recorded and verified as an ancestor of S-04 HEAD after integrating main.
 - Recipe read tests pass against the landed S-03 persistence contract: `node --test scripts/recipe-read.test.mjs`.
 
 #### Manual Verification:
@@ -202,7 +202,7 @@ Rozszerzyć istniejące zabezpieczenia, testy oraz izolowany preview o nowe powi
 
 **Intent**: Objąć nowe widoki kontraktem S-08 i deterministycznymi fixture bez publicznej trasy.
 
-**Contract**: Po rebase guard łączy zakres plików S-03 i wszystkie nowe pliki produktowe S-04. Preview zachowuje fixture/stany S-03 i dodaje syntetyczne widoki S-04: empty, populated page, pagination, complete detail, 404, read error i kept-incomplete detail. Wspólny capture runner zachowuje profil/output S-03, otrzymuje oddzielny profil S-04 i zapisuje go wyłącznie do `context/changes/browse-and-read-recipes/evidence/`. Macierz obejmuje 1440×900 i 390×844. Loading i disabled są oznaczone N/A dla server-rendered list/detail; hover, focus-visible, empty, error, populated, 404 i missing-field mają dowody. Uruchomienie preview na porcie 4322 wymaga osobnej zgody użytkownika.
+**Contract**: Po integracji main guard łączy zakres plików S-03 i wszystkie nowe pliki produktowe S-04. Preview zachowuje fixture/stany S-03 i dodaje syntetyczne widoki S-04: empty, populated page, pagination, complete detail, 404, read error i kept-incomplete detail. Wspólny capture runner zachowuje profil/output S-03, otrzymuje oddzielny profil S-04 i zapisuje go wyłącznie do `context/changes/browse-and-read-recipes/evidence/`. Macierz obejmuje 1440×900 i 390×844. Loading i disabled są oznaczone N/A dla server-rendered list/detail; hover, focus-visible, empty, error, populated, 404 i missing-field mają dowody. Uruchomienie preview na porcie 4322 wymaga osobnej zgody użytkownika.
 
 #### 3. Dokumentacja wizualna
 
@@ -259,9 +259,9 @@ Lista pobiera projekcję potrzebną karcie i maksymalnie 24 rekordy; detail pobi
 ## Migration Notes
 
 - S-04 nie zawiera migracji bazy.
-- Integracja przyjmuje migrację i rollout należące do S-03 dopiero po merge S-03 i rebase S-04.
+- Integracja przyjmuje migrację i rollout należące do S-03 dopiero po merge S-03 i integracji aktualnego main z S-04.
 - Wycofanie S-04 usuwa routing/prezentację bez modyfikowania zapisanych przepisów.
-- Jeżeli S-03 nie jest zmergowane i S-04 nie jest zrebase'owane, można ukończyć fazy 1–2, ale nie wolno rozpoczynać faz 3–4 ani oznaczać całego S-04 jako zakończonego.
+- Jeżeli S-03 nie jest zmergowane albo aktualny main nie jest zintegrowany z S-04, można ukończyć fazy 1–2, ale nie wolno rozpoczynać faz 3–4 ani oznaczać całego S-04 jako zakończonego.
 
 ## References
 
@@ -293,20 +293,20 @@ Lista pobiera projekcję potrzebną karcie i maksymalnie 24 rekordy; detail pobi
 
 - [x] 2.3 Complete-recipe list, pagination, detail and 404 are accepted at desktop and mobile widths. — 2fb7372
 - [x] 2.4 Keyboard focus order and accessible link names are accepted for list, pager, back navigation and sign-out. — 2fb7372
-- [x] 2.5 A static S-08 audit confirms semantic tokens, shared primitives and control/surface scales in every new Phase 2 product view; automated guard expansion remains deferred until the post-rebase Phase 4. — 2fb7372
+- [x] 2.5 A static S-08 audit confirms semantic tokens, shared primitives and control/surface scales in every new Phase 2 product view; automated guard expansion remains deferred until the post-integration Phase 4. — 2fb7372
 
 ### Phase 3: Konsumpcja kontraktu S-03
 
 #### Automated
 
-- [ ] 3.1 The exact landed S-03 commit is recorded and verified as an ancestor of S-04 HEAD after rebase.
-- [ ] 3.2 Recipe read tests pass against the landed S-03 persistence contract: `node --test scripts/recipe-read.test.mjs`.
+- [x] 3.1 The exact landed S-03 commit is recorded and verified as an ancestor of S-04 HEAD after integrating main.
+- [x] 3.2 Recipe read tests pass against the landed S-03 persistence contract: `node --test scripts/recipe-read.test.mjs`.
 
 #### Manual
 
-- [ ] 3.3 All known hotspots preserve both changes, and the landed S-03 migration/contracts/tests were inspected before integration work begins.
-- [ ] 3.4 A kept incomplete recipe is identifiable in the list and its S-03-provided missing elements are visible in detail.
-- [ ] 3.5 The S-04 diff is reviewed to confirm that no competing missing-field migration or persistence model was introduced.
+- [x] 3.3 All known hotspots preserve both changes, and the landed S-03 migration/contracts/tests were inspected before integration work begins.
+- [x] 3.4 A kept incomplete recipe is identifiable in the list and its S-03-provided missing elements are visible in detail.
+- [x] 3.5 The S-04 diff is reviewed to confirm that no competing missing-field migration or persistence model was introduced.
 
 ### Phase 4: Kontrakty i pełna weryfikacja
 

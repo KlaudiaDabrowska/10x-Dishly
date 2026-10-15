@@ -1,10 +1,19 @@
-import type { Ingredient, IngredientGroup } from "@/lib/pdf-processing/contracts.ts";
+import {
+  PDF_OMISSION_CODES,
+  PDF_OMISSION_RULES,
+  isRecipeCategory,
+  type Ingredient,
+  type IngredientGroup,
+  type OmissionCode,
+  type RecipeCategory,
+} from "../pdf-processing/contracts.ts";
 
 export const PAGE_SIZE = 24;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const LIST_SELECT = "id,title,created_at";
-const DETAIL_SELECT = "id,title,ingredient_groups,instructions,source_filename,source_start_page,created_at";
+const LIST_SELECT = "id,title,current_missing_reason_codes,created_at";
+const DETAIL_SELECT =
+  "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at";
 
 export interface RecipeListQuery {
   select: typeof LIST_SELECT;
@@ -34,15 +43,26 @@ export interface RecipeReadPort {
 
 export interface RecipeListItem {
   id: string;
-  title: string;
+  title: string | null;
   createdAt: string;
 }
 
+export interface RecipeOmission {
+  code: OmissionCode;
+  fieldPath: string;
+  explanation: string;
+}
+
 export interface RecipeDetail extends RecipeListItem {
+  category: RecipeCategory | null;
   ingredientGroups: IngredientGroup[];
   instructions: string[];
   sourceFilename: string;
   sourceStartPage: number;
+  incompleteAtImport: boolean;
+  importMissingReasonCodes: OmissionCode[];
+  currentMissingReasonCodes: OmissionCode[];
+  currentMissingReasons: RecipeOmission[];
 }
 
 export type RecipePageResult =
@@ -87,6 +107,17 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
 }
 
+function mapOmissionCodes(value: unknown): OmissionCode[] | null {
+  if (!Array.isArray(value) || value.some((code) => typeof code !== "string")) return null;
+  const codes = value as string[];
+  if (codes.some((code) => !Object.hasOwn(PDF_OMISSION_RULES, code))) return null;
+  const mapped = codes as OmissionCode[];
+  const canonical = PDF_OMISSION_CODES.filter((code) => mapped.includes(code));
+  if (canonical.length !== mapped.length || canonical.some((code, index) => code !== mapped[index])) return null;
+  if (mapped.includes("missing-source-metadata")) return null;
+  return [...mapped];
+}
+
 function mapIngredient(value: unknown): Ingredient | null {
   if (!isRecord(value) || !hasExactKeys(value, ["name", "quantity", "unit", "sourceText"])) return null;
   if (typeof value.name !== "string" || !value.name.trim()) return null;
@@ -101,12 +132,11 @@ function mapIngredient(value: unknown): Ingredient | null {
 }
 
 export function mapIngredientGroups(value: unknown): IngredientGroup[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
+  if (!Array.isArray(value)) return null;
   const groups: IngredientGroup[] = [];
   for (const entry of value) {
     if (!isRecord(entry) || !hasExactKeys(entry, ["label", "ingredients"])) return null;
-    if (!isNullableString(entry.label) || !Array.isArray(entry.ingredients) || entry.ingredients.length === 0)
-      return null;
+    if (!isNullableString(entry.label) || !Array.isArray(entry.ingredients)) return null;
     const ingredients = entry.ingredients.map(mapIngredient);
     if (ingredients.some((ingredient) => ingredient === null)) return null;
     groups.push({ label: entry.label, ingredients: ingredients as Ingredient[] });
@@ -115,22 +145,25 @@ export function mapIngredientGroups(value: unknown): IngredientGroup[] | null {
 }
 
 export function mapInstructions(value: unknown): string[] | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
+  if (!Array.isArray(value)) return null;
   if (value.some((instruction) => typeof instruction !== "string" || !instruction.trim())) return null;
   return value as string[];
 }
 
-function mapRecipeIdentity(value: unknown): RecipeListItem | null {
+function mapRecipeIdentity(value: unknown, currentMissingReasonCodes: OmissionCode[]): RecipeListItem | null {
   if (!isRecord(value)) return null;
   if (typeof value.id !== "string" || !isRecipeId(value.id)) return null;
-  if (typeof value.title !== "string" || !value.title.trim()) return null;
+  if (!isNullableString(value.title) || (typeof value.title === "string" && !value.title.trim())) return null;
+  if ((value.title === null) !== currentMissingReasonCodes.includes("missing-title")) return null;
   if (typeof value.created_at !== "string" || !value.created_at.trim()) return null;
   return { id: value.id, title: value.title, createdAt: value.created_at };
 }
 
 export function mapRecipeListItem(value: unknown): RecipeListItem | null {
-  if (!isRecord(value) || !hasExactKeys(value, ["id", "title", "created_at"])) return null;
-  return mapRecipeIdentity(value);
+  if (!isRecord(value) || !hasExactKeys(value, ["id", "title", "current_missing_reason_codes", "created_at"]))
+    return null;
+  const currentMissingReasonCodes = mapOmissionCodes(value.current_missing_reason_codes);
+  return currentMissingReasonCodes ? mapRecipeIdentity(value, currentMissingReasonCodes) : null;
 }
 
 export function mapRecipeDetail(value: unknown): RecipeDetail | null {
@@ -139,26 +172,59 @@ export function mapRecipeDetail(value: unknown): RecipeDetail | null {
     !hasExactKeys(value, [
       "id",
       "title",
+      "category",
       "ingredient_groups",
       "instructions",
       "source_filename",
       "source_start_page",
+      "incomplete_at_import",
+      "import_missing_reason_codes",
+      "current_missing_reason_codes",
       "created_at",
     ])
   )
     return null;
-  const identity = mapRecipeIdentity(value);
+  const importMissingReasonCodes = mapOmissionCodes(value.import_missing_reason_codes);
+  const currentMissingReasonCodes = mapOmissionCodes(value.current_missing_reason_codes);
+  if (!importMissingReasonCodes || !currentMissingReasonCodes || typeof value.incomplete_at_import !== "boolean")
+    return null;
+  const identity = mapRecipeIdentity(value, currentMissingReasonCodes);
   const ingredientGroups = mapIngredientGroups(value.ingredient_groups);
   const instructions = mapInstructions(value.instructions);
   if (!identity || !ingredientGroups || !instructions) return null;
+  if (!(value.category === null || isRecipeCategory(value.category))) return null;
+  if ((value.category === null) !== currentMissingReasonCodes.includes("missing-category")) return null;
+  const hasMissingIngredients =
+    ingredientGroups.length === 0 || ingredientGroups.some((group) => group.ingredients.length === 0);
+  if (hasMissingIngredients !== currentMissingReasonCodes.includes("missing-ingredients")) return null;
+  if ((instructions.length === 0) !== currentMissingReasonCodes.includes("missing-instructions")) return null;
+  const importedRequiredOmission = importMissingReasonCodes.some((code) => PDF_OMISSION_RULES[code].required);
+  if (value.incomplete_at_import !== importedRequiredOmission) return null;
+  if (!value.incomplete_at_import && importMissingReasonCodes.length !== 0) return null;
+  for (const code of ["missing-title", "missing-ingredients", "missing-instructions", "missing-category"] as const) {
+    if (
+      currentMissingReasonCodes.includes(code) &&
+      (!value.incomplete_at_import || !importMissingReasonCodes.includes(code))
+    )
+      return null;
+  }
   if (typeof value.source_filename !== "string" || !value.source_filename.trim()) return null;
   if (!Number.isSafeInteger(value.source_start_page) || Number(value.source_start_page) < 1) return null;
   return {
     ...identity,
+    category: value.category,
     ingredientGroups,
     instructions,
     sourceFilename: value.source_filename,
     sourceStartPage: Number(value.source_start_page),
+    incompleteAtImport: value.incomplete_at_import,
+    importMissingReasonCodes,
+    currentMissingReasonCodes,
+    currentMissingReasons: currentMissingReasonCodes.map((code) => ({
+      code,
+      fieldPath: PDF_OMISSION_RULES[code].fieldPath,
+      explanation: PDF_OMISSION_RULES[code].explanation,
+    })),
   };
 }
 

@@ -50,7 +50,7 @@ const { recipes, page, totalPages } = Astro.props;
                 }),
               ]}
             >
-              {recipe.title}
+              {recipe.title ?? "Przepis bez tytułu"}
             </a>
           </Card>
         </li>
