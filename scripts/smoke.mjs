@@ -5,6 +5,9 @@ import { execFileSync } from "node:child_process";
 import { URL } from "node:url";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
+const applicationUrl = new URL(BASE_URL);
+if (applicationUrl.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(applicationUrl.hostname))
+  throw new Error("Refusing to run smoke against a non-local application");
 const TEST_DB_URL = process.env.SUPABASE_DB_URL;
 if (!TEST_DB_URL) throw new Error("SUPABASE_DB_URL is required for the local test-only recipe seed");
 const databaseUrl = new URL(TEST_DB_URL);

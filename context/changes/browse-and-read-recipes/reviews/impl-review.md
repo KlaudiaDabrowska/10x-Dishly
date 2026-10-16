@@ -48,7 +48,7 @@
 - **Location**: `scripts/smoke.mjs:7`
 - **Detail**: Skrypt wymaga lokalnego `SUPABASE_DB_URL`, ale nie waliduje `BASE_URL`. Błędne `BASE_URL=https://…` wysłałoby signup/signin/signout do zdalnej aplikacji, podczas gdy seed i cleanup działałyby wyłącznie na lokalnej bazie. Dwa zdalne konta mogłyby pozostać po teście.
 - **Fix**: Parsować `BASE_URL` przed pierwszym requestem i wymagać protokołu `http:` oraz hosta `127.0.0.1` albo `localhost` (z komunikatem local-test-only).
-- **Decision**: PENDING
+- **Decision**: FIXED — `BASE_URL` is restricted to local HTTP hosts with process-level regression coverage.
 
 ### F3 — Reader akceptuje niespójnie skróconą stronę
 
@@ -70,3 +70,4 @@
 - Phase 4 runtime checks 4.2–4.5 were not rerun during review because they require new explicit approval. Their implementation-run evidence remains recorded in commit `4609906`, the plan checklist, and `context/changes/browse-and-read-recipes/evidence/`.
 - Manual acceptance is recorded in `context/changes/browse-and-read-recipes/visual-verification.md`.
 - F1 triage verification: reader test, scoped ESLint, and production build — PASS.
+- F2 triage verification: local URL guard test, scoped ESLint, and diff check — PASS.
