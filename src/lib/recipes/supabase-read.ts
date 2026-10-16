@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import type { RecipeReadPort } from "@/lib/recipes/read";
+import type { RecipeReadPort } from "./read.ts";
 
 export function createSupabaseRecipeReadPort(client: SupabaseClient): RecipeReadPort {
   return {
@@ -10,7 +10,9 @@ export function createSupabaseRecipeReadPort(client: SupabaseClient): RecipeRead
         request = request.order(order.column, { ascending: order.ascending });
       }
       const { data, count, error } = await request.range(query.range.from, query.range.to);
-      return { data, count, error };
+      if (error?.code === "PGRST103") return { status: "range-not-satisfiable" };
+      if (error) return { status: "error" };
+      return { status: "ok", data, count };
     },
     async findRecipe(query) {
       const { data, error } = await client.from("recipes").select(query.select).eq("id", query.id).maybeSingle();

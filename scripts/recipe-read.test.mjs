@@ -8,6 +8,7 @@ import {
   readRecipeDetail,
   readRecipePage,
 } from "../src/lib/recipes/read.ts";
+import { createSupabaseRecipeReadPort } from "../src/lib/recipes/supabase-read.ts";
 
 const firstId = "00000000-0000-4000-8000-000000000001";
 const secondId = "00000000-0000-4000-8000-000000000002";
@@ -49,14 +50,15 @@ function fakePort({ rows = [], count = rows.length, listError = null, detail = n
     calls,
     async listRecipes(query) {
       calls.push({ type: "list", query });
-      if (listError !== null) return { data: null, count: null, error: listError };
+      if (listError === "range-not-satisfiable") return { status: "range-not-satisfiable" };
+      if (listError !== null) return { status: "error" };
       const ordered = [...rows].sort(
         (left, right) => right.created_at.localeCompare(left.created_at) || left.id.localeCompare(right.id),
       );
       return {
+        status: "ok",
         data: ordered.slice(query.range.from, query.range.to + 1),
         count,
-        error: null,
       };
     },
     async findRecipe(query) {
@@ -123,6 +125,46 @@ test("list requests exact count, 24-row ranges and deterministic newest-first or
 test("an out-of-range page is not presented as an empty collection", async () => {
   const port = fakePort({ rows: [listRow(firstId, "Jedyny", "2026-10-14T08:00:00.000Z")] });
   assert.deepEqual(await readRecipePage(port, "2"), { status: "invalid-page" });
+  assert.deepEqual(await readRecipePage(fakePort({ listError: "range-not-satisfiable" }), "2"), {
+    status: "invalid-page",
+  });
+});
+
+test("the Supabase adapter classifies only PGRST103 as an unsatisfied range", async () => {
+  const query = {
+    select: "id,title,current_missing_reason_codes,created_at",
+    count: "exact",
+    range: { from: 24, to: 47 },
+    order: [
+      { column: "created_at", ascending: false },
+      { column: "id", ascending: true },
+    ],
+  };
+  const clientWith = (response) => {
+    const request = {
+      order() {
+        return request;
+      },
+      async range() {
+        return response;
+      },
+    };
+    return {
+      from() {
+        return {
+          select() {
+            return request;
+          },
+        };
+      },
+    };
+  };
+
+  const rangePort = createSupabaseRecipeReadPort(clientWith({ data: null, count: null, error: { code: "PGRST103" } }));
+  assert.deepEqual(await rangePort.listRecipes(query), { status: "range-not-satisfiable" });
+
+  const failedPort = createSupabaseRecipeReadPort(clientWith({ data: null, count: null, error: { code: "PGRST001" } }));
+  assert.deepEqual(await failedPort.listRecipes(query), { status: "error" });
 });
 
 test("an empty first page remains a successful empty collection", async () => {

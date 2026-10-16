@@ -32,9 +32,8 @@ export interface RecipeQueryResponse {
   error: unknown;
 }
 
-export interface RecipeListQueryResponse extends RecipeQueryResponse {
-  count: number | null;
-}
+export type RecipeListQueryResponse =
+  { status: "ok"; data: unknown; count: number | null } | { status: "range-not-satisfiable" } | { status: "error" };
 
 export interface RecipeReadPort {
   listRecipes(query: RecipeListQuery): Promise<RecipeListQueryResponse>;
@@ -244,7 +243,8 @@ export async function readRecipePage(port: RecipeReadPort, pageValue?: string | 
       { column: "id", ascending: true },
     ],
   });
-  if (response.error !== null) return { status: "error", reason: "query" };
+  if (response.status === "range-not-satisfiable") return { status: "invalid-page" };
+  if (response.status === "error") return { status: "error", reason: "query" };
   const totalCount = response.count;
   if (typeof totalCount !== "number" || !Number.isSafeInteger(totalCount) || totalCount < 0)
     return { status: "error", reason: "invalid-data" };
