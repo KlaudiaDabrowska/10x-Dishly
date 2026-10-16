@@ -252,10 +252,8 @@ export async function readRecipePage(port: RecipeReadPort, pageValue?: string | 
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   if ((totalPages === 0 && page !== 1) || (totalPages > 0 && page > totalPages)) return { status: "invalid-page" };
-  if (response.data.length > PAGE_SIZE) return { status: "error", reason: "invalid-data" };
   const expectedMaximum = Math.max(0, Math.min(PAGE_SIZE, totalCount - from));
-  if (response.data.length > expectedMaximum || (expectedMaximum > 0 && response.data.length === 0))
-    return { status: "error", reason: "invalid-data" };
+  if (response.data.length !== expectedMaximum) return { status: "error", reason: "invalid-data" };
 
   const recipes = response.data.map(mapRecipeListItem);
   if (recipes.some((recipe) => recipe === null)) return { status: "error", reason: "invalid-data" };

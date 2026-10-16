@@ -175,6 +175,15 @@ test("an empty first page remains a successful empty collection", async () => {
   assert.equal(result.totalPages, 0);
 });
 
+test("a list response shorter than its exact count is rejected", async () => {
+  const port = fakePort({
+    rows: [listRow(firstId, "Jedyny", "2026-10-14T08:00:00.000Z")],
+    count: PAGE_SIZE,
+  });
+
+  assert.deepEqual(await readRecipePage(port, "1"), { status: "error", reason: "invalid-data" });
+});
+
 test("a list query failure is distinct from an empty result", async () => {
   assert.deepEqual(await readRecipePage(fakePort({ listError: new Error("database unavailable") })), {
     status: "error",

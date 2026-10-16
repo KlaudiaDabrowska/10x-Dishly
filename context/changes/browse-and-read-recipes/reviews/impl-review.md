@@ -58,7 +58,7 @@
 - **Location**: `src/lib/recipes/read.ts:256`
 - **Detail**: Przy exact count reader odrzuca nadmiar rekordów i pusty wynik, lecz akceptuje dowolny niepusty wynik krótszy niż `expectedMaximum`, np. `count = 24` i jeden rekord. To osłabia deklarowany fail-closed, walidowany port i może pokazać niepełną stronę jako sukces.
 - **Fix**: Po obsłużeniu `PGRST103` wymagać `response.data.length === expectedMaximum` oraz dodać przypadek niespójnego `count`/`data.length` do testu readera.
-- **Decision**: PENDING
+- **Decision**: FIXED — list responses must contain exactly the number of rows implied by the exact count and requested page.
 
 ## Verification evidence
 
@@ -67,6 +67,7 @@
 - Phase 1–2 scoped ESLint command — PASS.
 - `npm run lint` — PASS; UI contract covers 10 files.
 - `npm run build` — PASS; Wrangler emitted a non-fatal sandbox log-path warning, while Astro and PDF reader builds completed.
+- F3 triage verification: recipe reader tests, scoped ESLint, production build, and diff check — PASS.
 - Phase 4 runtime checks 4.2–4.5 were not rerun during review because they require new explicit approval. Their implementation-run evidence remains recorded in commit `4609906`, the plan checklist, and `context/changes/browse-and-read-recipes/evidence/`.
 - Manual acceptance is recorded in `context/changes/browse-and-read-recipes/visual-verification.md`.
 - F1 triage verification: reader test, scoped ESLint, and production build — PASS.
