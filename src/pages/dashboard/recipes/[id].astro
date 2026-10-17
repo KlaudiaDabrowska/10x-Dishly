@@ -28,7 +28,11 @@ const pageTitle =
       ? "Przepis niedostępny | Dishly"
       : "Błąd odczytu przepisu | Dishly";
 const shellTitle =
-  result.status === "ok" ? recipeTitle : result.status === "not-found" ? "Przepis niedostępny" : "Przepis";
+  result.status === "ok"
+    ? (recipeTitle ?? "Przepis bez tytułu")
+    : result.status === "not-found"
+      ? "Przepis niedostępny"
+      : "Przepis";
 ---
 
 <Layout title={pageTitle} lang="pl">
