@@ -2,11 +2,14 @@ import { readFile } from "node:fs/promises";
 
 const files = [
   "src/pages/dashboard.astro",
+  "src/pages/dashboard/recipes/[id].astro",
   "src/components/dashboard/DashboardView.astro",
   "src/components/dashboard/ImportOutcomeFeedback.tsx",
   "src/components/pdf-processing/ImportOutcomeBanner.tsx",
   "src/components/pdf-processing/RecipeDecisionCard.tsx",
   "src/components/pdf-processing/RecipeImportPanel.tsx",
+  "src/components/recipes/RecipeDetail.astro",
+  "src/components/recipes/RecipeList.astro",
   "src/pages/dashboard/import.astro",
 ];
 

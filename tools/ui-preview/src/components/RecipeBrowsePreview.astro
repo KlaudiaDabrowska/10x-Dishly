@@ -1,0 +1,120 @@
+---
+import DashboardView from "@/components/dashboard/DashboardView.astro";
+import RecipeDetail from "@/components/recipes/RecipeDetail.astro";
+import RecipeList from "@/components/recipes/RecipeList.astro";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { buttonVariants } from "@/components/ui/button";
+import type { RecipeDetail as RecipeDetailModel, RecipeListItem } from "@/lib/recipes/read";
+
+const email = "czytelnik.przepisow@przykladowa-domena.example";
+const recipes: RecipeListItem[] = [
+  { id: "10000000-0000-4000-8000-000000000001", title: "Zupa z pieczonej dyni", createdAt: "2026-10-15" },
+  { id: "10000000-0000-4000-8000-000000000002", title: "Naleśniki z jabłkami", createdAt: "2026-10-14" },
+  { id: "10000000-0000-4000-8000-000000000003", title: null, createdAt: "2026-10-13" },
+];
+const completeRecipe: RecipeDetailModel = {
+  id: "10000000-0000-4000-8000-000000000001",
+  title: "Zupa z pieczonej dyni",
+  createdAt: "2026-10-15",
+  category: "lunch",
+  ingredientGroups: [
+    {
+      label: "Wariant klasyczny",
+      ingredients: [
+        { name: "dynia", quantity: "1", unit: "szt.", sourceText: "1 mała dynia" },
+        { name: "bulion", quantity: "500", unit: "ml", sourceText: "500 ml bulionu warzywnego" },
+      ],
+    },
+    {
+      label: "Wariant łagodny",
+      ingredients: [{ name: "śmietanka", quantity: "100", unit: "ml", sourceText: "100 ml śmietanki" }],
+    },
+  ],
+  instructions: ["Upiecz dynię do miękkości.", "Zblenduj ją z bulionem i dopraw."],
+  sourceFilename: "Jesienne obiady.pdf",
+  sourceStartPage: 12,
+  incompleteAtImport: false,
+  importMissingReasonCodes: [],
+  currentMissingReasonCodes: [],
+  currentMissingReasons: [],
+};
+const incompleteRecipe: RecipeDetailModel = {
+  id: "10000000-0000-4000-8000-000000000004",
+  title: null,
+  createdAt: "2026-10-12",
+  category: null,
+  ingredientGroups: [],
+  instructions: [],
+  sourceFilename: "Notatki kuchenne.pdf",
+  sourceStartPage: 37,
+  incompleteAtImport: true,
+  importMissingReasonCodes: ["missing-title", "missing-ingredients", "missing-instructions", "missing-category"],
+  currentMissingReasonCodes: ["missing-title", "missing-ingredients", "missing-instructions", "missing-category"],
+  currentMissingReasons: [
+    { code: "missing-title", fieldPath: "title", explanation: "Brakuje tytułu przepisu." },
+    { code: "missing-ingredients", fieldPath: "ingredientGroups", explanation: "Brakuje składników." },
+    { code: "missing-instructions", fieldPath: "instructions", explanation: "Brakuje przygotowania." },
+    { code: "missing-category", fieldPath: "category", explanation: "Brakuje kategorii." },
+  ],
+};
+---
+
+<div data-recipe-preview>
+  <div data-recipe-variant="empty">
+    <DashboardView {email} importAvailable={false}>
+      <RecipeList recipes={[]} page={1} totalPages={0} />
+    </DashboardView>
+  </div>
+
+  <div data-recipe-variant="populated">
+    <DashboardView {email} importAvailable={false}>
+      <RecipeList {recipes} page={1} totalPages={1} />
+    </DashboardView>
+  </div>
+
+  <div data-recipe-variant="pagination">
+    <DashboardView {email} importAvailable={false}>
+      <RecipeList {recipes} page={2} totalPages={3} />
+    </DashboardView>
+  </div>
+
+  <div data-recipe-variant="detail">
+    <DashboardView {email} importAvailable={false} title={completeRecipe.title ?? "Przepis bez tytułu"}>
+      <RecipeDetail recipe={completeRecipe} />
+    </DashboardView>
+  </div>
+
+  <div data-recipe-variant="not-found">
+    <DashboardView {email} importAvailable={false} title="Przepis niedostępny">
+      <Alert>
+        <AlertTitle className="line-clamp-none">Przepis niedostępny</AlertTitle>
+        <AlertDescription>
+          <p>Nie możemy wyświetlić tego przepisu.</p>
+          <a href="/dashboard" class:list={[buttonVariants({ variant: "outline" }), "mt-3"]}>
+            Wróć do swoich przepisów
+          </a>
+        </AlertDescription>
+      </Alert>
+    </DashboardView>
+  </div>
+
+  <div data-recipe-variant="error">
+    <DashboardView {email} importAvailable={false}>
+      <Alert variant="destructive">
+        <AlertTitle className="line-clamp-none">Nie udało się wczytać przepisów</AlertTitle>
+        <AlertDescription>
+          <p>Spróbuj ponownie. Jeśli problem nie ustąpi, wróć do kolekcji później.</p>
+          <a href="/dashboard" class:list={[buttonVariants({ variant: "secondary" }), "mt-3"]}>
+            Wczytaj ponownie
+          </a>
+        </AlertDescription>
+      </Alert>
+    </DashboardView>
+  </div>
+
+  <div data-recipe-variant="incomplete">
+    <DashboardView {email} importAvailable={false} title="Przepis bez tytułu">
+      <RecipeDetail recipe={incompleteRecipe} />
+    </DashboardView>
+  </div>
+</div>

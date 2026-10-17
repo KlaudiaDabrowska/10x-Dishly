@@ -2,14 +2,17 @@
 
 @source "../../../../src/components/dashboard";
 @source "../../../../src/components/pdf-processing";
+@source "../../../../src/components/recipes";
 @source "../../../../src/components/ui";
 @source "../components";
 @source "../pages";
 
 html:not([data-preview-view="dashboard"]) [data-dashboard-preview],
 html:not([data-preview-view="decisions"]) [data-decision-preview],
+html:not([data-preview-view="recipes"]) [data-recipe-browse-preview],
 html[data-preview-view="dashboard"] [data-component-preview],
 html[data-preview-view="decisions"] [data-component-preview],
+html[data-preview-view="recipes"] [data-component-preview],
 html[data-import-availability="available"] [data-dashboard-variant="unavailable"],
 html[data-import-availability="unavailable"] [data-dashboard-variant="available"] {
   display: none;
@@ -111,4 +114,28 @@ html[data-preview-view="decisions"][data-capture="matrix"] [data-discard-all],
 html[data-preview-view="decisions"][data-capture="matrix"] [data-mixed-outcome],
 html[data-preview-view="decisions"][data-capture="matrix"] [data-decision-states] {
   display: none;
+}
+
+html[data-recipe-state="empty"] [data-recipe-variant]:not([data-recipe-variant="empty"]),
+html[data-recipe-state="populated"] [data-recipe-variant]:not([data-recipe-variant="populated"]),
+html[data-recipe-state="hover"] [data-recipe-variant]:not([data-recipe-variant="populated"]),
+html[data-recipe-state="focus"] [data-recipe-variant]:not([data-recipe-variant="populated"]),
+html[data-recipe-state="pagination"] [data-recipe-variant]:not([data-recipe-variant="pagination"]),
+html[data-recipe-state="detail"] [data-recipe-variant]:not([data-recipe-variant="detail"]),
+html[data-recipe-state="not-found"] [data-recipe-variant]:not([data-recipe-variant="not-found"]),
+html[data-recipe-state="error"] [data-recipe-variant]:not([data-recipe-variant="error"]),
+html[data-recipe-state="incomplete"] [data-recipe-variant]:not([data-recipe-variant="incomplete"]) {
+  display: none;
+}
+
+html[data-preview-view="recipes"][data-recipe-state="hover"] [data-recipe-variant="populated"] li:first-child a {
+  background-color: var(--accent-hover);
+  color: var(--accent-foreground);
+}
+
+html[data-preview-view="recipes"][data-recipe-state="focus"] [data-recipe-variant="populated"] li:first-child a {
+  border-color: var(--ring);
+  box-shadow:
+    0 0 0 calc(var(--spacing) * 2) var(--background),
+    0 0 0 calc(var(--spacing) * 3) var(--ring);
 }

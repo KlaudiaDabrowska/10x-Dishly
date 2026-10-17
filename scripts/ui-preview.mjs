@@ -17,12 +17,19 @@ const option = (name) =>
 const changeId = option("change") ?? "unify-dashboard-design-system";
 const captureSet = option("set") ?? "dashboard";
 if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(changeId)) throw new Error("Invalid --change slug.");
-if (captureSet !== "dashboard" && captureSet !== "decisions") throw new Error("Invalid --set value.");
-const evidenceDirectory = path.join(repositoryRoot, "context/changes", changeId, "screenshots");
+if (!["dashboard", "decisions", "recipes"].includes(captureSet)) throw new Error("Invalid --set value.");
+if (captureSet === "recipes" && changeId !== "browse-and-read-recipes")
+  throw new Error("The recipes capture profile must use --change=browse-and-read-recipes.");
+const evidenceDirectory = path.join(
+  repositoryRoot,
+  "context/changes",
+  changeId,
+  captureSet === "recipes" ? "evidence" : "screenshots",
+);
 
 if (mode !== "isolation" && mode !== "check" && mode !== "capture") {
   throw new Error(
-    "Usage: node scripts/ui-preview.mjs <isolation|check|capture> [--change=<change-id>] [--set=<dashboard|decisions>]",
+    "Usage: node scripts/ui-preview.mjs <isolation|check|capture> [--change=<change-id>] [--set=<dashboard|decisions|recipes>]",
   );
 }
 
@@ -139,7 +146,7 @@ async function resolveLocalImport(importer, specifier) {
 function localImportSpecifiers(contents) {
   const specifiers = [];
   const patterns = [
-    /(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g,
+    /(?:import|export)(?!\s+type\b)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/g,
     /import\s*\(\s*["']([^"']+)["']\s*\)/g,
     /@import\s+["']([^"']+)["']/g,
   ];
@@ -313,7 +320,32 @@ async function captureScreenshots() {
       height: 900,
     },
   ];
-  const variants = captureSet === "decisions" ? decisionVariants : dashboardVariants;
+  const recipeVariants = [
+    "empty",
+    "populated",
+    "hover",
+    "focus",
+    "pagination",
+    "detail",
+    "not-found",
+    "error",
+    "incomplete",
+  ].flatMap((state) => [
+    {
+      name: `recipes-${state}-desktop.png`,
+      query: `theme=light&view=recipes&recipe=${state}`,
+      width: 1440,
+      height: 900,
+    },
+    {
+      name: `recipes-${state}-mobile.png`,
+      query: `theme=light&view=recipes&recipe=${state}`,
+      width: 390,
+      height: 844,
+    },
+  ]);
+  const variants =
+    captureSet === "decisions" ? decisionVariants : captureSet === "recipes" ? recipeVariants : dashboardVariants;
 
   for (const variant of variants) {
     const output = path.join(evidenceDirectory, variant.name);

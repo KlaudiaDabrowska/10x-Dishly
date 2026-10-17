@@ -2,17 +2,62 @@
 import Layout from "@/layouts/Layout.astro";
 import DashboardView from "@/components/dashboard/DashboardView.astro";
 import ImportOutcomeBanner from "@/components/pdf-processing/ImportOutcomeBanner";
+import RecipeList from "@/components/recipes/RecipeList.astro";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { buttonVariants } from "@/components/ui/button";
 import { dashboardImportId } from "@/lib/pdf-processing/dashboard-import";
 import { productImportAvailable } from "@/lib/pdf-validation";
+import { readRecipePage } from "@/lib/recipes/read";
+import { createSupabaseRecipeReadPort } from "@/lib/recipes/supabase-read";
+import { createClient } from "@/lib/supabase";
 
 const { user } = Astro.locals;
 const importAvailable = productImportAvailable();
 const hasImportParameter = Astro.url.searchParams.has("import");
 const importId = dashboardImportId(Astro.url.search);
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+const result = supabase
+  ? await readRecipePage(createSupabaseRecipeReadPort(supabase), Astro.url.searchParams.get("page"))
+  : { status: "error" as const, reason: "query" as const };
+
+if (result.status === "invalid-page") Astro.response.status = 404;
+if (result.status === "error") Astro.response.status = 500;
 ---
 
 <Layout title="Twoje przepisy | Dishly" lang="pl">
-  <DashboardView email={user?.email} {importAvailable}>
+  <DashboardView
+    email={user?.email}
+    {importAvailable}
+    title={result.status === "invalid-page" ? "Strona kolekcji niedostępna" : "Twoje przepisy"}
+  >
     {hasImportParameter && <ImportOutcomeBanner slot="feedback" importId={importId} client:load />}
+    {result.status === "ok" && (
+      <RecipeList recipes={result.recipes} page={result.page} totalPages={result.totalPages} />
+    )}
+    {result.status === "invalid-page" && (
+      <Alert>
+        <AlertTitle className="line-clamp-none">Nie znaleziono tej strony kolekcji</AlertTitle>
+        <AlertDescription>
+          <p>Podany numer strony jest nieprawidłowy albo wykracza poza Twoją kolekcję.</p>
+          <a href="/dashboard" class:list={[buttonVariants({ variant: "outline" }), "mt-3"]}>
+            Przejdź do pierwszej strony
+          </a>
+        </AlertDescription>
+      </Alert>
+    )}
+    {result.status === "error" && (
+      <Alert variant="destructive">
+        <AlertTitle className="line-clamp-none">Nie udało się wczytać przepisów</AlertTitle>
+        <AlertDescription>
+          <p>Spróbuj ponownie. Jeśli problem nie ustąpi, wróć do kolekcji później.</p>
+          <a
+            href={Astro.url.pathname + Astro.url.search}
+            class:list={[buttonVariants({ variant: "secondary" }), "mt-3"]}
+          >
+            Wczytaj ponownie
+          </a>
+        </AlertDescription>
+      </Alert>
+    )}
   </DashboardView>
 </Layout>

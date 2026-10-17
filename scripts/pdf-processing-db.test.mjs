@@ -537,6 +537,28 @@ function sql(statement) {
   return supabase("db", "query", "--db-url", local.DB_URL, statement);
 }
 
+function seedReadableRecipe({ id, importId, ownerId, fingerprint, title, createdAt, sourceStartPage = 1 }) {
+  sql(`
+    insert into public.pdf_imports (
+      id, owner_id, channel, file_fingerprint, manifest_digest, status, expires_at, source_filename
+    ) values (
+      '${importId}', '${ownerId}', 'product', '${fingerprint}', '${digest("m")}', 'committed',
+      '2099-01-01T00:00:00Z', 'owner-read-fixture.pdf'
+    );
+  `);
+  sql(`
+    insert into public.recipes (
+      id, owner_id, file_fingerprint, source_start_page, source_start_item, import_id, source_filename,
+      source_pages, title, category, ingredient_groups, instructions, created_at, updated_at
+    ) values (
+      '${id}', '${ownerId}', '${fingerprint}', ${sourceStartPage}, 0, '${importId}', 'owner-read-fixture.pdf',
+      array[${sourceStartPage}], '${title}', 'lunch',
+      '[{"label":null,"ingredients":[{"name":"water","quantity":"200","unit":"ml","sourceText":"200 ml water"}]}]'::jsonb,
+      '["Mix and serve."]'::jsonb, '${createdAt}', '${createdAt}'
+    );
+  `);
+}
+
 async function productDecisionFixture(
   user,
   fingerprint = sha(),
@@ -653,6 +675,64 @@ test("browser roles cannot call finalization RPCs or mutate recipes", async () =
     assert.ok(insert.error);
     assert.ok((await caller.from("pdf_incomplete_recipe_decisions").select("*")).error);
   }
+});
+
+test("authenticated recipe list and detail reads stay owner-scoped and deterministically ordered", async () => {
+  const reader = await createUser(`recipe-reader-${randomUUID()}@example.test`);
+  const foreignOwner = await createUser(`recipe-reader-foreign-${randomUUID()}@example.test`);
+  const ownIds = [
+    "10000000-0000-4000-8000-000000000001",
+    "10000000-0000-4000-8000-000000000002",
+    "10000000-0000-4000-8000-000000000003",
+  ];
+  const ownRows = [
+    { id: ownIds[1], title: "Tie second", createdAt: "2040-01-02T00:00:00Z", sourceStartPage: 2 },
+    { id: ownIds[0], title: "Tie first", createdAt: "2040-01-02T00:00:00Z", sourceStartPage: 1 },
+    { id: ownIds[2], title: "Older", createdAt: "2040-01-01T00:00:00Z", sourceStartPage: 3 },
+  ];
+  for (const [index, row] of ownRows.entries())
+    seedReadableRecipe({
+      ...row,
+      importId: `20000000-0000-4000-8000-00000000000${index + 1}`,
+      ownerId: reader.id,
+      fingerprint: String(index + 1).repeat(64),
+    });
+  const foreignId = "30000000-0000-4000-8000-000000000001";
+  seedReadableRecipe({
+    id: foreignId,
+    importId: "40000000-0000-4000-8000-000000000001",
+    ownerId: foreignOwner.id,
+    fingerprint: "f".repeat(64),
+    title: "Foreign secret title",
+    createdAt: "2040-01-03T00:00:00Z",
+  });
+
+  const client = await signedIn(reader);
+  const listed = await client
+    .from("recipes")
+    .select("id,title,created_at")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true });
+  assert.ifError(listed.error);
+  assert.deepEqual(
+    listed.data.map((row) => row.id),
+    ownIds,
+  );
+  assert.equal(
+    listed.data.some((row) => row.title === "Foreign secret title"),
+    false,
+  );
+
+  const ownDetail = await client.from("recipes").select("id,title,source_filename").eq("id", ownIds[0]).maybeSingle();
+  assert.ifError(ownDetail.error);
+  assert.deepEqual(ownDetail.data, {
+    id: ownIds[0],
+    title: "Tie first",
+    source_filename: "owner-read-fixture.pdf",
+  });
+  const foreignDetail = await client.from("recipes").select("id,title").eq("id", foreignId).maybeSingle();
+  assert.ifError(foreignDetail.error);
+  assert.equal(foreignDetail.data, null);
 });
 
 test("finalization saves only complete candidates atomically, reads back per owner and replays safely", async () => {
