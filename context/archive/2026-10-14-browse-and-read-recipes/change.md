@@ -1,10 +1,10 @@
 ---
 change_id: browse-and-read-recipes
 title: Browse and read recipes
-status: impl_reviewed
+status: archived
 created: 2026-10-14
-updated: 2026-10-16
-archived_at: null
+updated: 2026-10-27
+archived_at: 2026-10-27T19:11:28Z
 ---
 
 ## Notes
