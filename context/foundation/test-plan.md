@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-10-28
+> Last updated: 2026-11-01
 
 ## 1. Strategy
 
@@ -33,11 +33,11 @@ Zakres hot-spotów: `src/`, `scripts/`, `workers/pdf-consumer/`, `supabase/migra
 
 | Ryzyko | Co udowodni ochronę | Co zakwestionować | Kontekst do ustalenia przez `/10x-research` | Najtańsza warstwa | Antywzorzec |
 |---|---|---|---|---|---|
-| #1 | Braki, pomieszane warianty i błędne pola nie wchodzą jako poprawny zapis ani pełny sukces. | Komplet pól oznacza poprawność ekstrakcji. | Niezależny oracle, walidacja, moment zapisu. | contract + integration + acceptance | Oracle skopiowany z implementacji. |
-| #2 | Retry i współbieżność dają jeden uzgodniony wynik bez częściowych zapisów. | Końcowe 200 dowodzi wykonania dokładnie raz. | Idempotency, transakcje, trwały stan, recovery. | DB integration | Mockowanie wnętrza zamiast granicy trwałości. |
+| #1 | Braki, pomieszane warianty i każda uzgodniona różnica semantyczna względem zatwierdzonego goldenu blokują poprawny zapis i pełny sukces; zaakceptowany wynik przechodzi zapis oraz read-back. | Komplet wymaganych pól i strukturalnie poprawny kandydat oznaczają poprawność ekstrakcji. | Niezależny oracle z jawnym zakresem pól blokujących, granica walidacji oraz most do persystencji produktu i read-back. | exact offline golden + DB/HTTP integration + selective product acceptance | Oracle skopiowany z implementacji albo różnice semantyczne jedynie raportowane. |
+| #2 | Utracona odpowiedź, recovery klienta i równoległe operacje dają jeden trwały wynik bez duplikatów ani częściowych zapisów. | Każdy błąd można bezpiecznie ponowić albo końcowe 200 dowodzi wykonania dokładnie raz. | Rozdzielenie status recovery od ograniczonego retry providera, idempotency, transakcje i konkurencyjna finalizacja produktu. | client contract + DB integration + narrow HTTP integration | Mockowanie wnętrza zamiast granicy trwałości albo automatyczne retry wszystkich błędów providera. |
 | #3 | Cudzy i nieistniejący identyfikator nie pozwalają czytać ani mutować danych i niczego nie ujawniają. | Zalogowanie oznacza autoryzację zasobu. | Sesja, RLS, owner check, translacja odmowy. | DB/API integration + smoke | Testowanie tylko ukrycia elementu w UI. |
 | #4 | Logi, błędy, statusy i bundle nie zawierają treści PDF, sekretów ani prywatnych payloadów. | Backend-only automatycznie wyklucza wyciek. | Granice logowania, błędów, konfiguracji i odpowiedzi. | contract + static check | Snapshot zawierający zanonimizowany sekret. |
-| #5 | Reprezentatywny PDF przechodzi pełny przepływ w limicie, a awaria nie udaje sukcesu. | Testy komponentów dowodzą działania całości. | Środowisko, provider, golden set, timeout, read-back. | selective acceptance + manual smoke | Pełna macierz przeglądarek bez nowego sygnału. |
+| #5 | Reprezentatywny PDF przechodzi aktualny kanał produktowy do potwierdzonego zapisu w limicie, a awaria nie udaje sukcesu. | Historyczny sukces kanału ewaluacyjnego lub zielone testy niższych warstw dowodzą działania bieżącej ścieżki produktu. | Aktualny przepływ import API, provider, zatwierdzony golden, stan committed, read-back, brak pending, liczba zapisów, limit czasu oraz rekord rewizji i konfiguracji. | selective product acceptance + manual smoke | Pełna macierz przeglądarek albo kosztowny live model na każdy PR bez nowego sygnału. |
 | #6 | Odmiany pasują, zamienniki nie, a oba filtry działają jako AND. | Normalizacja może bezpiecznie rozszerzać znaczenie. | Reguły językowe, dane i kontrakt filtrowania. | unit + integration | Oracle przepisany z algorytmu. |
 
 ## 3. Phased Rollout
@@ -46,7 +46,7 @@ Każdy wiersz otwiera osobną zmianę. Statusy są stanem odczytywanym przez orc
 
 | # | Phase name | Goal (one line) | Risks covered | Test types | Status | Change folder |
 |---|---|---|---|---|---|---|
-| 1 | Krytyczna poprawność importu i recovery | Udowodnić uczciwy zapis, odporność na retry i pełny przepływ. | #1, #2, #5 | contract + DB integration + selective acceptance | change opened | testing-critical-import-correctness-recovery |
+| 1 | Krytyczna poprawność importu i recovery | Udowodnić uczciwy zapis, odporność na retry i pełny przepływ. | #1, #2, #5 | contract + DB integration + selective acceptance | researched | testing-critical-import-correctness-recovery |
 | 2 | Izolacja właścicieli i prywatność | Zablokować IDOR oraz wycieki treści i sekretów. | #3, #4 | DB/API integration + security contract + smoke | not started | — |
 | 3 | Filtrowanie i mutacje kolekcji | Chronić filtrowanie oraz operacje edit/delete. | #3, #6 | unit + integration + critical-flow e2e | not started | — |
 | 4 | Selektywna ocena AI i bramki jakości | Wykrywać semantyczne błędy ekstrakcji i utrwalić minimalne bramki. | #1, #5, cross-cutting | AI-native review + acceptance gates | not started | — |
