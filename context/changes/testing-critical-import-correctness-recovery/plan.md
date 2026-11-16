@@ -302,9 +302,9 @@ Brak migracji. Nie edytować istniejących plików SQL. Ewentualna poprawka race
 
 #### Automated
 
-- [ ] 2.1 Testy lost-create potwierdzają status+cancel bez batch/finalize oraz zachowanie niepotwierdzonego ID do cleanup.
-- [ ] 2.2 Test wyczerpanego pollingu potwierdza jedną próbę finalize, pięć statusów, opóźnienia `[250,500,1000,2000]`, brak kolejnego rozpoznania i wynik `unconfirmed`.
-- [ ] 2.3 `npm run test:pdf` przechodzi z niezmienionymi kontraktami evaluation i product UI.
+- [x] 2.1 Testy lost-create potwierdzają status+cancel bez batch/finalize oraz zachowanie niepotwierdzonego ID do cleanup.
+- [x] 2.2 Test wyczerpanego pollingu potwierdza jedną próbę finalize, pięć statusów, opóźnienia `[250,500,1000,2000]`, brak kolejnego rozpoznania i wynik `unconfirmed`.
+- [x] 2.3 `npm run test:pdf` przechodzi z niezmienionymi kontraktami evaluation i product UI.
 
 ### Phase 3: Produktowa współbieżność DB
 

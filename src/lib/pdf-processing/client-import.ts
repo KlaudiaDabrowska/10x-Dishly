@@ -140,6 +140,20 @@ async function recoverStatus(apiBase: string, id: string, request: RequestJson):
   }
 }
 
+export async function recoverFailedClientImport(options: {
+  apiBase: string;
+  importId: string;
+  dispatched: boolean;
+  request?: RequestJson;
+}): Promise<{ outcome: ClientImportOutcome | null; cleanupImportId: string | null }> {
+  if (!options.dispatched) return { outcome: null, cleanupImportId: null };
+  const request = options.request ?? requestImportJson;
+  const outcome = await recoverStatus(options.apiBase, options.importId, request);
+  if (outcome?.status === "processing")
+    await request(`${options.apiBase}/${options.importId}`, { method: "DELETE" }).catch(() => undefined);
+  return { outcome, cleanupImportId: outcome ? null : options.importId };
+}
+
 function decisionStatus(reference: DecisionReference): ClientDecisionStatus {
   return reference.state;
 }
@@ -653,9 +667,12 @@ export function useClientImport(options: {
         });
       } catch (failure) {
         const code = failure instanceof Error && "code" in failure ? String(failure.code) : "unexpected-error";
-        const recovered = importLifecycle.dispatched
-          ? await recoverStatus(options.apiBase, id, requestImportJson)
-          : null;
+        const recovery = await recoverFailedClientImport({
+          apiBase: options.apiBase,
+          importId: id,
+          dispatched: importLifecycle.dispatched,
+        });
+        const recovered = recovery.outcome;
         if (recovered?.status === "committed") {
           activeImport.current = null;
           update({ stage: "done", outcome: recovered, errorCode: code });
@@ -669,9 +686,7 @@ export function useClientImport(options: {
           });
           return;
         }
-        if (recovered?.status === "processing")
-          await requestImportJson(`${options.apiBase}/${id}`, { method: "DELETE" }).catch(() => undefined);
-        if (!recovered && importLifecycle.dispatched) unconfirmedImport.current = id;
+        if (recovery.cleanupImportId) unconfirmedImport.current = recovery.cleanupImportId;
         activeImport.current = null;
         const terminal = code === "cancelled" ? "cancelled" : "failed";
         update({ stage: terminal, outcome: recovered, errorCode: code });
