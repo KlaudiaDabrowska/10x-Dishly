@@ -310,14 +310,14 @@ Brak migracji. Nie edytować istniejących plików SQL. Ewentualna poprawka race
 
 #### Automated
 
-- [ ] 3.1 DB tests pokrywają product finalize–finalize oraz obie kolejności product finalize–cancel z kompletnymi decision rows.
-- [ ] 3.2 Każdy race kończy się jednym terminalnym outcome, bez częściowych zapisów, duplikatów ani sprzecznych odpowiedzi.
-- [ ] 3.3 Po zgodzie na lokalny Supabase `npm run test:pdf:db` przechodzi z poprawionym product cancel outcome.
-- [ ] 3.4 `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą; evaluation contract pozostaje bez zmian.
+- [x] 3.1 DB tests pokrywają product finalize–finalize oraz obie kolejności product finalize–cancel z kompletnymi decision rows.
+- [x] 3.2 Każdy race kończy się jednym terminalnym outcome, bez częściowych zapisów, duplikatów ani sprzecznych odpowiedzi.
+- [x] 3.3 Po zgodzie na lokalny Supabase `npm run test:pdf:db` przechodzi z poprawionym product cancel outcome.
+- [x] 3.4 `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą; evaluation contract pozostaje bez zmian.
 
 #### Manual
 
-- [ ] 3.5 Diff potwierdza brak zmiany wdrożonych migracji, sygnatur RPC i retry providera.
+- [x] 3.5 Diff potwierdza brak zmiany wdrożonych migracji, sygnatur RPC i retry providera.
 
 ### Phase 4: HTTP product bridge w CI
 

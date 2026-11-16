@@ -214,7 +214,7 @@ export function createPersistence(
       return String(await call("fail_pdf_validation_import", { p_import_id: importId }, "import-update-failed"));
     },
 
-    async cancelImport(importId: string): Promise<TerminalOutcome> {
+    async cancelImport(importId: string): Promise<TerminalOutcome | ProductTerminalOutcome> {
       return outcome(await call("cancel_pdf_validation_import", { p_import_id: importId }, "import-cancel-failed"));
     },
 
