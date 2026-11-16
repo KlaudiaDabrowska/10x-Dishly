@@ -17,7 +17,7 @@ const buckets = [
   "lostVariantsStepsNotes",
   "wrongCategoriesPages",
 ];
-const fields = {
+export const COMPARED_RECIPE_FIELDS = {
   title: "missing",
   ingredientGroups: "quantitiesUnits",
   instructions: "lostVariantsStepsNotes",
@@ -28,11 +28,10 @@ const fields = {
   pages: "wrongCategoriesPages",
 };
 
-const ALLOWED_CATEGORIES = new Set(["breakfast", "lunch", "dinner", "dessert"]);
-// A reference may leave category null only when the source has no meal evidence; then the candidate
-// must carry one allowed AI-inferred category. sourceCategory is still compared exactly (null).
-const inferredCategoryAccepted = (expected, actual) =>
-  expected.category === null && expected.sourceCategory === null && ALLOWED_CATEGORIES.has(actual?.category);
+export function comparedRecipeField(difference) {
+  const match = /^recipes\[\d+\]\.([A-Za-z]+)(?:\.|\[|$)/u.exec(difference?.path ?? "");
+  return match && Object.hasOwn(COMPARED_RECIPE_FIELDS, match[1]) ? match[1] : null;
+}
 
 function recipeArray(value, name) {
   if (!value || typeof value !== "object" || !Array.isArray(value.recipes)) throw new Error(`${name}-recipes-required`);
@@ -45,7 +44,7 @@ function recipeArray(value, name) {
 export function evaluateRecipes(expectedDocument, actualDocument) {
   const expected = recipeArray(expectedDocument, "expected");
   const actual = recipeArray(actualDocument, "actual");
-  if (expected.some((recipe) => Object.keys(fields).some((field) => !Object.hasOwn(recipe, field))))
+  if (expected.some((recipe) => Object.keys(COMPARED_RECIPE_FIELDS).some((field) => !Object.hasOwn(recipe, field))))
     throw new Error("expected-field-missing");
   const differences = [];
   const add = (context, fieldPath, kind, expectedValue, actualValue, extra = {}) => {
@@ -140,18 +139,7 @@ export function evaluateRecipes(expectedDocument, actualDocument) {
       );
       continue;
     }
-    for (const [field, bucket] of Object.entries(fields)) {
-      if (field === "category" && recipe.category === null && recipe.sourceCategory === null) {
-        if (!inferredCategoryAccepted(recipe, actual[actualIndex]))
-          add(
-            { title, expectedIndex, actualIndex, bucket },
-            `recipes[${expectedIndex}].category`,
-            "inferred-category-required",
-            null,
-            actual[actualIndex].category,
-          );
-        continue;
-      }
+    for (const [field, bucket] of Object.entries(COMPARED_RECIPE_FIELDS)) {
       compare(recipe[field], actual[actualIndex][field], `recipes[${expectedIndex}].${field}`, {
         title,
         expectedIndex,
@@ -358,7 +346,7 @@ export function evaluationSelfTest() {
       name,
     );
   }
-  for (const field of Object.keys(fields)) {
+  for (const field of Object.keys(COMPARED_RECIPE_FIELDS)) {
     const actual = clone();
     Reflect.deleteProperty(actual.recipes[0], field);
     assert.equal(evaluateRecipes(document, actual).ok, false, `missing ${field}`);
@@ -392,24 +380,6 @@ export function evaluationSelfTest() {
     ).length,
     1,
   );
-  const uncategorized = clone();
-  uncategorized.recipes[0].category = null;
-  uncategorized.recipes[0].sourceCategory = null;
-  for (const category of ALLOWED_CATEGORIES) {
-    const inferred = globalThis.structuredClone(uncategorized);
-    inferred.recipes[0].category = category;
-    assert.equal(evaluateRecipes(uncategorized, inferred).ok, true, `inferred ${category}`);
-  }
-  for (const [name, mutate] of [
-    ["inferred invalid category", (r) => (r.category = "snack")],
-    ["inferred null category", (r) => (r.category = null)],
-    ["inferred with invented sourceCategory", (r) => (r.sourceCategory = "Obiad")],
-  ]) {
-    const actual = globalThis.structuredClone(uncategorized);
-    actual.recipes[0].category = "lunch";
-    mutate(actual.recipes[0]);
-    assert.equal(evaluateRecipes(uncategorized, actual).ok, false, name);
-  }
   assert.equal(evaluateRecipes(document, clone()).ok, true);
   const whitespace = JSON.parse(
     JSON.stringify(document, (_key, value) =>
@@ -420,8 +390,8 @@ export function evaluationSelfTest() {
   return {
     ok: true,
     counts: {
-      mutationCases: mutations.length + Object.keys(fields).length + 4 + 4 + 3,
-      passingControls: 2 + ALLOWED_CATEGORIES.size,
+      mutationCases: mutations.length + Object.keys(COMPARED_RECIPE_FIELDS).length + 4 + 4,
+      passingControls: 2,
     },
   };
 }

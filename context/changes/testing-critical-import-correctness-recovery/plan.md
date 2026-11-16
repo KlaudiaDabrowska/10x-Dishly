@@ -290,13 +290,13 @@ Brak migracji. Nie edytować istniejących plików SQL. Ewentualna poprawka race
 
 #### Automated
 
-- [ ] 1.1 `node --test scripts/pdf-acceptance.test.mjs scripts/pdf-evaluate.test.mjs` potwierdza blocking dla każdego zatwierdzonego pola oraz pozytywne kontrole wszystkich zachowanych tolerancji.
-- [ ] 1.2 `npm run pdf:acceptance -- --self-test` odrzuca planted semantic differences i akceptuje partial summer variant, whitespace oraz household-parenthetical controls.
-- [ ] 1.3 `npm run test:pdf` przechodzi bez regresji istniejących kontraktów ekstrakcji.
+- [x] 1.1 `node --test scripts/pdf-acceptance.test.mjs scripts/pdf-evaluate.test.mjs` potwierdza blocking dla każdego zatwierdzonego pola oraz pozytywne kontrole wszystkich zachowanych tolerancji.
+- [x] 1.2 `npm run pdf:acceptance -- --self-test` odrzuca planted semantic differences i akceptuje partial summer variant, whitespace oraz household-parenthetical controls.
+- [x] 1.3 `npm run test:pdf` przechodzi bez regresji istniejących kontraktów ekstrakcji.
 
 #### Manual
 
-- [ ] 1.4 Polityka blocking zostaje porównana z zatwierdzonymi referencjami `summer` i `lunchboxy` bez zmiany prywatnych plików lub ich hashy.
+- [x] 1.4 Polityka blocking zostaje porównana z zatwierdzonymi referencjami `summer` i `lunchboxy` bez zmiany prywatnych plików lub ich hashy.
 
 ### Phase 2: Hermetyczne recovery klienta
 

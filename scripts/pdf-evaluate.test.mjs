@@ -29,23 +29,17 @@ test("self-test independently plants every compared field, order and missing-con
   const result = evaluationSelfTest();
   assert.equal(result.ok, true);
   assert.ok(result.counts.mutationCases >= 30);
-  assert.equal(result.counts.passingControls, 6);
+  assert.equal(result.counts.passingControls, 2);
 });
 
-test("null reference category accepts only an allowed inferred category without source meal evidence", () => {
+test("null reference category remains exact and does not accept an inferred category", () => {
   const expected = base();
   expected.recipes[0].category = null;
   const actual = base();
   actual.recipes[0].category = "dessert";
-  assert.equal(evaluateRecipes(expected, actual).ok, true);
-  actual.recipes[0].sourceCategory = "Obiad";
   assert.equal(evaluateRecipes(expected, actual).ok, false);
-  actual.recipes[0].sourceCategory = null;
   actual.recipes[0].category = null;
-  assert.equal(evaluateRecipes(expected, actual).ok, false);
-  const categorized = base();
-  actual.recipes[0].category = "dinner";
-  assert.ok(evaluateRecipes(categorized, actual).differences.some((d) => d.path === "recipes[0].category"));
+  assert.equal(evaluateRecipes(expected, actual).ok, true);
 });
 
 test("a quantity mutation reports the exact indexed field and only its legacy bucket", () => {

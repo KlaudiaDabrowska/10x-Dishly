@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { evaluateRecipes } from "./pdf-evaluate.mjs";
+import { comparedRecipeField, evaluateRecipes } from "./pdf-evaluate.mjs";
 import { REVIEW_ROOT, digest, privateFile } from "./pdf-extract-review.mjs";
 
 // Two-tier acceptance (plan Phase 4 §7, 2026-10-05 amendment). Offline: reads saved run evidence only.
@@ -29,25 +29,33 @@ const titleKey = (value) => (typeof value === "string" ? value.replace(/\s+/gu, 
 const entryText = (value) =>
   String(value ?? "")
     .replace(/\s+/gu, " ")
-    .trim()
-    .replace(/^[-•–—*▪●◦·]\s*/u, "")
-    .toLowerCase();
-const amount = (value) => (typeof value === "string" ? value.trim() : value);
+    .trim();
+const amount = (value) => (typeof value === "string" ? value.replace(/\s+/gu, " ").trim() : value);
 
-// Dropped household text: only a single trailing parenthetical group of the golden name may be absent.
+// Dropped household text: only a single trailing parenthetical group of the golden text may be absent.
 const TRAILING_PARENTHETICAL = /\s*\([^()]*\)$/u;
-const containsName = (golden, actual) => {
-  const text = entryText(actual.sourceText);
-  const name = entryText(golden.name);
-  const shortened = name.replace(TRAILING_PARENTHETICAL, "");
-  return text.includes(name) || (shortened !== name && shortened !== "" && text.includes(shortened));
+const exactOrDroppedHousehold = (golden, actual, normalize = entryText) => {
+  const expected = normalize(golden);
+  const received = normalize(actual);
+  const shortened = typeof expected === "string" ? expected.replace(TRAILING_PARENTHETICAL, "") : expected;
+  return received === expected || (shortened !== expected && shortened !== "" && received === shortened);
 };
-function entryMatches(golden, actual) {
-  if (!containsName(golden, actual)) return false;
-  if (golden.quantity !== null && amount(actual.quantity) !== amount(golden.quantity)) return false;
-  if (golden.unit !== null && amount(actual.unit) !== amount(golden.unit)) return false;
-  return true;
-}
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+const sourceTextShape = (entry) => {
+  let text = entryText(entry.sourceText);
+  for (const [marker, value] of [
+    ["<quantity>", amount(entry.quantity)],
+    ["<unit>", amount(entry.unit)],
+  ]) {
+    if (typeof value === "string" && value !== "") text = text.replace(new RegExp(escapeRegExp(value), "u"), marker);
+  }
+  return text;
+};
+const sourceTextMatches = (golden, actual) =>
+  exactOrDroppedHousehold(golden.sourceText, actual.sourceText) ||
+  (exactOrDroppedHousehold(golden.name, actual.name) &&
+    exactOrDroppedHousehold(sourceTextShape(golden), sourceTextShape(actual)));
 
 // Maximum bipartite matching (augmenting paths); deterministic for a given order.
 function maximumMatching(rows, columns, compatible) {
@@ -72,43 +80,51 @@ function maximumMatching(rows, columns, compatible) {
 }
 
 export function compareEntries(golden, actual) {
-  const match = maximumMatching(golden.length, actual.length, (g, a) => entryMatches(golden[g], actual[a]));
-  const used = new Set(match.filter((column) => column >= 0));
   const reasons = [];
-  for (const [goldenIndex, column] of match.entries()) {
-    if (column >= 0) continue;
-    const actualIndex = actual.findIndex(
-      (entry, index) => !used.has(index) && containsName(golden[goldenIndex], entry),
-    );
-    if (actualIndex >= 0) {
-      used.add(actualIndex);
-      reasons.push({ code: "ingredient-amount", goldenIndex, actualIndex });
-    } else reasons.push({ code: "ingredient-missing", goldenIndex });
+  for (let index = 0; index < Math.max(golden.length, actual.length); index++) {
+    if (index >= golden.length) {
+      reasons.push({ code: "ingredient-added", actualIndex: index });
+      continue;
+    }
+    if (index >= actual.length) {
+      reasons.push({ code: "ingredient-missing", goldenIndex: index });
+      continue;
+    }
+    if (!exactOrDroppedHousehold(golden[index].name, actual[index].name))
+      reasons.push({ code: "ingredient-name", goldenIndex: index, actualIndex: index });
+    if (
+      amount(golden[index].quantity) !== amount(actual[index].quantity) ||
+      amount(golden[index].unit) !== amount(actual[index].unit)
+    )
+      reasons.push({ code: "ingredient-amount", goldenIndex: index, actualIndex: index });
+    if (!sourceTextMatches(golden[index], actual[index]))
+      reasons.push({ code: "ingredient-source-text", goldenIndex: index, actualIndex: index });
   }
-  for (let actualIndex = 0; actualIndex < actual.length; actualIndex++)
-    if (!used.has(actualIndex)) reasons.push({ code: "ingredient-added", actualIndex });
   return reasons;
+}
+
+function compareGroup(golden, actual) {
+  const reasons = [];
+  if (amount(golden.label) !== amount(actual.label)) reasons.push({ code: "ingredient-group-label" });
+  return [...reasons, ...compareEntries(golden.ingredients, actual.ingredients)];
 }
 
 // Summer variants: one complete variant suffices, or each returned group is a distinct golden variant.
 export function compareRecipeIngredients(golden, actual) {
   const goldenGroups = golden.ingredientGroups;
   const actualGroups = actual.ingredientGroups;
-  const flat = actualGroups.flatMap((group) => group.ingredients);
-  if (goldenGroups.length <= 1)
-    return compareEntries(
-      goldenGroups.flatMap((group) => group.ingredients),
-      flat,
-    );
+  if (goldenGroups.length <= 1) {
+    if (actualGroups.length === 0) return [{ code: "ingredient-group-missing" }];
+    if (actualGroups.length > 1) return [{ code: "ingredient-group-added" }];
+    return compareGroup(goldenGroups[0], actualGroups[0]);
+  }
   const perVariant = goldenGroups.map((group, variant) => ({
     variant,
-    reasons: compareEntries(group.ingredients, flat),
+    reasons: actualGroups.length === 1 ? compareGroup(group, actualGroups[0]) : [{ code: "variant-mismatch" }],
   }));
   if (perVariant.some((entry) => entry.reasons.length === 0)) return [];
   if (actualGroups.length >= 2 && actualGroups.length <= goldenGroups.length) {
-    const fits = actualGroups.map((group) =>
-      goldenGroups.map((variant) => compareEntries(variant.ingredients, group.ingredients).length === 0),
-    );
+    const fits = actualGroups.map((group) => goldenGroups.map((variant) => compareGroup(variant, group).length === 0));
     const match = maximumMatching(actualGroups.length, goldenGroups.length, (a, g) => fits[a][g]);
     if (match.every((column) => column >= 0)) return [];
   }
@@ -127,6 +143,7 @@ export function scoreFixture(goldenDocument, report) {
   const candidates = report.reconciliation?.candidates;
   requireThat(Array.isArray(candidates) && candidates.length === actual.length, "invalid-report");
   const reasons = [];
+  const evaluation = evaluateRecipes(goldenDocument, report.actual);
   if (report.failure || report.completedBatches !== report.requiredBatches) reasons.push({ code: "run-incomplete" });
   if (
     !Array.isArray(report.ledgerBatches) ||
@@ -153,10 +170,25 @@ export function scoreFixture(goldenDocument, report) {
     for (const reason of compareRecipeIngredients(recipe, actual[actualIndex]))
       reasons.push({ ...reason, title, actualRecipeIndex: actualIndex });
   }
+  const recordedSemanticDifferences = new Set();
+  for (const difference of evaluation.differences) {
+    const field = comparedRecipeField(difference);
+    if (field === null || field === "ingredientGroups") continue;
+    const key = `${difference.expectedIndex ?? "none"}:${difference.actualIndex ?? "none"}:${field}`;
+    if (recordedSemanticDifferences.has(key)) continue;
+    recordedSemanticDifferences.add(key);
+    reasons.push({
+      code: "semantic-mismatch",
+      field,
+      ...(difference.title !== undefined ? { title: difference.title } : {}),
+      ...(difference.expectedIndex !== undefined ? { expectedIndex: difference.expectedIndex } : {}),
+      ...(difference.actualIndex !== undefined ? { actualIndex: difference.actualIndex } : {}),
+    });
+  }
   return {
     blocking: { ok: reasons.length === 0, reasons },
     reported: {
-      counts: evaluateRecipes(goldenDocument, report.actual).counts,
+      counts: evaluation.counts,
       invalidCandidates: report.reconciliation.invalidCount,
       incompleteCandidates: candidates.filter((item) => item.status !== "complete").length,
       conflicts: report.reconciliation.conflicts?.length ?? 0,
@@ -312,7 +344,7 @@ export function acceptanceSelfTest() {
     [
       "altered entry",
       (r) => (plain(r)[0] = { name: "cukru", quantity: "100", unit: "g", sourceText: "100g cukru" }),
-      "ingredient-missing",
+      "ingredient-name",
     ],
     ["wrong quantity", (r) => (plain(r)[0].quantity = "10"), "ingredient-amount"],
     ["wrong unit", (r) => (plain(r)[1].unit = null), "ingredient-amount"],
@@ -325,7 +357,7 @@ export function acceptanceSelfTest() {
           { name: "mą", quantity: "100", unit: "g", sourceText: "100g mą" },
           { name: "ki", quantity: null, unit: null, sourceText: "ki" },
         ),
-      "ingredient-missing",
+      "ingredient-name",
     ],
     [
       "mixed-variant recipe",
@@ -342,6 +374,16 @@ export function acceptanceSelfTest() {
       (r) => (r[1].ingredientGroups = [r[1].ingredientGroups[0], globalThis.structuredClone(r[1].ingredientGroups[0])]),
       "variant-mismatch",
     ],
+    ["ingredient group label", (r) => (r[0].ingredientGroups[0].label = "Składniki"), "ingredient-group-label"],
+    ["ingredient source text", (r) => (plain(r)[0].sourceText = "100 g cukru"), "ingredient-source-text"],
+    ["ingredient order", (r) => plain(r).reverse(), "ingredient-name"],
+    ["instructions", (r) => (r[0].instructions[0] = "Usmaż."), "semantic-mismatch"],
+    ["servings", (r) => (r[0].servings = "2"), "semantic-mismatch"],
+    ["footnotes", (r) => (r[0].footnotes = ["Uwaga."]), "semantic-mismatch"],
+    ["category", (r) => (r[0].category = "dinner"), "semantic-mismatch"],
+    ["source category", (r) => (r[0].sourceCategory = null), "semantic-mismatch"],
+    ["pages", (r) => (r[0].pages = [1, 2]), "semantic-mismatch"],
+    ["missing metadata", (r) => Reflect.deleteProperty(r[0], "servings"), "semantic-mismatch"],
   ];
   for (const [name, mutate, code] of planted) {
     const recipes = clone();
@@ -376,37 +418,16 @@ export function acceptanceSelfTest() {
   }
   const controls = [
     ["identical", () => undefined],
+    ["one golden variant", (r) => (r[1].ingredientGroups = [r[1].ingredientGroups[1]])],
+    ["all variants as distinct groups", (r) => (r[1].ingredientGroups = [...r[1].ingredientGroups].reverse())],
+    ["two variants as distinct groups", (r) => (r[1].ingredientGroups = r[1].ingredientGroups.slice(1))],
     [
-      "one golden variant",
-      (r) => (r[1].ingredientGroups = [{ label: null, ingredients: r[1].ingredientGroups[1].ingredients }]),
-    ],
-    [
-      "all variants as distinct groups",
-      (r) =>
-        (r[1].ingredientGroups = [...r[1].ingredientGroups]
-          .reverse()
-          .map((group, index) => ({ ...group, label: `W${index}` }))),
-    ],
-    [
-      "two variants as distinct groups",
-      (r) => (r[1].ingredientGroups = r[1].ingredientGroups.slice(1).map((group) => ({ ...group, label: null }))),
-    ],
-    [
-      "form-only differences",
+      "whitespace normalization",
       (r) => {
-        r[0].category = "dinner";
-        r[0].sourceCategory = null;
-        r[0].instructions = ["Wymieszaj. Podawaj."];
-        r[0].servings = "2";
-        r[0].footnotes = ["Uwaga."];
-        r[0].pages = [1, 2];
-        r[0].ingredientGroups = [{ label: "Składniki", ingredients: [...plain(r)].reverse() }];
-        plain(r)[0].name = "sól";
-        plain(r)[1].sourceText = "• 1  SZTUKA\n jajko (rozmiar M)";
-        plain(r)[2].sourceText = "- 100 g MĄKI pszennej";
-        plain(r)[2].quantity = " 100 ";
-        r[1].title = " Owsianka\n";
-        r[1].ingredientGroups[0].label = null;
+        r[0].title = " Placki\n";
+        r[0].instructions[0] = " Wymieszaj.\n";
+        plain(r)[0].sourceText = "100g\n mąki";
+        plain(r)[0].quantity = " 100 ";
       },
     ],
   ];
@@ -417,7 +438,7 @@ export function acceptanceSelfTest() {
     assert.deepEqual(result.blocking, { ok: true, reasons: [] }, name);
   }
   const household = (name) => [{ name, quantity: "100", unit: "ml", sourceText: `100 ml ${name}` }];
-  const dropped = (name, quantity = "100") => [{ name, quantity, unit: "ml", sourceText: `- ${quantity} ml ${name}` }];
+  const dropped = (name, quantity = "100") => [{ name, quantity, unit: "ml", sourceText: `${quantity} ml ${name}` }];
   const householdCases = [
     ["dropped household parenthetical", household("napar z herbaty (pół szklanki)"), dropped("napar z herbaty"), []],
     [
@@ -430,7 +451,7 @@ export function acceptanceSelfTest() {
       "non-trailing parenthetical is not loosened",
       household("napar (pół szklanki) z herbaty"),
       dropped("napar z herbaty"),
-      ["ingredient-missing", "ingredient-added"],
+      ["ingredient-name", "ingredient-source-text"],
     ],
   ];
   for (const [name, goldenEntries, actualEntries, codes] of householdCases)
@@ -439,6 +460,14 @@ export function acceptanceSelfTest() {
       codes,
       name,
     );
+  const householdGolden = syntheticGolden();
+  householdGolden.recipes[0].ingredientGroups[0].ingredients = household("napar z herbaty (pół szklanki)");
+  const householdActual = globalThis.structuredClone(householdGolden.recipes);
+  householdActual[0].ingredientGroups[0].ingredients = dropped("napar z herbaty");
+  assert.deepEqual(scoreFixture(householdGolden, syntheticReport(householdActual)).blocking, {
+    ok: true,
+    reasons: [],
+  });
   const run = (runId, ok = true, configDigest = "c") => ({
     runId,
     configDigest,
@@ -458,7 +487,7 @@ export function acceptanceSelfTest() {
     counts: {
       plantedFailures:
         planted.length + statusPlants.length + householdCases.filter(([, , , codes]) => codes.length > 0).length,
-      passingControls: controls.length + householdCases.filter(([, , , codes]) => codes.length === 0).length,
+      passingControls: controls.length + householdCases.filter(([, , , codes]) => codes.length === 0).length + 1,
       verdictCases: verdicts.length + 1,
     },
   };
