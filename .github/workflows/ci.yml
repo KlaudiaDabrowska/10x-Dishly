@@ -60,15 +60,16 @@ jobs:
       - name: Start local Supabase
         run: |
           npx --no-install supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor > supabase-start.log
-          npx --no-install supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=' > supabase.env
+          npx --no-install supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY|SECRET_KEY|SERVICE_ROLE_KEY)=' > supabase.env
       - name: Verify durable PDF spending controls
         run: npm run test:pdf:db
       - name: Configure local test secrets
         run: |
           source supabase.env
-          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nDEPLOY_PROBE_TOKEN=ci-local-test-only\n' "$API_URL" "$PUBLISHABLE_KEY" > .env
+          supabase_secret="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
+          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nSUPABASE_SECRET_KEY=%s\nDEPLOY_PROBE_TOKEN=ci-local-test-only\n' "$API_URL" "$PUBLISHABLE_KEY" "$supabase_secret" > .env
       - run: npm run build
-      - name: Run auth smoke test against local Worker
+      - name: Run auth and product import smoke tests against local Worker
         run: |
           npm run preview:worker -- --port 4321 > smoke-preview.log 2>&1 &
           preview_pid=$!
@@ -76,6 +77,8 @@ jobs:
           node scripts/wait-for-server.mjs
           eval "$(npx --no-install supabase status -o env)"
           SUPABASE_DB_URL="$DB_URL" npm run smoke
+          supabase_secret="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
+          SUPABASE_URL="$API_URL" SUPABASE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$supabase_secret" SUPABASE_DB_URL="$DB_URL" npm run smoke:pdf-product
       - if: always()
         run: npx --no-install supabase stop --no-backup
   preview:

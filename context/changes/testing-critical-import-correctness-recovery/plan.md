@@ -323,14 +323,14 @@ Brak migracji. Nie edytować istniejących plików SQL. Ewentualna poprawka race
 
 #### Automated
 
-- [ ] 4.1 Hermetyczne testy harnessu potwierdzają lost-response injection, cleanup i brak wycieku prywatnego payloadu do stdout.
-- [ ] 4.2 Po zgodzie na lokalny Supabase/port `npm run smoke:pdf-product` potwierdza realne finalize, status recovery i owner-scoped read-back bez providera.
-- [ ] 4.3 CI `smoke` uruchamia auth smoke oraz product HTTP bridge na jednym Workerze i zatrzymuje procesy także po błędzie.
-- [ ] 4.4 `npm run test:pdf`, `npm run lint` i `npm run build` przechodzą z nowym commandem.
+- [x] 4.1 Hermetyczne testy harnessu potwierdzają lost-response injection, cleanup i brak wycieku prywatnego payloadu do stdout.
+- [x] 4.2 Po zgodzie na lokalny Supabase/port `npm run smoke:pdf-product` potwierdza realne finalize, status recovery i owner-scoped read-back bez providera.
+- [x] 4.3 CI `smoke` uruchamia auth smoke oraz product HTTP bridge na jednym Workerze i zatrzymuje procesy także po błędzie.
+- [x] 4.4 `npm run test:pdf`, `npm run lint` i `npm run build` przechodzą z nowym commandem.
 
 #### Manual
 
-- [ ] 4.5 Lokalny log smoke’a zawiera wyłącznie identyfikatory i stałe kody; nie zawiera tekstu PDF, przepisu, credentials ani provider response.
+- [x] 4.5 Lokalny log smoke’a zawiera wyłącznie identyfikatory i stałe kody; nie zawiera tekstu PDF, przepisu, credentials ani provider response.
 
 ### Phase 5: Release product acceptance i cookbook
 
