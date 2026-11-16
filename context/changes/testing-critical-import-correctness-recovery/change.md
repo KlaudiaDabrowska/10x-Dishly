@@ -1,9 +1,9 @@
 ---
 change_id: testing-critical-import-correctness-recovery
 title: Krytyczna poprawność importu i recovery
-status: preparing
+status: implementing
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-16
 archived_at: null
 ---
 
