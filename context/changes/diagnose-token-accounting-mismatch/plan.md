@@ -287,11 +287,11 @@ future audited hold resolution is a separate change.
 
 #### Automated
 
-- [x] 4.1 Diagnostic preflight tests reject changed revision, fixture identity, manifest or approved maximum.
-- [x] 4.2 All free tests and static checks pass immediately before live approval is requested.
+- [x] 4.1 Diagnostic preflight tests reject changed revision, fixture identity, manifest or approved maximum. — bdab15c
+- [x] 4.2 All free tests and static checks pass immediately before live approval is requested. — bdab15c
 
 #### Manual
 
-- [ ] 4.3 A human explicitly approves the exact current maximum before the live command runs.
-- [ ] 4.4 The live result is correlated by diagnostic ID and classified as count/usage mismatch, cached-detail mismatch or not reproduced.
-- [ ] 4.5 No second fixture or full product-acceptance run is started by this phase.
+- [x] 4.3 A human explicitly approves the exact current maximum before the live command runs.
+- [x] 4.4 The live result is correlated by diagnostic ID and classified as count/usage mismatch, cached-detail mismatch or not reproduced.
+- [x] 4.5 No second fixture or full product-acceptance run is started by this phase.

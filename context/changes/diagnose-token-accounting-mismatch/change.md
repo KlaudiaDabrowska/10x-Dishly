@@ -1,7 +1,7 @@
 ---
 change_id: diagnose-token-accounting-mismatch
 title: Diagnose PDF token accounting mismatch
-status: implementing
+status: implemented
 created: 2026-11-22
 updated: 2026-11-22
 archived_at: null
