@@ -272,6 +272,145 @@ test("paid response failures remain held and never retry or reconcile", async ()
   }
 });
 
+test("input accounting mismatches expose only typed evidence and remain held without retry", async () => {
+  const keys = [
+    "api",
+    "attempt",
+    "batchIndex",
+    "cachedInputTokens",
+    "cachedInputTokensStatus",
+    "countedInputTokens",
+    "deltaInputTokens",
+    "diagnosticId",
+    "mismatchKind",
+    "reportedInputTokens",
+    "requestedModel",
+    "reservationId",
+    "responseId",
+    "returnedModel",
+    "version",
+  ];
+  const cases = [
+    {
+      name: "count differs from usage",
+      usage: {
+        input_tokens: 124,
+        output_tokens: 45,
+        input_tokens_details: { cached_tokens: 7 },
+        output_tokens_details: { reasoning_tokens: 10 },
+      },
+      expected: {
+        mismatchKind: "count-vs-usage",
+        reportedInputTokens: 124,
+        deltaInputTokens: 1,
+        cachedInputTokensStatus: "valid",
+        cachedInputTokens: 7,
+      },
+    },
+    {
+      name: "cached token detail is invalid",
+      usage: {
+        input_tokens: 123,
+        output_tokens: 45,
+        input_tokens_details: { cached_tokens: "private-invalid-cached-value" },
+        output_tokens_details: { reasoning_tokens: 10 },
+      },
+      expected: {
+        mismatchKind: "cached-token-detail-invalid",
+        reportedInputTokens: 123,
+        deltaInputTokens: 0,
+        cachedInputTokensStatus: "invalid",
+        cachedInputTokens: null,
+      },
+    },
+    {
+      name: "count mismatch takes precedence over invalid cached detail",
+      usage: {
+        input_tokens: 124,
+        output_tokens: 45,
+        input_tokens_details: { cached_tokens: "private-invalid-cached-value" },
+        output_tokens_details: { reasoning_tokens: 10 },
+      },
+      expected: {
+        mismatchKind: "count-vs-usage",
+        reportedInputTokens: 124,
+        deltaInputTokens: 1,
+        cachedInputTokensStatus: "invalid",
+        cachedInputTokens: null,
+      },
+    },
+  ];
+
+  for (const { name, usage, expected } of cases) {
+    const events = [];
+    const sleeps = [];
+    let calls = 0;
+    let caught;
+    try {
+      await recognizePdfBatch({
+        apiKey: "secret-that-must-not-leak",
+        fetch: async (url) => {
+          calls++;
+          return url.endsWith("/input_tokens")
+            ? responseJson({ object: "response.input_tokens", input_tokens: 123 })
+            : responseJson(completed({ usage }));
+        },
+        batch,
+        state: ledger(events),
+        reservation,
+        sleep: async (milliseconds) => sleeps.push(milliseconds),
+      });
+      assert.fail(`${name}: expected mismatch`);
+    } catch (error) {
+      caught = error;
+    }
+
+    assert.ok(caught instanceof OpenAiPdfError, name);
+    assert.equal(caught.code, "input-token-accounting-mismatch", name);
+    assert.deepEqual(Object.keys(caught.evidence).sort(), keys, name);
+    assert.deepEqual(
+      {
+        version: caught.evidence.version,
+        mismatchKind: caught.evidence.mismatchKind,
+        batchIndex: caught.evidence.batchIndex,
+        attempt: caught.evidence.attempt,
+        reservationId: caught.evidence.reservationId,
+        api: caught.evidence.api,
+        requestedModel: caught.evidence.requestedModel,
+        returnedModel: caught.evidence.returnedModel,
+        responseId: caught.evidence.responseId,
+        countedInputTokens: caught.evidence.countedInputTokens,
+        reportedInputTokens: caught.evidence.reportedInputTokens,
+        deltaInputTokens: caught.evidence.deltaInputTokens,
+        cachedInputTokensStatus: caught.evidence.cachedInputTokensStatus,
+        cachedInputTokens: caught.evidence.cachedInputTokens,
+      },
+      {
+        version: 1,
+        ...expected,
+        batchIndex: 0,
+        attempt: 1,
+        reservationId: "00000000-0000-4000-8000-000000000021",
+        api: "responses-v1",
+        requestedModel: OPENAI_MODEL,
+        returnedModel: OPENAI_MODEL,
+        responseId: "resp_test",
+        countedInputTokens: 123,
+      },
+      name,
+    );
+    assert.match(caught.evidence.diagnosticId, /^[0-9a-f-]{36}$/u, name);
+    assert.equal(JSON.stringify(caught.evidence).includes("private-invalid-cached-value"), false, name);
+    assert.equal(calls, 2, name);
+    assert.deepEqual(
+      events.map(([event]) => event),
+      ["reserve"],
+      name,
+    );
+    assert.deepEqual(sleeps, [], name);
+  }
+});
+
 test("provider requests use a Workers-supported redirect mode and reject redirects", async () => {
   const modes = [];
   await assert.rejects(
