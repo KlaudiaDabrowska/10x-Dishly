@@ -267,21 +267,21 @@ future audited hold resolution is a separate change.
 
 #### Automated
 
-- [x] 2.1 HTTP tests prove that the public mismatch body contains only error and diagnostic ID.
-- [x] 2.2 Structured-log tests prove the exact allowlist and reject private-content markers.
-- [x] 2.3 Existing non-mismatch API error contracts remain green.
+- [x] 2.1 HTTP tests prove that the public mismatch body contains only error and diagnostic ID. — 1a84763
+- [x] 2.2 Structured-log tests prove the exact allowlist and reject private-content markers. — 1a84763
+- [x] 2.3 Existing non-mismatch API error contracts remain green. — 1a84763
 
 ### Phase 3: Runner failure evidence and ledger invariants
 
 #### Automated
 
-- [ ] 3.1 Runner tests persist an allowlisted failure record after a thrown mismatch.
-- [ ] 3.2 Ledger lifecycle tests retain the uncertain reservation and perform no retry or reconciliation.
-- [ ] 3.3 Full PDF test suite, lint and Astro type checking pass.
+- [x] 3.1 Runner tests persist an allowlisted failure record after a thrown mismatch.
+- [x] 3.2 Ledger lifecycle tests retain the uncertain reservation and perform no retry or reconciliation.
+- [x] 3.3 Full PDF test suite, lint and Astro type checking pass.
 
 #### Manual
 
-- [ ] 3.4 A deliberately planted hermetic mismatch leaves a readable private failure record and sanitized console output.
+- [x] 3.4 A deliberately planted hermetic mismatch leaves a readable private failure record and sanitized console output.
 
 ### Phase 4: Manually approved diagnostic probe
 

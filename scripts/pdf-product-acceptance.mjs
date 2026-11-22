@@ -28,11 +28,15 @@ export const PRODUCT_ACCEPTANCE_ROOT = "local/product-acceptance";
 export const MAX_ELAPSED_MS = PDF_LIMITS.endToEndDeadlineMs;
 const PROJECT_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const COMMIT = /^[0-9a-f]{40}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-class ProductAcceptanceError extends Error {
-  constructor(code) {
+export class ProductAcceptanceError extends Error {
+  constructor(code, options = {}) {
     super(code);
     this.code = code;
+    if (UUID.test(options.diagnosticId ?? "")) this.diagnosticId = options.diagnosticId;
+    if (options.failureState) this.failureState = options.failureState;
+    if (["deleted", "failed"].includes(options.cleanupStatus)) this.cleanupStatus = options.cleanupStatus;
   }
 }
 
@@ -317,8 +321,66 @@ function httpRequest(baseUrl, actor, fetchImpl) {
       throw new ProductAcceptanceError("invalid-product-response");
     }
     if (!response.ok)
-      throw new ProductAcceptanceError(typeof body?.error === "string" ? body.error : "product-http-failed");
+      throw new ProductAcceptanceError(typeof body?.error === "string" ? body.error : "product-http-failed", {
+        diagnosticId: body?.diagnosticId,
+      });
     return body;
+  };
+}
+
+function ledgerBatchEvidence(batch) {
+  return {
+    batchIndex: Number.isSafeInteger(batch?.batchIndex) ? batch.batchIndex : null,
+    status: typeof batch?.status === "string" ? batch.status : null,
+    reservationState: typeof batch?.reservationState === "string" ? batch.reservationState : null,
+    reservedCostNanoUsd: Number.isSafeInteger(batch?.reservedCostNanoUsd) ? batch.reservedCostNanoUsd : null,
+    actualCostNanoUsd: Number.isSafeInteger(batch?.actualCostNanoUsd) ? batch.actualCostNanoUsd : null,
+    inputTokens: Number.isSafeInteger(batch?.inputTokens) ? batch.inputTokens : null,
+    outputTokens: Number.isSafeInteger(batch?.outputTokens) ? batch.outputTokens : null,
+  };
+}
+
+async function readFailureState(admin, ownerId, importId) {
+  try {
+    const parameters = { p_owner_id: ownerId, p_import_id: importId };
+    const [storedImport, storedLedger] = await Promise.all([
+      admin.rpc("get_pdf_import", { ...parameters, p_channel: "product" }),
+      admin.rpc("get_pdf_import_state", parameters),
+    ]);
+    return {
+      importStatus:
+        !storedImport.error && typeof storedImport.data?.[0]?.status === "string" ? storedImport.data[0].status : null,
+      batches:
+        !storedLedger.error && Array.isArray(storedLedger.data?.[0]?.batches)
+          ? storedLedger.data[0].batches.map(ledgerBatchEvidence)
+          : [],
+    };
+  } catch {
+    return { importStatus: null, batches: [] };
+  }
+}
+
+async function cleanupOwner(admin, ownerId) {
+  try {
+    const result = await admin.auth.admin.deleteUser(ownerId);
+    return result?.error ? "failed" : "deleted";
+  } catch {
+    return "failed";
+  }
+}
+
+export function productAcceptanceFailureRecord(error, fixture) {
+  const state = error?.failureState;
+  return {
+    kind: "dishly-pdf-product-acceptance-failure",
+    version: 1,
+    recordedAt: new Date().toISOString(),
+    fixture,
+    error: errorCode(error),
+    diagnosticId: UUID.test(error?.diagnosticId ?? "") ? error.diagnosticId : null,
+    importStatus: typeof state?.importStatus === "string" ? state.importStatus : null,
+    ledgerBatches: Array.isArray(state?.batches) ? state.batches.map(ledgerBatchEvidence) : [],
+    cleanupStatus: ["deleted", "failed"].includes(error?.cleanupStatus) ? error.cleanupStatus : "failed",
   };
 }
 
@@ -406,6 +468,8 @@ export async function executeFixtureAcceptance({ prepared, preflight, dependenci
     jar: new Map(),
   };
   const startedAt = Date.now();
+  let completed;
+  let failure;
   try {
     const created = await admin.auth.admin.createUser({
       id: ownerId,
@@ -492,10 +556,24 @@ export async function executeFixtureAcceptance({ prepared, preflight, dependenci
       unresolvedHolds: (ledger.batches ?? []).filter((batch) => batch.status !== "reconciled").length,
     };
     const failures = recordFailures(record);
-    return { record, failures };
-  } finally {
-    await admin.auth.admin.deleteUser(ownerId).catch(() => undefined);
+    completed = { record, failures };
+  } catch (error) {
+    failure = error;
   }
+  const failureState = failure ? await readFailureState(admin, ownerId, importId) : null;
+  const cleanupStatus = await cleanupOwner(admin, ownerId);
+  if (failure)
+    throw new ProductAcceptanceError(errorCode(failure), {
+      diagnosticId: failure.diagnosticId,
+      failureState,
+      cleanupStatus,
+    });
+  if (cleanupStatus === "failed")
+    throw new ProductAcceptanceError("product-owner-cleanup-failed", {
+      failureState: { importStatus: completed.record.outcome.status, batches: [] },
+      cleanupStatus,
+    });
+  return completed;
 }
 
 export function writePrivateRecord(filename, value) {
@@ -517,11 +595,29 @@ export async function runLiveProductAcceptance(options, dependencies = {}) {
   const { runId, directory } = createEvidenceDirectory(dependencies.root ?? REVIEW_ROOT, dependencies.runId);
   const results = [];
   for (const prepared of preflight.prepared) {
-    const result = await (dependencies.executeFixture ?? executeFixtureAcceptance)({
-      prepared,
-      preflight,
-      dependencies,
-    });
+    let result;
+    try {
+      result = await (dependencies.executeFixture ?? executeFixtureAcceptance)({
+        prepared,
+        preflight,
+        dependencies,
+      });
+    } catch (error) {
+      const record = productAcceptanceFailureRecord(error, prepared.fixture.id);
+      writePrivateRecord(path.join(directory, `${prepared.fixture.id}.failure.json`), record);
+      results.push({
+        fixture: prepared.fixture.id,
+        ok: false,
+        failures: [record.error, ...(record.cleanupStatus === "failed" ? ["product-owner-cleanup-failed"] : [])],
+        diagnosticId: record.diagnosticId,
+        heldNanoUsd: record.ledgerBatches.reduce(
+          (sum, batch) =>
+            sum + (batch.reservationState === "dispatch-claimed" ? Number(batch.reservedCostNanoUsd ?? 0) : 0),
+          0,
+        ),
+      });
+      break;
+    }
     writePrivateRecord(path.join(directory, `${prepared.fixture.id}.json`), result.record);
     results.push({
       fixture: prepared.fixture.id,
