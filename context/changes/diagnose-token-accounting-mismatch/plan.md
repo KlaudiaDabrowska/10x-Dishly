@@ -275,20 +275,20 @@ future audited hold resolution is a separate change.
 
 #### Automated
 
-- [x] 3.1 Runner tests persist an allowlisted failure record after a thrown mismatch.
-- [x] 3.2 Ledger lifecycle tests retain the uncertain reservation and perform no retry or reconciliation.
-- [x] 3.3 Full PDF test suite, lint and Astro type checking pass.
+- [x] 3.1 Runner tests persist an allowlisted failure record after a thrown mismatch. — 0d3d208
+- [x] 3.2 Ledger lifecycle tests retain the uncertain reservation and perform no retry or reconciliation. — 0d3d208
+- [x] 3.3 Full PDF test suite, lint and Astro type checking pass. — 0d3d208
 
 #### Manual
 
-- [x] 3.4 A deliberately planted hermetic mismatch leaves a readable private failure record and sanitized console output.
+- [x] 3.4 A deliberately planted hermetic mismatch leaves a readable private failure record and sanitized console output. — 0d3d208
 
 ### Phase 4: Manually approved diagnostic probe
 
 #### Automated
 
-- [ ] 4.1 Diagnostic preflight tests reject changed revision, fixture identity, manifest or approved maximum.
-- [ ] 4.2 All free tests and static checks pass immediately before live approval is requested.
+- [x] 4.1 Diagnostic preflight tests reject changed revision, fixture identity, manifest or approved maximum.
+- [x] 4.2 All free tests and static checks pass immediately before live approval is requested.
 
 #### Manual
 

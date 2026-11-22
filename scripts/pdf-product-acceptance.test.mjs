@@ -27,12 +27,44 @@ test("arguments require a pinned revision and an exact live cost approval", () =
     parseProductAcceptanceArgs(["--live", "--revision", revision, "--approved-max-nano-usd", "294912000"]),
     { mode: "live", revision, approvedMaxNanoUsd: 294_912_000 },
   );
+  const identitySha256 = "a".repeat(64);
+  assert.deepEqual(parseProductAcceptanceArgs(["--diagnostic-preflight", "--revision", revision]), {
+    mode: "diagnostic-preflight",
+    revision,
+  });
+  assert.deepEqual(
+    parseProductAcceptanceArgs([
+      "--diagnostic-live",
+      "--revision",
+      revision,
+      "--approved-max-nano-usd",
+      "294912000",
+      "--approved-identity-sha256",
+      identitySha256,
+    ]),
+    {
+      mode: "diagnostic-live",
+      revision,
+      approvedMaxNanoUsd: 294_912_000,
+      approvedIdentitySha256: identitySha256,
+    },
+  );
   for (const args of [
     [],
     ["--live", "--revision", revision],
     ["--preflight"],
     ["--preflight", "--revision", "main"],
     ["--preflight", "--revision", revision, "--approved-max-nano-usd", "1"],
+    ["--diagnostic-live", "--revision", revision, "--approved-max-nano-usd", "294912000"],
+    [
+      "--diagnostic-live",
+      "--revision",
+      revision,
+      "--approved-max-nano-usd",
+      "294912000",
+      "--approved-identity-sha256",
+      "not-a-digest",
+    ],
   ])
     assert.throws(() => parseProductAcceptanceArgs(args));
 });
@@ -123,6 +155,84 @@ test("preflight rejects missing fixtures and hash errors before service or provi
     );
     assert.deepEqual(calls, ["fixtures"]);
   }
+});
+
+test("diagnostic preflight binds only summer identity and rejects drift before dispatch", async () => {
+  const summer = (manifestDigest = "m".repeat(64)) => ({
+    fixture: { id: "summer", sha256: "f".repeat(64), referenceSha256: "r".repeat(64) },
+    source: { sha256: "f".repeat(64) },
+    manifestDigest,
+    readerDigest: "d".repeat(64),
+    batches: [{}, {}],
+  });
+  const calls = [];
+  const maximumNanoUsd = 2 * 147_456_000;
+  const dependencies = (prepared, head = revision) => ({
+    prepareFixtures: (_root, fixtureIds) => {
+      calls.push(["fixtures", [...fixtureIds]]);
+      return prepared;
+    },
+    gitIdentity: () => ({ head, dirty: false }),
+    localServices: () => ({ admin: {} }),
+    readBudget: async () => ({
+      [`month:${new Date().toISOString().slice(0, 7)}`]: {
+        limit_nano_usd: maximumNanoUsd,
+        spent_nano_usd: 0,
+        held_nano_usd: 0,
+      },
+    }),
+    endpointAvailable: async () => true,
+    apiKey: "unused-test-key",
+    codeDigest: () => "c".repeat(64),
+    executeFixture: async () => {
+      calls.push(["dispatch"]);
+      throw new Error("must not dispatch");
+    },
+  });
+
+  const preflight = await runProductAcceptance(
+    ["--diagnostic-preflight", "--revision", revision],
+    dependencies([summer()]),
+  );
+  assert.equal(preflight.mode, "diagnostic-preflight");
+  assert.equal(preflight.maximumNanoUsd, maximumNanoUsd);
+  assert.deepEqual(preflight.fixtures, [{ id: "summer", batches: 2 }]);
+  assert.match(preflight.identitySha256, /^[0-9a-f]{64}$/u);
+  assert.deepEqual(calls, [["fixtures", ["summer"]]]);
+
+  await assert.rejects(
+    runProductAcceptance(["--diagnostic-preflight", "--revision", revision], dependencies([summer()], "b".repeat(40))),
+    { code: "revision-mismatch" },
+  );
+  await assert.rejects(
+    runProductAcceptance(
+      ["--diagnostic-preflight", "--revision", revision],
+      dependencies([{ ...summer(), source: { sha256: "x".repeat(64) } }]),
+    ),
+    { code: "fixture-hash-mismatch" },
+  );
+
+  const liveArgs = (identity, maximum = maximumNanoUsd) => [
+    "--diagnostic-live",
+    "--revision",
+    revision,
+    "--approved-max-nano-usd",
+    String(maximum),
+    "--approved-identity-sha256",
+    identity,
+  ];
+  await assert.rejects(
+    runProductAcceptance(liveArgs(preflight.identitySha256), dependencies([summer("n".repeat(64))])),
+    { code: "diagnostic-identity-mismatch" },
+  );
+  await assert.rejects(
+    runProductAcceptance(liveArgs(preflight.identitySha256, maximumNanoUsd - 1), dependencies([summer()])),
+    { code: "cost-approval-mismatch" },
+  );
+  assert.equal(
+    calls.some(([event]) => event === "dispatch"),
+    false,
+  );
 });
 
 test("private records use exclusive creation and mode 0600", (t) => {

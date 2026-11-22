@@ -24,10 +24,12 @@ import { scoreFixture } from "./pdf-acceptance.mjs";
 import { REVIEW_ROOT, digest, prepareReviewFixtures, privateFile } from "./pdf-extract-review.mjs";
 
 export const PRODUCT_ACCEPTANCE_FIXTURES = ["summer", "lunchboxy"];
+export const PRODUCT_DIAGNOSTIC_FIXTURES = ["summer"];
 export const PRODUCT_ACCEPTANCE_ROOT = "local/product-acceptance";
 export const MAX_ELAPSED_MS = PDF_LIMITS.endToEndDeadlineMs;
 const PROJECT_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const COMMIT = /^[0-9a-f]{40}$/;
+const SHA256 = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export class ProductAcceptanceError extends Error {
@@ -56,7 +58,13 @@ function positiveInteger(value) {
 
 export function parseProductAcceptanceArgs(args) {
   if (args.length === 1 && args[0] === "--self-test") return { mode: "self-test" };
-  const mode = args[0] === "--preflight" ? "preflight" : args[0] === "--live" ? "live" : null;
+  const mode =
+    {
+      "--preflight": "preflight",
+      "--live": "live",
+      "--diagnostic-preflight": "diagnostic-preflight",
+      "--diagnostic-live": "diagnostic-live",
+    }[args[0]] ?? null;
   requireThat(mode, "invalid-product-acceptance-arguments");
   const rest = args.slice(1);
   requireThat(rest.length % 2 === 0, "invalid-product-acceptance-arguments");
@@ -65,7 +73,9 @@ export function parseProductAcceptanceArgs(args) {
     const key = rest[index];
     const value = rest[index + 1];
     requireThat(
-      ["--revision", "--approved-max-nano-usd"].includes(key) && value && !value.startsWith("--"),
+      ["--revision", "--approved-max-nano-usd", "--approved-identity-sha256"].includes(key) &&
+        value &&
+        !value.startsWith("--"),
       "invalid-product-acceptance-arguments",
     );
     const name = key.slice(2);
@@ -73,12 +83,17 @@ export function parseProductAcceptanceArgs(args) {
     options[name] = value;
   }
   requireThat(COMMIT.test(options.revision ?? ""), "invalid-product-acceptance-revision");
-  if (mode === "live") requireThat(positiveInteger(options["approved-max-nano-usd"]), "cost-approval-required");
+  const live = mode === "live" || mode === "diagnostic-live";
+  if (live) requireThat(positiveInteger(options["approved-max-nano-usd"]), "cost-approval-required");
   else requireThat(options["approved-max-nano-usd"] === undefined, "invalid-product-acceptance-arguments");
+  if (mode === "diagnostic-live")
+    requireThat(SHA256.test(options["approved-identity-sha256"] ?? ""), "diagnostic-identity-approval-required");
+  else requireThat(options["approved-identity-sha256"] === undefined, "invalid-product-acceptance-arguments");
   return {
     mode,
     revision: options.revision,
-    ...(mode === "live" ? { approvedMaxNanoUsd: Number(options["approved-max-nano-usd"]) } : {}),
+    ...(live ? { approvedMaxNanoUsd: Number(options["approved-max-nano-usd"]) } : {}),
+    ...(mode === "diagnostic-live" ? { approvedIdentitySha256: options["approved-identity-sha256"] } : {}),
   };
 }
 
@@ -179,9 +194,10 @@ export function plannedCost(prepared) {
   };
 }
 
-export function preflightFixtureFailures(prepared) {
+export function preflightFixtureFailures(prepared, fixtureIds = PRODUCT_ACCEPTANCE_FIXTURES) {
   const failures = [];
-  for (const id of PRODUCT_ACCEPTANCE_FIXTURES) {
+  if (prepared.some((item) => !fixtureIds.includes(item.fixture?.id))) failures.push("fixture-scope-mismatch");
+  for (const id of fixtureIds) {
     const matches = prepared.filter((item) => item.fixture?.id === id);
     if (matches.length !== 1) {
       failures.push("fixture-missing");
@@ -223,8 +239,10 @@ async function endpointAvailable(baseUrl, fetchImpl = fetch) {
 
 export async function preflightProductAcceptance(options, dependencies = {}) {
   const root = dependencies.root ?? REVIEW_ROOT;
-  const prepared = (dependencies.prepareFixtures ?? prepareReviewFixtures)(root, PRODUCT_ACCEPTANCE_FIXTURES);
-  const fixtureFailures = preflightFixtureFailures(prepared);
+  const diagnostic = options.mode === "diagnostic-preflight" || options.mode === "diagnostic-live";
+  const fixtureIds = diagnostic ? PRODUCT_DIAGNOSTIC_FIXTURES : PRODUCT_ACCEPTANCE_FIXTURES;
+  const prepared = (dependencies.prepareFixtures ?? prepareReviewFixtures)(root, fixtureIds);
+  const fixtureFailures = preflightFixtureFailures(prepared, fixtureIds);
   requireThat(fixtureFailures.length === 0, fixtureFailures[0]);
   const identity = (dependencies.gitIdentity ?? gitIdentity)();
   requireThat(!identity.dirty, "dirty-revision");
@@ -245,21 +263,28 @@ export async function preflightProductAcceptance(options, dependencies = {}) {
     }
   }
   requireThat((dependencies.apiKey ?? process.env.OPENAI_API_KEY)?.trim(), "provider-key-missing");
+  const codeIdentity = (dependencies.codeDigest ?? codeDigest)();
+  const configIdentity = digest(JSON.stringify(runtimeConfiguration()));
+  const fixtures = prepared.map(({ fixture, batches, manifestDigest, readerDigest }) => ({
+    id: fixture.id,
+    batches: batches.length,
+    fixtureSha256: fixture.sha256,
+    referenceSha256: fixture.referenceSha256,
+    manifestDigest,
+    readerDigest,
+  }));
+  const identitySha256 = digest(
+    JSON.stringify({ revision: identity.head, codeDigest: codeIdentity, configDigest: configIdentity, fixtures }),
+  );
   return {
     ok: true,
-    mode: "preflight",
+    mode: diagnostic ? "diagnostic-preflight" : "preflight",
     revision: identity.head,
-    codeDigest: (dependencies.codeDigest ?? codeDigest)(),
-    configDigest: digest(JSON.stringify(runtimeConfiguration())),
+    codeDigest: codeIdentity,
+    configDigest: configIdentity,
+    identitySha256,
     budget,
-    fixtures: prepared.map(({ fixture, batches, manifestDigest, readerDigest }) => ({
-      id: fixture.id,
-      batches: batches.length,
-      fixtureSha256: fixture.sha256,
-      referenceSha256: fixture.referenceSha256,
-      manifestDigest,
-      readerDigest,
-    })),
+    fixtures,
     prepared,
     services,
     baseUrl,
@@ -592,6 +617,8 @@ function createEvidenceDirectory(root, runId = randomUUID()) {
 export async function runLiveProductAcceptance(options, dependencies = {}) {
   const preflight = await preflightProductAcceptance(options, dependencies);
   requireThat(options.approvedMaxNanoUsd === preflight.budget.maximumNanoUsd, "cost-approval-mismatch");
+  if (options.mode === "diagnostic-live")
+    requireThat(options.approvedIdentitySha256 === preflight.identitySha256, "diagnostic-identity-mismatch");
   const { runId, directory } = createEvidenceDirectory(dependencies.root ?? REVIEW_ROOT, dependencies.runId);
   const results = [];
   for (const prepared of preflight.prepared) {
@@ -629,8 +656,8 @@ export async function runLiveProductAcceptance(options, dependencies = {}) {
     });
   }
   const summary = {
-    ok: results.length === PRODUCT_ACCEPTANCE_FIXTURES.length && results.every((item) => item.ok),
-    mode: "live",
+    ok: results.length === preflight.prepared.length && results.every((item) => item.ok),
+    mode: options.mode === "diagnostic-live" ? "diagnostic-live" : "live",
     runId,
     revision: preflight.revision,
     results,
@@ -709,13 +736,14 @@ export function productAcceptanceSelfTest() {
 export async function runProductAcceptance(args, dependencies = {}) {
   const options = parseProductAcceptanceArgs(args);
   if (options.mode === "self-test") return productAcceptanceSelfTest();
-  if (options.mode === "preflight") {
+  if (options.mode === "preflight" || options.mode === "diagnostic-preflight") {
     const result = await preflightProductAcceptance(options, dependencies);
     return {
       ok: result.ok,
       mode: result.mode,
       revision: result.revision,
       maximumNanoUsd: result.budget.maximumNanoUsd,
+      ...(result.mode === "diagnostic-preflight" ? { identitySha256: result.identitySha256 } : {}),
       calls: result.budget.calls,
       fixtures: result.fixtures.map(({ id, batches }) => ({ id, batches })),
     };
