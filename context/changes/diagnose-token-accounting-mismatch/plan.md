@@ -259,17 +259,17 @@ future audited hold resolution is a separate change.
 
 #### Automated
 
-- [x] 1.1 Adapter mismatch tests pass without network access or provider cost.
-- [x] 1.2 Evidence exposes the exact approved keys and values for both mismatch kinds.
-- [x] 1.3 Existing exact-usage reconciliation tests remain green.
+- [x] 1.1 Adapter mismatch tests pass without network access or provider cost. — e30ed6f
+- [x] 1.2 Evidence exposes the exact approved keys and values for both mismatch kinds. — e30ed6f
+- [x] 1.3 Existing exact-usage reconciliation tests remain green. — e30ed6f
 
 ### Phase 2: API and private-log correlation
 
 #### Automated
 
-- [ ] 2.1 HTTP tests prove that the public mismatch body contains only error and diagnostic ID.
-- [ ] 2.2 Structured-log tests prove the exact allowlist and reject private-content markers.
-- [ ] 2.3 Existing non-mismatch API error contracts remain green.
+- [x] 2.1 HTTP tests prove that the public mismatch body contains only error and diagnostic ID.
+- [x] 2.2 Structured-log tests prove the exact allowlist and reject private-content markers.
+- [x] 2.3 Existing non-mismatch API error contracts remain green.
 
 ### Phase 3: Runner failure evidence and ledger invariants
 

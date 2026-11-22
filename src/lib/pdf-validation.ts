@@ -10,6 +10,7 @@ import {
 } from "astro:env/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createClient } from "@/lib/supabase";
+import { inputTokenAccountingDiagnostic, sanitizedPdfErrorBody } from "@/lib/pdf-processing/accounting-diagnostic";
 import { SpendingControlError } from "@/lib/pdf-processing/import-state";
 import { PdfRequestError } from "@/lib/pdf-processing/manifest";
 import { OpenAiPdfError } from "@/lib/pdf-processing/openai";
@@ -70,6 +71,12 @@ export function privateJson(body: unknown, status = 200): Response {
 // Content-free server trace for 5xx outcomes: fixed codes and identifiers only, never messages,
 // provider/database bodies, source text or recipe content.
 function logFailure(error: unknown, status: number, route: string, channel: ImportChannel) {
+  const accountingDiagnostic = inputTokenAccountingDiagnostic(error);
+  if (accountingDiagnostic) {
+    // eslint-disable-next-line no-console
+    console.error(JSON.stringify(accountingDiagnostic.privateEvent));
+    return;
+  }
   const cause = error instanceof Error ? error.cause : undefined;
   const dbCode = (cause as { code?: unknown } | undefined)?.code;
   // eslint-disable-next-line no-console
@@ -98,7 +105,7 @@ function errorStatus(error: unknown): { code: string; status: number } {
 export function errorResponse(error: unknown, route = "unknown", channel: ImportChannel = "evaluation"): Response {
   const { code, status } = errorStatus(error);
   if (status >= 500) logFailure(error, status, route, channel);
-  return privateJson({ error: code }, status);
+  return privateJson(sanitizedPdfErrorBody(error, code), status);
 }
 
 export interface GuardedRequest {
