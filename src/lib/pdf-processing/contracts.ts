@@ -110,6 +110,10 @@ export interface DecisionReference {
   recipeId: string | null;
   resolvedAt: string | null;
 }
+export type PublicDecisionReference = Pick<
+  DecisionReference,
+  "decisionId" | "sourceStart" | "state" | "missingReasonCodes"
+>;
 export type ImportStatus = "created" | "processing" | "ready" | "committed" | "failed" | "cancelled";
 export type AccountingStatus = "not-dispatched" | "reserved" | "confirmed" | "unknown";
 export interface ConfirmedImportCounts {

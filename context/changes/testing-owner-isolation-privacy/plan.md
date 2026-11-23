@@ -326,23 +326,23 @@ i nie usuwać starego PK.
 
 #### Automated
 
-- [x] 2.1 `npm run smoke` zalicza exact foreign/nonexistent HTTP matrix.
-- [x] 2.2 Smoke dowodzi braku mutacji po odmowie przez owner-scoped read-back.
-- [x] 2.3 Smoke dowodzi niezależnego create dla wspólnego publicznego UUID.
-- [x] 2.4 Istniejące testy izolacji odczytu przepisów nadal przechodzą.
+- [x] 2.1 `npm run smoke` zalicza exact foreign/nonexistent HTTP matrix. — 1d28eb0
+- [x] 2.2 Smoke dowodzi braku mutacji po odmowie przez owner-scoped read-back. — 1d28eb0
+- [x] 2.3 Smoke dowodzi niezależnego create dla wspólnego publicznego UUID. — 1d28eb0
+- [x] 2.4 Istniejące testy izolacji odczytu przepisów nadal przechodzą. — 1d28eb0
 
 ### Phase 3: Privacy allowlists
 
 #### Automated
 
-- [ ] 3.1 `npm run test:security` zalicza planted sentinels w auth, logach, statusie i kodach klienta.
-- [ ] 3.2 Exact-key assertions odrzucają każde dodatkowe pole statusu i decyzji.
-- [ ] 3.3 `npm run test:pdf` przechodzi po dostosowaniu recovery i product acceptance.
-- [ ] 3.4 `npm run lint` oraz `npx --no-install astro check` przechodzą.
+- [x] 3.1 `npm run test:security` zalicza planted sentinels w auth, logach, statusie i kodach klienta.
+- [x] 3.2 Exact-key assertions odrzucają każde dodatkowe pole statusu i decyzji.
+- [x] 3.3 `npm run test:pdf` przechodzi po dostosowaniu recovery i product acceptance.
+- [x] 3.4 `npm run lint` oraz `npx --no-install astro check` przechodzą.
 
 #### Manual
 
-- [ ] 3.5 Sign-in i sign-up pokazują ustalone copy dla `auth_failed`, a nieznane query nie tworzy banera.
+- [x] 3.5 Sign-in i sign-up pokazują ustalone copy dla `auth_failed`, a nieznane query nie tworzy banera.
 
 ### Phase 4: Bundle and CI gate
 

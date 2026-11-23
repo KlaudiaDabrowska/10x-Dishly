@@ -1,6 +1,11 @@
 import type { APIContext, APIRoute } from "astro";
 import { PDF_LIMITS } from "@/lib/pdf-processing/limits";
 import type { ImportChannel } from "@/lib/pdf-processing/persistence";
+import {
+  publicDecisionReference,
+  publicImportStatus,
+  publicTerminalOutcome,
+} from "@/lib/pdf-processing/public-contract";
 import { errorResponse, guard, privateJson, verifyReadBack } from "@/lib/pdf-validation";
 
 async function createImport(context: APIContext, channel: ImportChannel): Promise<Response> {
@@ -45,7 +50,7 @@ async function finalizeImport(context: APIContext, channel: ImportChannel): Prom
     const outcome = await guarded.service.finalize(String(context.params.id), guarded.body);
     const readBack =
       outcome.status === "committed" && (await verifyReadBack(context, [...outcome.savedIds, ...outcome.existingIds]));
-    return privateJson({ ...outcome, readBack });
+    return privateJson({ ...publicTerminalOutcome(outcome, channel), readBack });
   } catch (error) {
     return errorResponse(error, "finalize", channel);
   }
@@ -57,9 +62,10 @@ async function importStatus(context: APIContext, channel: ImportChannel): Promis
   try {
     const status = await guarded.service.status(String(context.params.id));
     const readBack =
+      status.status === "committed" &&
       status.outcome !== null &&
       (await verifyReadBack(context, [...status.outcome.savedIds, ...status.outcome.existingIds]));
-    return privateJson({ ...status, readBack });
+    return privateJson({ ...publicImportStatus(status, channel), readBack });
   } catch (error) {
     return errorResponse(error, "status", channel);
   }
@@ -69,7 +75,8 @@ async function cancelImport(context: APIContext, channel: ImportChannel): Promis
   const guarded = await guard(context, { channel, operation: "cancel", mutation: true });
   if (guarded instanceof Response) return guarded;
   try {
-    return privateJson(await guarded.service.cancel(String(context.params.id)));
+    const outcome = await guarded.service.cancel(String(context.params.id));
+    return privateJson({ ...publicTerminalOutcome(outcome, channel), readBack: false });
   } catch (error) {
     return errorResponse(error, "cancel", channel);
   }
@@ -91,7 +98,11 @@ async function resolveDecision(context: APIContext, channel: ImportChannel): Pro
       guarded.body,
     );
     const readBack = await verifyReadBack(context, [...result.outcome.savedIds, ...result.outcome.existingIds]);
-    return privateJson({ ...result, readBack });
+    return privateJson({
+      decision: publicDecisionReference(result.decision),
+      outcome: publicTerminalOutcome(result.outcome, channel),
+      readBack,
+    });
   } catch (error) {
     return errorResponse(error, "resolve", channel);
   }

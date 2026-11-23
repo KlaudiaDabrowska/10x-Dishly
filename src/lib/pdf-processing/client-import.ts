@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PDF_OMISSION_RULES, sourceItemKey } from "./contracts.ts";
-import type { DecisionReference, RecipeCandidate } from "./contracts.ts";
+import type { PublicDecisionReference, RecipeCandidate } from "./contracts.ts";
 import { batchFromManifest } from "./manifest.ts";
 import type { SourceManifest } from "./manifest.ts";
 import { canonicalIncompleteCandidates, reconcileCandidates } from "./reconcile.ts";
@@ -25,7 +25,7 @@ export interface ClientImportOutcome {
   readBack: boolean;
   kept?: number;
   discarded?: number;
-  decisions?: DecisionReference[];
+  decisions?: PublicDecisionReference[];
 }
 
 export type ClientDecisionStatus = "pending" | "keeping" | "discarding" | "kept" | "discarded" | "error";
@@ -36,7 +36,6 @@ export interface ClientRecipeDecision {
   candidate: RecipeCandidate;
   missingMessages: string[];
   status: ClientDecisionStatus;
-  recipeId: string | null;
   errorCode: string | null;
 }
 
@@ -77,11 +76,98 @@ export class ClientRequestFailure extends Error {
   readonly lost: boolean;
 
   constructor(code: string, lost = false) {
-    super(code);
+    const normalized = normalizeClientErrorCode(code);
+    super(normalized);
     this.name = "ClientRequestFailure";
-    this.code = code;
+    this.code = normalized;
     this.lost = lost;
   }
+}
+
+const CLIENT_ERROR_CODES = new Set([
+  "active-import-exists",
+  "authentication-required",
+  "authentication_required",
+  "batch-already-dispatched",
+  "batch-already-processed",
+  "batch-result-recording-failed",
+  "batch-results-missing",
+  "batch-too-large",
+  "browser-required",
+  "cancelled",
+  "cross_origin_forbidden",
+  "decision-conflict",
+  "decision-payload-mismatch",
+  "decision-resolution-failed",
+  "encrypted-document",
+  "experiment_unavailable",
+  "file-size-changed",
+  "file-too-large",
+  "finalization-failed",
+  "forbidden",
+  "import-budget-insufficient",
+  "import-cancel-failed",
+  "import-creation-failed",
+  "import-id-conflict",
+  "import-not-found",
+  "import-not-processing",
+  "import-read-failed",
+  "import-update-failed",
+  "import_unavailable",
+  "input-token-accounting-mismatch",
+  "input-token-count-incompatible",
+  "input-token-count-unavailable",
+  "input-token-limit-exceeded",
+  "internal-error",
+  "invalid-document",
+  "invalid-file-size",
+  "invalid-json",
+  "invalid-layout",
+  "invalid-page-count",
+  "invalid-page-sequence",
+  "invalid-processing-start",
+  "invalid-request",
+  "invalid-response",
+  "manifest-mismatch",
+  "network-error",
+  "outcome-missing",
+  "output-token-accounting-mismatch",
+  "output-token-limit-exceeded",
+  "payload-digest-mismatch",
+  "pricing-model-incompatible",
+  "processing-timeout",
+  "provider-blocked",
+  "provider-configuration-error",
+  "provider-http-error",
+  "provider-incomplete-response",
+  "provider-invalid-structured-output",
+  "provider-malformed-json",
+  "provider-malformed-response",
+  "provider-missing-candidates",
+  "provider-missing-output",
+  "provider-missing-usage",
+  "provider-rate-limited",
+  "provider-refused",
+  "provider-response-too-large",
+  "provider-server-error",
+  "provider-timeout",
+  "provider-transport-error",
+  "read-back-unconfirmed",
+  "reader-timeout",
+  "reconciliation-failed",
+  "request-too-large",
+  "reservation-failed",
+  "text-too-large",
+  "too-many-batches",
+  "too-many-pages",
+  "unexpected-error",
+  "unreadable-document",
+  "unsupported-media-type",
+  "worker-origin",
+]);
+
+export function normalizeClientErrorCode(value: unknown): string {
+  return typeof value === "string" && CLIENT_ERROR_CODES.has(value) ? value : "unexpected-error";
 }
 
 type RequestJson = <T>(path: string, init?: RequestInit, signal?: AbortSignal) => Promise<T>;
@@ -120,7 +206,7 @@ export async function requestImportJson<T>(path: string, init: RequestInit = {},
   }
   if (!response.ok) {
     const code = (body as { error?: unknown } | null)?.error;
-    throw new ClientRequestFailure(typeof code === "string" ? code : `http-${response.status}`);
+    throw new ClientRequestFailure(normalizeClientErrorCode(code));
   }
   return body as T;
 }
@@ -154,7 +240,7 @@ export async function recoverFailedClientImport(options: {
   return { outcome, cleanupImportId: outcome ? null : options.importId };
 }
 
-function decisionStatus(reference: DecisionReference): ClientDecisionStatus {
+function decisionStatus(reference: PublicDecisionReference): ClientDecisionStatus {
   return reference.state;
 }
 
@@ -188,7 +274,6 @@ export function joinProductDecisions(
       candidate: matched.candidate,
       missingMessages: reference.missingReasonCodes.map((code) => PDF_OMISSION_RULES[code].explanation),
       status: decisionStatus(reference),
-      recipeId: reference.recipeId,
       errorCode: null,
     };
   });
@@ -196,7 +281,7 @@ export function joinProductDecisions(
 
 export function mergeDecisionReferences(
   current: readonly ClientRecipeDecision[],
-  references: readonly DecisionReference[],
+  references: readonly PublicDecisionReference[],
 ): ClientRecipeDecision[] {
   const byId = new Map(references.map((reference) => [reference.decisionId, reference]));
   return current.map((item) => {
@@ -208,7 +293,6 @@ export function mergeDecisionReferences(
       sourceStart: reference.sourceStart,
       missingMessages: reference.missingReasonCodes.map((code) => PDF_OMISSION_RULES[code].explanation),
       status: preserveLocalState ? item.status : decisionStatus(reference),
-      recipeId: reference.recipeId,
       errorCode: preserveLocalState ? item.errorCode : null,
     };
   });
@@ -279,7 +363,7 @@ export function canResolveClientDecision(
 }
 
 interface ResolveDecisionResult {
-  decision: DecisionReference;
+  decision: PublicDecisionReference;
   outcome: Omit<ClientImportOutcome, "readBack">;
   readBack: boolean;
 }
@@ -291,7 +375,7 @@ export async function resolveClientDecision(options: {
   action: "keep" | "discard";
   request?: RequestJson;
   sleep?: (milliseconds: number) => Promise<void>;
-}): Promise<{ outcome: ClientImportOutcome; decision: DecisionReference }> {
+}): Promise<{ outcome: ClientImportOutcome; decision: PublicDecisionReference }> {
   const request = options.request ?? requestImportJson;
   const sleep = options.sleep ?? ((milliseconds) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   try {
@@ -348,7 +432,7 @@ async function recoverResolvedDecisionStatus(
   expected: "kept" | "discarded",
   request: RequestJson,
   sleep: (milliseconds: number) => Promise<void>,
-): Promise<{ outcome: ClientImportOutcome; decision: DecisionReference } | null> {
+): Promise<{ outcome: ClientImportOutcome; decision: PublicDecisionReference } | null> {
   for (const delay of FINALIZE_RECOVERY_DELAYS_MS) {
     if (delay > 0) await sleep(delay);
     const recovered = await recoverStatus(apiBase, importId, request);
@@ -470,8 +554,8 @@ const UNREADABLE_CODES = new Set([
   "unreadable-document",
   "worker-origin",
 ]);
-const SESSION_CODES = new Set(["authentication_required", "authentication-required", "http-401"]);
-const UNAVAILABLE_CODES = new Set(["import_unavailable", "http-503"]);
+const SESSION_CODES = new Set(["authentication_required", "authentication-required"]);
+const UNAVAILABLE_CODES = new Set(["import_unavailable"]);
 const ACTIVE_CODES = new Set(["active-import-exists", "import-not-processing"]);
 const BUDGET_CODES = new Set(["import-budget-insufficient", "reservation-failed"]);
 const TIMEOUT_CODES = new Set(["reader-timeout", "processing-timeout", "provider-timeout"]);
@@ -666,7 +750,7 @@ export function useClientImport(options: {
           outcome: result.outcome,
         });
       } catch (failure) {
-        const code = failure instanceof Error && "code" in failure ? String(failure.code) : "unexpected-error";
+        const code = normalizeClientErrorCode(failure instanceof Error && "code" in failure ? failure.code : null);
         const recovery = await recoverFailedClientImport({
           apiBase: options.apiBase,
           importId: id,
@@ -732,7 +816,7 @@ export function useClientImport(options: {
           decisions: mergeDecisionReferences(current.decisions, result.outcome.decisions ?? [result.decision]),
         }));
       } catch (failure) {
-        const code = failure instanceof Error && "code" in failure ? String(failure.code) : "unexpected-error";
+        const code = normalizeClientErrorCode(failure instanceof Error && "code" in failure ? failure.code : null);
         setState((current) => ({
           ...current,
           decisions: current.decisions.map((item) =>
