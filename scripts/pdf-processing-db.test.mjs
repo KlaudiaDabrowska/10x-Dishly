@@ -84,6 +84,20 @@ async function scope(key) {
   );
 }
 
+async function internalImportId(ownerId, clientImportId) {
+  const { data, error } = await admin().rpc("pdf_import_internal_id", {
+    p_owner_id: ownerId,
+    p_client_import_id: clientImportId,
+  });
+  assert.ifError(error);
+  assert.match(data, /^[0-9a-f-]{36}$/u);
+  return data;
+}
+
+async function importScope(ownerId, clientImportId) {
+  return scope(`import:${await internalImportId(ownerId, clientImportId)}`);
+}
+
 const owner = await createUser(`pdf-owner-${randomUUID()}@example.test`);
 const otherOwner = await createUser(`pdf-other-${randomUUID()}@example.test`);
 
@@ -144,9 +158,9 @@ test("near-limit admission is atomic and duplicate batches never claim twice", a
   assert.equal(duplicate.data[0].claimed, false);
   assert.equal(duplicate.data[0].attempt_id, first.data[0].attempt_id);
 
-  const importScope = await scope(`import:${importId}`);
-  assert.equal(importScope.limit_nano_usd, 500_000_000);
-  assert.equal(importScope.held_nano_usd, 500_000_000);
+  const importBudgetScope = await importScope(owner.id, importId);
+  assert.equal(importBudgetScope.limit_nano_usd, 500_000_000);
+  assert.equal(importBudgetScope.held_nano_usd, 500_000_000);
 
   const state = await admin().rpc("get_pdf_import_state", { p_owner_id: otherOwner.id, p_import_id: importId });
   assert.ifError(state.error);
@@ -218,7 +232,7 @@ test("expiry, timeout, crash and cancellation never free a dispatch-claimed rese
   );
   assert.ifError(admitted.error);
   const reservationId = admitted.data[0].reservation_id;
-  const before = await scope(`import:${importId}`);
+  const before = await importScope(owner.id, importId);
 
   const closed = await admin().rpc("close_expired_pdf_import", {
     p_owner_id: owner.id,
@@ -234,7 +248,7 @@ test("expiry, timeout, crash and cancellation never free a dispatch-claimed rese
   });
   assert.ok(release.error);
 
-  const after = await scope(`import:${importId}`);
+  const after = await importScope(owner.id, importId);
   assert.equal(after.held_nano_usd, before.held_nano_usd);
   assert.equal(after.held_nano_usd, 10);
 });
@@ -297,7 +311,7 @@ test("a 429 is reconciled at zero once, frees the hold, and admits exactly one n
   const first = await reserve(admin(), base);
   assert.ifError(first.error);
   const firstReservation = first.data[0].reservation_id;
-  const importKey = `import:${base.p_import_id}`;
+  const importKey = `import:${await internalImportId(owner.id, base.p_import_id)}`;
   const before = await scope(importKey);
   assert.equal(before.held_nano_usd, 100);
 
@@ -360,7 +374,7 @@ test("zero-cost reconciliation applies only to dispatch-claimed reservations", a
     p_output_digest: digest("o"),
   });
   assert.ifError(usage.error);
-  const importKey = `import:${usageImport.p_import_id}`;
+  const importKey = `import:${await internalImportId(owner.id, usageImport.p_import_id)}`;
   const before = await scope(importKey);
   const rejected = await admin().rpc("reconcile_pdf_rate_limited", {
     p_owner_id: owner.id,
@@ -605,9 +619,9 @@ function sql(statement) {
 function seedReadableRecipe({ id, importId, ownerId, fingerprint, title, createdAt, sourceStartPage = 1 }) {
   sql(`
     insert into public.pdf_imports (
-      id, owner_id, channel, file_fingerprint, manifest_digest, status, expires_at, source_filename
+      id, client_import_id, owner_id, channel, file_fingerprint, manifest_digest, status, expires_at, source_filename
     ) values (
-      '${importId}', '${ownerId}', 'product', '${fingerprint}', '${digest("m")}', 'committed',
+      '${importId}', '${importId}', '${ownerId}', 'product', '${fingerprint}', '${digest("m")}', 'committed',
       '2099-01-01T00:00:00Z', 'owner-read-fixture.pdf'
     );
   `);
@@ -719,6 +733,7 @@ test("browser roles cannot call finalization RPCs or mutate recipes", async () =
       ["cancel_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["get_pdf_validation_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["get_pdf_import", { p_owner_id: user.id, p_import_id: randomUUID(), p_channel: "product" }],
+      ["pdf_import_internal_id", { p_owner_id: user.id, p_client_import_id: randomUUID() }],
       ["finalize_pdf_product_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["resolve_pdf_product_decision", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["get_pdf_product_decisions", { p_owner_id: user.id, p_import_id: randomUUID() }],
@@ -1180,7 +1195,7 @@ test("a reimport keep points D2 at existing R while R retains its D1 origin", as
   const recipe = (await ownRecipes(user)).find((row) => row.id === recipeId);
   assert.ok(recipe);
   assert.equal(recipe.title, editedTitle);
-  assert.equal(recipe.import_id, first.created.importId);
+  assert.equal(recipe.import_id, await internalImportId(user.id, first.created.importId));
   assert.equal(recipe.kept_from_decision_id, first.decisionId);
   const decisions = await admin().rpc("get_pdf_product_decisions", {
     p_owner_id: user.id,
@@ -1223,7 +1238,7 @@ test("a complete extraction failure writes no recipes and keeps the possible cha
   assert.equal(outcome.status, "failed");
   assert.deepEqual([outcome.saved, outcome.alreadySaved, outcome.pending], [0, 0, 0]);
   assert.deepEqual(await ownRecipes(user), []);
-  assert.equal((await scope(`import:${created.importId}`)).held_nano_usd, 1000);
+  assert.equal((await importScope(user.id, created.importId)).held_nano_usd, 1000);
 });
 
 test("a cancel that lands after the open check still prevents reservation and dispatch", async () => {
@@ -1255,9 +1270,10 @@ test("a cancel that lands after the open check still prevents reservation and di
   await assert.rejects(svc.processBatch(importId, roundTrip(batch)), { code: "import-not-processing" });
   assert.equal(dispatched, 0);
   // No reservation was admitted: nothing is held or spent for this import, and no batch was claimed.
-  const importScope = await admin().rpc("get_pdf_budget_scope", { p_scope_key: `import:${importId}` });
-  assert.ifError(importScope.error);
-  assert.ok(importScope.data.every((row) => Number(row.held_nano_usd) === 0 && Number(row.spent_nano_usd) === 0));
+  const internalId = await internalImportId(user.id, importId);
+  const importBudget = await admin().rpc("get_pdf_budget_scope", { p_scope_key: `import:${internalId}` });
+  assert.ifError(importBudget.error);
+  assert.ok(importBudget.data.every((row) => Number(row.held_nano_usd) === 0 && Number(row.spent_nano_usd) === 0));
   const state = await admin().rpc("get_pdf_import_state", { p_owner_id: user.id, p_import_id: importId });
   assert.ifError(state.error);
   assert.ok(state.data[0].batches.every((entry) => !entry.reservationId && entry.status !== "dispatch-claimed"));
@@ -1278,18 +1294,27 @@ test("a client-chosen import id recovers a lost create response and cannot be re
   // The create response is "lost": retrying with the same id returns the same import, not a 409.
   const retried = roundTrip(await svc.createImport(createBody(document, importId)));
   assert.deepEqual([retried.importId, retried.manifestDigest], [importId, first.manifestDigest]);
-  // The same id with different text, or from another account, is rejected.
+  // The same owner cannot reuse the id for different content.
   await assert.rejects(svc.createImport(createBody(sourceDocument(sha(), "create.pdf"), importId)), {
     code: "import-id-conflict",
   });
-  await assert.rejects(service(other.id).createImport(createBody(sourceDocument(sha(), "x.pdf"), importId)), {
-    code: "import-id-conflict",
-  });
+  // Another owner receives an independent import in their own public-id namespace.
+  const otherSvc = service(other.id);
+  const otherCreated = roundTrip(await otherSvc.createImport(createBody(sourceDocument(sha(), "x.pdf"), importId)));
+  assert.equal(otherCreated.importId, importId);
+  assert.notEqual(await internalImportId(user.id, importId), await internalImportId(other.id, importId));
+  assert.throws(() =>
+    sql(`update public.pdf_imports set client_import_id = gen_random_uuid()
+      where owner_id = '${user.id}' and client_import_id = '${importId}'`),
+  );
+  assert.equal((await svc.status(importId)).status, "processing");
+  assert.equal((await otherSvc.status(importId)).status, "processing");
   await assert.rejects(svc.createImport({ ...createBody(document), importId: "not-a-uuid" }), {
     code: "invalid-request",
   });
   // The browser can always close the import by the id it chose, which frees the evaluator slot.
   assert.equal((await svc.cancel(importId)).status, "cancelled");
+  assert.equal((await otherSvc.cancel(importId)).status, "cancelled");
   const next = roundTrip(await svc.createImport(createBody(sourceDocument(sha(), "next.pdf"))));
   await svc.cancel(next.importId);
 });
@@ -1318,7 +1343,8 @@ test("import channel is immutable, route-scoped, and product reservations do not
     code: "import-not-found",
   });
   assert.throws(() =>
-    sql(`update public.pdf_imports set channel = 'product' where id = '${evaluationCreated.importId}'`),
+    sql(`update public.pdf_imports set channel = 'product'
+      where owner_id = '${user.id}' and client_import_id = '${evaluationCreated.importId}'`),
   );
   const afterRejectedUpdate = await admin().rpc("get_pdf_import", {
     p_owner_id: user.id,
@@ -1336,7 +1362,7 @@ test("import channel is immutable, route-scoped, and product reservations do not
   const firstBatch = batchFromManifest(document.source, document.pages, created.manifest.batches[0]);
   await product.processBatch(created.importId, roundTrip(firstBatch));
   assert.deepEqual(await scope("f01"), beforeF01);
-  assert.equal((await scope(`import:${created.importId}`)).spent_nano_usd, 2);
+  assert.equal((await importScope(user.id, created.importId)).spent_nano_usd, 2);
   const month = await scope(`month:${new Date().toISOString().slice(0, 7)}`);
   assert.ok(month.spent_nano_usd >= 2);
   await product.cancel(created.importId);
@@ -1347,7 +1373,8 @@ test("an import that expired before finalize saves nothing, even with valid cont
   const svc = service(user.id);
   const { created, body } = await processAll(svc, sourceDocument(sha(), "expired.pdf"));
   sql(
-    `update public.pdf_imports set expires_at = clock_timestamp() - interval '1 second' where id = '${created.importId}'`,
+    `update public.pdf_imports set expires_at = clock_timestamp() - interval '1 second'
+      where owner_id = '${user.id}' and client_import_id = '${created.importId}'`,
   );
   const outcome = await svc.finalize(created.importId, body);
   assert.equal(outcome.status, "failed");
@@ -1576,7 +1603,7 @@ test("the f01 carry-over is service-role only, additive, once-only and leaves ot
     request(owner.id, { p_maximum_cost_nano_usd: 10, p_accounting_time: "2036-01-01T00:00:00Z" }),
   );
   assert.ifError(month.error);
-  const otherScopes = [await scope("month:2036-01"), await scope(`import:${month.data[0].import_id}`)];
+  const otherScopes = [await scope("month:2036-01"), await importScope(owner.id, month.data[0].import_id)];
   const before = await scope("f01");
 
   const applied = await admin().rpc("carry_over_pdf_f01_budget", carry);
@@ -1594,7 +1621,7 @@ test("the f01 carry-over is service-role only, additive, once-only and leaves ot
       carry.p_spent_nano_usd -
       carry.p_held_nano_usd,
   );
-  assert.deepEqual([await scope("month:2036-01"), await scope(`import:${month.data[0].import_id}`)], otherScopes);
+  assert.deepEqual([await scope("month:2036-01"), await importScope(owner.id, month.data[0].import_id)], otherScopes);
 
   // The identical replay is a no-op; any different second carry-over is refused.
   const replay = await admin().rpc("carry_over_pdf_f01_budget", carry);
