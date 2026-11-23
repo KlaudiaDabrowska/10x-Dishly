@@ -338,12 +338,12 @@ Brak migracji. Nie edytować istniejących plików SQL. Ewentualna poprawka race
 
 #### Automated
 
-- [x] 5.1 Self-tests product acceptance odrzucają brak fixture, niezgodne hashe, dirty/mismatched revision, niepełny outcome, brak read-back, pending decisions, błędne counts, semantic mismatch, czas ponad 300 sekund i unreconciled cost.
-- [x] 5.2 Preflight jawnie potwierdza dostępność obu prywatnych fixture, referencji, reader artifacts, lokalnego środowiska i budżetu przed wywołaniem providera.
-- [x] 5.3 Mismatch zapisuje prywatny, sanitizowany failure record, pozostawia niepewną rezerwację held i zatrzymuje run przed drugim fixture bez automatycznego retry lub reconciliation.
-- [x] 5.4 `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą, a `test-plan.md` dokumentuje niezależne statusy rollout i release readiness.
+- [x] 5.1 Self-tests product acceptance odrzucają brak fixture, niezgodne hashe, dirty/mismatched revision, niepełny outcome, brak read-back, pending decisions, błędne counts, semantic mismatch, czas ponad 300 sekund i unreconciled cost. — 56c5ccd
+- [x] 5.2 Preflight jawnie potwierdza dostępność obu prywatnych fixture, referencji, reader artifacts, lokalnego środowiska i budżetu przed wywołaniem providera. — 56c5ccd
+- [x] 5.3 Mismatch zapisuje prywatny, sanitizowany failure record, pozostawia niepewną rezerwację held i zatrzymuje run przed drugim fixture bez automatycznego retry lub reconciliation. — 56c5ccd
+- [x] 5.4 `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą, a `test-plan.md` dokumentuje niezależne statusy rollout i release readiness. — 56c5ccd
 
 #### Manual
 
-- [x] 5.5 Użytkownik potwierdza, że ukończenie rollout'u nie autoryzuje wydania ani kolejnej płatnej próby; release pozostaje zablokowany do dwóch zaliczonych rekordów live.
-- [x] 5.6 Kontrola istniejących failure artifacts potwierdza prywatne uprawnienia, kompletność allowlistowanego evidence i brak treści PDF, credentials lub provider response poza ignorowanym katalogiem prywatnym.
+- [x] 5.5 Użytkownik potwierdza, że ukończenie rollout'u nie autoryzuje wydania ani kolejnej płatnej próby; release pozostaje zablokowany do dwóch zaliczonych rekordów live. — 56c5ccd
+- [x] 5.6 Kontrola istniejących failure artifacts potwierdza prywatne uprawnienia, kompletność allowlistowanego evidence i brak treści PDF, credentials lub provider response poza ignorowanym katalogiem prywatnym. — 56c5ccd
