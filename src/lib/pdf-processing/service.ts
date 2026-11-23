@@ -376,9 +376,11 @@ export function createValidationService(options: ValidationServiceOptions) {
       return { decision: resolved, outcome };
     },
 
-    async cancel(importId: string): Promise<TerminalOutcome> {
+    async cancel(importId: string): Promise<TerminalOutcome | ProductTerminalOutcome> {
       await requireImport(importId);
-      return persistence.cancelImport(importId);
+      const cancelled = await persistence.cancelImport(importId);
+      if (channel !== "product") return cancelled;
+      return terminalOutcome(await requireImport(importId));
     },
 
     // Non-content status: recovers a committed outcome after a lost response.

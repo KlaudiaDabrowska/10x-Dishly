@@ -491,13 +491,14 @@ function mockRecognize({ fail = false, calls = [], title } = {}) {
   };
 }
 function service(ownerId, options = {}, channel = "evaluation") {
+  const { client = admin(), ...recognizeOptions } = options;
   return createValidationService({
-    client: admin(),
+    client,
     ownerId,
     channel,
     apiKey: "unused-test-key",
     prepareBatches: async (source, pages) => createTextBatches(source, pages, { corePagesPerBatch: 1 }),
-    recognize: mockRecognize(options),
+    recognize: mockRecognize(recognizeOptions),
   });
 }
 const roundTrip = (value) => JSON.parse(JSON.stringify(value));
@@ -532,6 +533,70 @@ async function ownRecipes(user) {
   const { data, error } = await (await signedIn(user)).from("recipes").select("*").order("source_start_page");
   assert.ifError(error);
   return data;
+}
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+function orderedRpcClient(waitForRpc, waitFor, completed) {
+  const client = admin();
+  return {
+    async rpc(name, parameters) {
+      if (name === waitForRpc && waitFor) await waitFor;
+      const result = await client.rpc(name, parameters);
+      if (name === waitForRpc && completed) completed();
+      return result;
+    },
+  };
+}
+
+function canonicalProductOutcome(status) {
+  const outcome = status.outcome ?? {};
+  return {
+    status: status.status,
+    saved: outcome.saved ?? 0,
+    alreadySaved: outcome.alreadySaved ?? 0,
+    pending: outcome.pending ?? 0,
+    savedIds: outcome.savedIds ?? [],
+    existingIds: outcome.existingIds ?? [],
+    kept: outcome.kept ?? 0,
+    discarded: outcome.discarded ?? 0,
+    decisions: outcome.decisions ?? [],
+  };
+}
+
+async function assertProductRaceState(user, svc, importId, responses) {
+  const status = await svc.status(importId);
+  const expected = canonicalProductOutcome(status);
+  for (const response of responses) assert.deepEqual(response, expected);
+  const recipes = await ownRecipes(user);
+  const decisions = await admin().rpc("get_pdf_product_decisions", {
+    p_owner_id: user.id,
+    p_import_id: importId,
+  });
+  assert.ifError(decisions.error);
+  if (status.status === "committed") {
+    assert.equal(recipes.length, 1);
+    assert.equal(decisions.data.length, 1);
+    assert.deepEqual(
+      expected.savedIds,
+      recipes.map((recipe) => recipe.id),
+    );
+    assert.deepEqual(
+      expected.decisions.map((decision) => decision.decisionId),
+      decisions.data.map((decision) => decision.decision_id),
+    );
+  } else {
+    assert.equal(status.status, "cancelled");
+    assert.deepEqual(recipes, []);
+    assert.deepEqual(decisions.data, []);
+    assert.deepEqual([expected.saved, expected.alreadySaved, expected.pending], [0, 0, 0]);
+  }
 }
 function sql(statement) {
   return supabase("db", "query", "--db-url", local.DB_URL, statement);
@@ -1317,6 +1382,77 @@ test("concurrent finalize and cancel serialize on the import row", async () => {
       assert.deepEqual(rows, []);
     }
   }
+});
+
+test("concurrent product finalizers return one canonical recipe and decision outcome", async () => {
+  const user = await createUser(`pdf-product-finalize-race-${randomUUID()}@example.test`);
+  const svc = service(user.id, {}, "product");
+  const { created, body } = await processAll(svc, sourceDocument(sha(), "product-finalize-race.pdf"));
+
+  const responses = await Promise.all([
+    svc.finalize(created.importId, roundTrip(body)),
+    svc.finalize(created.importId, roundTrip(body)),
+  ]);
+
+  await assertProductRaceState(user, svc, created.importId, responses);
+});
+
+test("product finalize and cancel return the committed outcome when finalize wins", async () => {
+  const user = await createUser(`pdf-product-finalize-wins-${randomUUID()}@example.test`);
+  const setup = service(user.id, {}, "product");
+  const { created, body } = await processAll(setup, sourceDocument(sha(), "product-finalize-wins.pdf"));
+  const finalized = deferred();
+  const finalizeSvc = service(
+    user.id,
+    {
+      client: orderedRpcClient("finalize_pdf_product_import", null, finalized.resolve),
+    },
+    "product",
+  );
+  const cancelSvc = service(
+    user.id,
+    {
+      client: orderedRpcClient("cancel_pdf_validation_import", finalized.promise),
+    },
+    "product",
+  );
+
+  const responses = await Promise.all([
+    finalizeSvc.finalize(created.importId, roundTrip(body)),
+    cancelSvc.cancel(created.importId),
+  ]);
+
+  assert.equal(responses[0].status, "committed");
+  await assertProductRaceState(user, setup, created.importId, responses);
+});
+
+test("product finalize and cancel return the empty cancelled outcome when cancel wins", async () => {
+  const user = await createUser(`pdf-product-cancel-wins-${randomUUID()}@example.test`);
+  const setup = service(user.id, {}, "product");
+  const { created, body } = await processAll(setup, sourceDocument(sha(), "product-cancel-wins.pdf"));
+  const cancelled = deferred();
+  const cancelSvc = service(
+    user.id,
+    {
+      client: orderedRpcClient("cancel_pdf_validation_import", null, cancelled.resolve),
+    },
+    "product",
+  );
+  const finalizeSvc = service(
+    user.id,
+    {
+      client: orderedRpcClient("finalize_pdf_product_import", cancelled.promise),
+    },
+    "product",
+  );
+
+  const responses = await Promise.all([
+    finalizeSvc.finalize(created.importId, roundTrip(body)),
+    cancelSvc.cancel(created.importId),
+  ]);
+
+  assert.equal(responses[0].status, "cancelled");
+  await assertProductRaceState(user, setup, created.importId, responses);
 });
 
 test("a lost commit response is recovered by status without another model call", async () => {

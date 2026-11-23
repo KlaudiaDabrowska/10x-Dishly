@@ -56,7 +56,7 @@ const report = (recipes, status = "complete") => ({
   },
 });
 
-test("self-test detects every planted blocking failure and passes variant and form-only controls", () => {
+test("self-test blocks semantic mutants and passes only approved variant and normalization controls", () => {
   const result = acceptanceSelfTest();
   assert.equal(result.ok, true);
   assert.ok(result.counts.plantedFailures >= 16);
@@ -74,24 +74,24 @@ test("a dropped trailing household parenthetical still matches; amounts stay blo
   const inner = [entry("PRIVATE (pół) TEA", "100", "ml", "100 ml PRIVATE (pół) TEA")];
   assert.deepEqual(
     compareEntries(inner, actual("100", "PRIVATE TEA")).map((reason) => reason.code),
-    ["ingredient-missing", "ingredient-added"],
+    ["ingredient-name", "ingredient-source-text"],
   );
 });
 
-test("ingredient entries match on contained name and exact golden amounts, one-to-one", () => {
+test("ingredient entries require semantic equality after approved normalization", () => {
   const expected = golden();
   const pass = scoreFixture(expected, report(golden().recipes));
   assert.deepEqual(pass.blocking, { ok: true, reasons: [] });
   assert.equal(pass.reported.counts.fieldDifferences, 0);
 
-  const formOnly = golden().recipes;
-  formOnly[0].ingredientGroups[0].ingredients = [
-    entry("salt", null, null, "• SALT  to\n taste"),
-    entry("water", " 100", "ml ", "- 100 ml private_water (1 glass)"),
-  ];
-  const tolerated = scoreFixture(expected, report(formOnly));
+  const whitespace = golden().recipes;
+  whitespace[0].title = " PRIVATE_TITLE\n";
+  whitespace[0].instructions = [" Mix.\n"];
+  whitespace[0].ingredientGroups[0].ingredients[0].quantity = " 100 ";
+  whitespace[0].ingredientGroups[0].ingredients[0].sourceText = "100 ml\n PRIVATE_WATER";
+  const tolerated = scoreFixture(expected, report(whitespace));
   assert.equal(tolerated.blocking.ok, true);
-  assert.ok(tolerated.reported.counts.fieldDifferences > 0);
+  assert.equal(tolerated.reported.counts.fieldDifferences, 0);
 
   for (const [mutate, code] of [
     [(items) => (items[0].quantity = "10"), "ingredient-amount"],
@@ -99,7 +99,7 @@ test("ingredient entries match on contained name and exact golden amounts, one-t
     [(items) => items.push(entry("Oil", "2", "g", "2g Oil")), "ingredient-added"],
     [(items) => items.push(globalThis.structuredClone(items[1])), "ingredient-added"],
     [(items) => items.pop(), "ingredient-missing"],
-    [(items) => (items[1].sourceText = "Pepper"), "ingredient-missing"],
+    [(items) => (items[1].sourceText = "Pepper"), "ingredient-source-text"],
   ]) {
     const recipes = golden().recipes;
     mutate(recipes[0].ingredientGroups[0].ingredients);
@@ -131,7 +131,7 @@ test("variant recipes pass with one golden variant or distinct variant groups, n
   });
   const expected = recipe("Bowl", [variant("40"), variant("50"), variant("60")]);
   const actual = (groups) => ({ ...expected, ingredientGroups: groups });
-  assert.deepEqual(compareRecipeIngredients(expected, actual([{ ...variant("50"), label: null }])), []);
+  assert.deepEqual(compareRecipeIngredients(expected, actual([variant("50")])), []);
   assert.deepEqual(compareRecipeIngredients(expected, actual([variant("60"), variant("40")])), []);
   assert.deepEqual(compareRecipeIngredients(expected, actual([variant("60"), variant("50"), variant("40")])), []);
   const mixed = { label: null, ingredients: [variant("40").ingredients[0], variant("50").ingredients[0]] };
@@ -139,6 +139,27 @@ test("variant recipes pass with one golden variant or distinct variant groups, n
   assert.equal(compareRecipeIngredients(expected, actual([variant("40"), variant("40")]))[0].code, "variant-mismatch");
   const merged = { label: null, ingredients: [...variant("40").ingredients, ...variant("50").ingredients] };
   assert.equal(compareRecipeIngredients(expected, actual([merged]))[0].code, "variant-mismatch");
+});
+
+test("every approved semantic field is blocking while whitespace remains tolerated", () => {
+  const mutations = [
+    ["title", (r) => (r.title = "OTHER_TITLE")],
+    ["group label", (r) => (r.ingredientGroups[0].label = "Ingredients")],
+    ["ingredient name", (r) => (r.ingredientGroups[0].ingredients[0].name = "Other")],
+    ["ingredient source text", (r) => (r.ingredientGroups[0].ingredients[0].sourceText = "100 ml Other")],
+    ["instructions", (r) => (r.instructions = ["Boil."])],
+    ["servings", (r) => (r.servings = "2")],
+    ["footnotes", (r) => (r.footnotes = ["Private note."])],
+    ["category", (r) => (r.category = "dinner")],
+    ["sourceCategory", (r) => (r.sourceCategory = "Lunch")],
+    ["pages", (r) => (r.pages = [2])],
+    ["missing metadata", (r) => Reflect.deleteProperty(r, "servings")],
+  ];
+  for (const [name, mutate] of mutations) {
+    const recipes = golden().recipes;
+    mutate(recipes[0]);
+    assert.equal(scoreFixture(golden(), report(recipes)).blocking.ok, false, name);
+  }
 });
 
 test("overall verdict requires three passing runs per fixture on one recorded configuration", () => {

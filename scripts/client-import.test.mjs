@@ -12,6 +12,7 @@ import {
   mergeDecisionReferences,
   polishImportError,
   productCompletion,
+  recoverFailedClientImport,
   resolveClientDecision,
   warnBeforeUnresolvedDecisionNavigation,
 } from "../src/lib/pdf-processing/client-import.ts";
@@ -157,6 +158,83 @@ test("controller waits for an in-flight finalize to become committed after a los
   assert.equal(statusCalls, 2);
   assert.deepEqual(sleeps, [250]);
   assert.deepEqual(result.outcome, expected);
+});
+
+test("controller leaves an exhausted lost-finalize recovery unconfirmed", async () => {
+  const sleeps = [];
+  let batchCalls = 0;
+  let finalizeCalls = 0;
+  let statusCalls = 0;
+  const { result } = await runner(
+    async (path) => {
+      if (path === "/api/imports") return { importId, manifestDigest: "digest", manifest };
+      if (path.endsWith("/batch")) {
+        batchCalls++;
+        return { candidates: [candidate] };
+      }
+      if (path.endsWith("/finalize")) {
+        finalizeCalls++;
+        throw new ClientRequestFailure("network-error", true);
+      }
+      if (path === `/api/imports/${importId}`) {
+        statusCalls++;
+        return { status: "processing", outcome: null, readBack: false };
+      }
+      throw new Error(`unexpected request ${path}`);
+    },
+    undefined,
+    { sleep: async (milliseconds) => sleeps.push(milliseconds) },
+  );
+
+  assert.equal(batchCalls, 1);
+  assert.equal(finalizeCalls, 1);
+  assert.equal(statusCalls, 5);
+  assert.deepEqual(sleeps, [250, 500, 1_000, 2_000]);
+  assert.equal(result.outcome.status, "processing");
+  assert.equal(productCompletion(result.outcome), "unconfirmed");
+});
+
+test("a lost create response cancels a confirmed processing import without continuing", async () => {
+  const calls = [];
+  const recovery = await recoverFailedClientImport({
+    apiBase: "/api/imports",
+    importId,
+    dispatched: true,
+    request: async (path, init) => {
+      calls.push([path, init?.method ?? "GET"]);
+      if (!init?.method) return { status: "processing", outcome: null, readBack: false };
+      if (init.method === "DELETE") return outcome({ status: "cancelled", saved: 0, readBack: false });
+      throw new Error(`unexpected request ${path}`);
+    },
+  });
+
+  assert.deepEqual(calls, [
+    [`/api/imports/${importId}`, "GET"],
+    [`/api/imports/${importId}`, "DELETE"],
+  ]);
+  assert.equal(recovery.outcome.status, "processing");
+  assert.equal(recovery.cleanupImportId, null);
+  assert.equal(
+    calls.some(([path]) => path.endsWith("/batch") || path.endsWith("/finalize")),
+    false,
+  );
+});
+
+test("an unconfirmed lost create preserves its id for the next cleanup", async () => {
+  const calls = [];
+  const recovery = await recoverFailedClientImport({
+    apiBase: "/api/imports",
+    importId,
+    dispatched: true,
+    request: async (path) => {
+      calls.push(path);
+      throw new ClientRequestFailure("network-error", true);
+    },
+  });
+
+  assert.deepEqual(calls, [`/api/imports/${importId}`]);
+  assert.equal(recovery.outcome, null);
+  assert.equal(recovery.cleanupImportId, importId);
 });
 
 test("controller preserves local candidates when cancellation races with a committed finalize", async () => {

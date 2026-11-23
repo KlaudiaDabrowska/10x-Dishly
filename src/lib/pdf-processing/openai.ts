@@ -32,15 +32,35 @@ const RESPONSE_BODY_LIMIT = 1024 * 1024;
 const COUNT_BODY_LIMIT = 64 * 1024;
 const COMPATIBLE_MODELS = new Set([OPENAI_MODEL, "gpt-5.4-mini-2026-03-17"]);
 
+export interface InputTokenAccountingEvidence {
+  version: 1;
+  diagnosticId: string;
+  mismatchKind: "count-vs-usage" | "cached-token-detail-invalid";
+  batchIndex: number;
+  attempt: number;
+  reservationId: string;
+  api: typeof OPENAI_API;
+  requestedModel: typeof OPENAI_MODEL;
+  returnedModel: string;
+  responseId: string;
+  countedInputTokens: number;
+  reportedInputTokens: number;
+  deltaInputTokens: number;
+  cachedInputTokensStatus: "absent" | "valid" | "invalid";
+  cachedInputTokens: number | null;
+}
+
 export class OpenAiPdfError extends Error {
   readonly code: string;
   // Only set for HTTP 429: the provider-requested wait, already bounded to a finite non-negative value.
   readonly retryAfterMs?: number;
-  constructor(code: string, retryAfterMs?: number) {
+  readonly evidence?: InputTokenAccountingEvidence;
+  constructor(code: string, retryAfterMs?: number, evidence?: InputTokenAccountingEvidence) {
     super(code);
     this.name = "OpenAiPdfError";
     this.code = code;
     if (retryAfterMs !== undefined) this.retryAfterMs = retryAfterMs;
+    if (evidence !== undefined) this.evidence = evidence;
   }
 }
 
@@ -277,6 +297,7 @@ export async function prepareOpenAiPdfBatches(
 function parseResponse(
   raw: unknown,
   countedInputTokens: number,
+  context: { batchIndex: number; attempt: number; reservationId: string },
 ): {
   value: OpenAiRecognitionResult;
   usage: UsageCounts;
@@ -310,15 +331,38 @@ function parseResponse(
   if (!isRecord(usage) || !safeInteger(usage.input_tokens, PDF_LIMITS.maxInputTokens))
     throw new OpenAiPdfError("provider-missing-usage");
   if (!safeInteger(usage.output_tokens, PDF_LIMITS.maxOutputTokens)) throw new OpenAiPdfError("provider-missing-usage");
-  if (usage.input_tokens !== countedInputTokens) throw new OpenAiPdfError("input-token-accounting-mismatch");
+  const responseId = raw.id;
+  const returnedModel = raw.model;
+  const reportedInputTokens = usage.input_tokens;
+  const inputDetails = isRecord(usage.input_tokens_details) ? usage.input_tokens_details : null;
+  const cached = inputDetails?.cached_tokens;
+  const cachedInputTokensStatus =
+    inputDetails === null ? "absent" : safeInteger(cached, usage.input_tokens) ? "valid" : "invalid";
+  const cachedInputTokens = cachedInputTokensStatus === "valid" ? (cached as number) : null;
+  const accountingMismatch = (mismatchKind: InputTokenAccountingEvidence["mismatchKind"]): OpenAiPdfError =>
+    new OpenAiPdfError("input-token-accounting-mismatch", undefined, {
+      version: 1,
+      diagnosticId: crypto.randomUUID(),
+      mismatchKind,
+      batchIndex: context.batchIndex,
+      attempt: context.attempt,
+      reservationId: context.reservationId,
+      api: OPENAI_API,
+      requestedModel: OPENAI_MODEL,
+      returnedModel,
+      responseId,
+      countedInputTokens,
+      reportedInputTokens,
+      deltaInputTokens: reportedInputTokens - countedInputTokens,
+      cachedInputTokensStatus,
+      cachedInputTokens,
+    });
+  if (usage.input_tokens !== countedInputTokens) throw accountingMismatch("count-vs-usage");
   if (isRecord(usage.output_tokens_details)) {
     const reasoning = usage.output_tokens_details.reasoning_tokens;
     if (!safeInteger(reasoning, usage.output_tokens)) throw new OpenAiPdfError("output-token-accounting-mismatch");
   }
-  if (isRecord(usage.input_tokens_details)) {
-    const cached = usage.input_tokens_details.cached_tokens;
-    if (!safeInteger(cached, usage.input_tokens)) throw new OpenAiPdfError("input-token-accounting-mismatch");
-  }
+  if (cachedInputTokensStatus === "invalid") throw accountingMismatch("cached-token-detail-invalid");
   let parsed: unknown;
   try {
     parsed = JSON.parse(texts[0].text) as unknown;
@@ -384,7 +428,11 @@ export async function recognizePdfBatch(
             throw error;
           }
           options.onProviderResponse?.(raw, attempt);
-          const parsed = parseResponse(raw, countedInputTokens);
+          const parsed = parseResponse(raw, countedInputTokens, {
+            batchIndex: options.reservation.batchIndex,
+            attempt,
+            reservationId: claim.reservation_id,
+          });
           return {
             value: parsed.value,
             usage: parsed.usage,
