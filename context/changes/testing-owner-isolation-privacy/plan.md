@@ -361,6 +361,6 @@ i nie usuwać starego PK.
 
 #### Automated
 
-- [x] 5.1 Wszystkie komendy faz 1–4 przechodzą w jednym końcowym przebiegu.
-- [x] 5.2 Plan testów zawiera kompletne §6.2 i poprawny status Phase 2.
-- [x] 5.3 `git diff --check` nie zgłasza błędów.
+- [x] 5.1 Wszystkie komendy faz 1–4 przechodzą w jednym końcowym przebiegu. — 49abc9e
+- [x] 5.2 Plan testów zawiera kompletne §6.2 i poprawny status Phase 2. — 49abc9e
+- [x] 5.3 `git diff --check` nie zgłasza błędów. — 49abc9e
