@@ -317,19 +317,19 @@ i nie usuwać starego PK.
 
 #### Automated
 
-- [x] 1.1 Migracja wykonuje backfill i zachowuje obsługę istniejących publicznych identyfikatorów.
-- [x] 1.2 Test DB rozróżnia wewnętrzne PK dwóch ownerów używających tego samego publicznego UUID.
-- [x] 1.3 Test DB zalicza świeży create, zgodny replay, własny konflikt 409 oraz niezależny foreign UUID.
-- [x] 1.4 `npm run test:pdf:db` przechodzi na czystym lokalnym Supabase.
+- [x] 1.1 Migracja wykonuje backfill i zachowuje obsługę istniejących publicznych identyfikatorów. — 8eda3cf
+- [x] 1.2 Test DB rozróżnia wewnętrzne PK dwóch ownerów używających tego samego publicznego UUID. — 8eda3cf
+- [x] 1.3 Test DB zalicza świeży create, zgodny replay, własny konflikt 409 oraz niezależny foreign UUID. — 8eda3cf
+- [x] 1.4 `npm run test:pdf:db` przechodzi na czystym lokalnym Supabase. — 8eda3cf
 
 ### Phase 2: HTTP owner isolation
 
 #### Automated
 
-- [ ] 2.1 `npm run smoke` zalicza exact foreign/nonexistent HTTP matrix.
-- [ ] 2.2 Smoke dowodzi braku mutacji po odmowie przez owner-scoped read-back.
-- [ ] 2.3 Smoke dowodzi niezależnego create dla wspólnego publicznego UUID.
-- [ ] 2.4 Istniejące testy izolacji odczytu przepisów nadal przechodzą.
+- [x] 2.1 `npm run smoke` zalicza exact foreign/nonexistent HTTP matrix.
+- [x] 2.2 Smoke dowodzi braku mutacji po odmowie przez owner-scoped read-back.
+- [x] 2.3 Smoke dowodzi niezależnego create dla wspólnego publicznego UUID.
+- [x] 2.4 Istniejące testy izolacji odczytu przepisów nadal przechodzą.
 
 ### Phase 3: Privacy allowlists
 
