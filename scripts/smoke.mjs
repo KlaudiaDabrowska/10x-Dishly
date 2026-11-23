@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { URL } from "node:url";
+import { runSmokeSteps } from "./smoke-output.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
 const applicationUrl = new URL(BASE_URL);
@@ -19,15 +20,22 @@ const actorA = { email: `smoke-a-${runId}@example.com`, jar: new Map() };
 const actorB = { email: `smoke-b-${runId}@example.com`, jar: new Map() };
 const anonymous = { jar: new Map() };
 const malformed = { jar: new Map() };
+const privateImportSentinel = `private-import-${runId}`;
+const sharedClientImportId = randomUUID();
 const fixture = {
   actorA: {
     id: randomUUID(),
+    internalImportId: randomUUID(),
     importId: randomUUID(),
+    sourceFilename: "smoke-fixture.pdf",
     title: `Smoke owner A recipe ${runId}`,
   },
   actorB: {
     id: randomUUID(),
+    internalImportId: randomUUID(),
     importId: randomUUID(),
+    decisionId: randomUUID(),
+    sourceFilename: `${privateImportSentinel}.pdf`,
     title: `Smoke owner B recipe ${runId}`,
   },
 };
@@ -51,17 +59,19 @@ function seedRecipe(ownerEmail, recipe, fingerprint) {
     begin
       select id into strict v_owner_id from auth.users where email = ${sqlLiteral(ownerEmail)};
       insert into public.pdf_imports (
-        id, owner_id, channel, file_fingerprint, manifest_digest, status, expires_at, source_filename
+        id, client_import_id, owner_id, channel, file_fingerprint, manifest_digest, status, expires_at,
+        batch_count, manifest, source_filename
       ) values (
-        ${sqlLiteral(recipe.importId)}, v_owner_id, 'product', ${sqlLiteral(fingerprint)}, ${sqlLiteral("m".repeat(64))},
-        'committed', '2099-01-01T00:00:00Z', 'smoke-fixture.pdf'
+        ${sqlLiteral(recipe.internalImportId)}, ${sqlLiteral(recipe.importId)}, v_owner_id, 'product',
+        ${sqlLiteral(fingerprint)}, ${sqlLiteral("m".repeat(64))}, 'committed', '2099-01-01T00:00:00Z', 1,
+        '{"batches":[],"pageDigests":[]}'::jsonb, ${sqlLiteral(recipe.sourceFilename)}
       );
       insert into public.recipes (
         id, owner_id, file_fingerprint, source_start_page, source_start_item, import_id, source_filename,
         source_pages, title, category, ingredient_groups, instructions
       ) values (
-        ${sqlLiteral(recipe.id)}, v_owner_id, ${sqlLiteral(fingerprint)}, 1, 0, ${sqlLiteral(recipe.importId)},
-        'smoke-fixture.pdf', array[1], ${sqlLiteral(recipe.title)}, 'lunch',
+        ${sqlLiteral(recipe.id)}, v_owner_id, ${sqlLiteral(fingerprint)}, 1, 0, ${sqlLiteral(recipe.internalImportId)},
+        ${sqlLiteral(recipe.sourceFilename)}, array[1], ${sqlLiteral(recipe.title)}, 'lunch',
         '[{"label":null,"ingredients":[{"name":"water","quantity":"200","unit":"ml","sourceText":"200 ml water"}]}]'::jsonb,
         '["Mix and serve."]'::jsonb
       );
@@ -70,12 +80,108 @@ function seedRecipe(ownerEmail, recipe, fingerprint) {
   `);
 }
 
+function seedImportIsolationFixtures() {
+  const manifest = JSON.stringify({
+    batches: [
+      {
+        batchIndex: 0,
+        corePageStart: 1,
+        corePageEnd: 1,
+        inputDigest: "d".repeat(64),
+      },
+    ],
+    pageDigests: ["0".repeat(64)],
+  });
+  localAdminSql(`
+    do $seed$
+    declare
+      v_owner_a uuid;
+      v_owner_b uuid;
+    begin
+      select id into strict v_owner_a from auth.users where email = ${sqlLiteral(actorA.email)};
+      select id into strict v_owner_b from auth.users where email = ${sqlLiteral(actorB.email)};
+
+      perform public.create_pdf_import(
+        v_owner_a, ${sqlLiteral(sharedClientImportId)}, 'product', ${sqlLiteral("c".repeat(64))},
+        ${sqlLiteral("e".repeat(64))}, 'shared-a.pdf', ${sqlLiteral(manifest)}::jsonb,
+        clock_timestamp() + interval '5 minutes'
+      );
+      perform public.create_pdf_import(
+        v_owner_b, ${sqlLiteral(sharedClientImportId)}, 'product', ${sqlLiteral("f".repeat(64))},
+        ${sqlLiteral("a".repeat(64))}, 'shared-b.pdf', ${sqlLiteral(manifest)}::jsonb,
+        clock_timestamp() + interval '5 minutes'
+      );
+
+      insert into public.pdf_import_outcomes (
+        import_id, owner_id, saved_count, existing_count, pending_count, kept_count, discarded_count,
+        saved_ids, existing_ids
+      ) values (
+        ${sqlLiteral(fixture.actorB.internalImportId)}, v_owner_b, 0, 0, 1, 0, 0, '{}', '{}'
+      );
+      insert into public.pdf_incomplete_recipe_decisions (
+        id, owner_id, import_id, source_start_page, source_start_item, payload_digest, missing_reason_codes
+      ) values (
+        ${sqlLiteral(fixture.actorB.decisionId)}, v_owner_b, ${sqlLiteral(fixture.actorB.internalImportId)},
+        1, 1, ${sqlLiteral("b".repeat(64))}, array['missing-title']
+      );
+    end
+    $seed$;
+  `);
+}
+
+function assertImportIsolationState() {
+  localAdminSql(`
+    do $assert$
+    declare
+      v_owner_a uuid;
+      v_owner_b uuid;
+    begin
+      select id into strict v_owner_a from auth.users where email = ${sqlLiteral(actorA.email)};
+      select id into strict v_owner_b from auth.users where email = ${sqlLiteral(actorB.email)};
+      if (
+        select count(*) from public.pdf_imports
+        where client_import_id = ${sqlLiteral(sharedClientImportId)}
+          and owner_id in (v_owner_a, v_owner_b)
+      ) <> 2 then
+        raise exception 'owner-scoped create fixture changed';
+      end if;
+      if (
+        select count(distinct id) from public.pdf_imports
+        where client_import_id = ${sqlLiteral(sharedClientImportId)}
+          and owner_id in (v_owner_a, v_owner_b)
+      ) <> 2 then
+        raise exception 'owner-scoped create reused an internal id';
+      end if;
+      if not exists (
+        select 1 from public.pdf_incomplete_recipe_decisions
+        where id = ${sqlLiteral(fixture.actorB.decisionId)} and owner_id = v_owner_b
+          and import_id = ${sqlLiteral(fixture.actorB.internalImportId)} and state = 'pending'
+      ) then
+        raise exception 'foreign decision was mutated';
+      end if;
+      if not exists (
+        select 1 from public.pdf_import_outcomes
+        where import_id = ${sqlLiteral(fixture.actorB.internalImportId)} and owner_id = v_owner_b
+          and pending_count = 1 and kept_count = 0 and discarded_count = 0
+      ) then
+        raise exception 'foreign outcome was mutated';
+      end if;
+      if (select count(*) from public.recipes where owner_id = v_owner_b) <> 1 then
+        raise exception 'foreign recipes were mutated';
+      end if;
+    end
+    $assert$;
+  `);
+}
+
 function cleanupLocalFixtures() {
   localAdminSql(`
     do $cleanup$
     begin
       delete from public.recipes where id in (${sqlLiteral(fixture.actorA.id)}, ${sqlLiteral(fixture.actorB.id)});
-      delete from public.pdf_imports where id in (${sqlLiteral(fixture.actorA.importId)}, ${sqlLiteral(fixture.actorB.importId)});
+      delete from public.pdf_imports where owner_id in (
+        select id from auth.users where email in (${sqlLiteral(actorA.email)}, ${sqlLiteral(actorB.email)})
+      );
       delete from auth.users where email in (${sqlLiteral(actorA.email)}, ${sqlLiteral(actorB.email)});
     end
     $cleanup$;
@@ -97,7 +203,7 @@ function storeCookies(jar, response) {
   }
 }
 
-async function request(actor, path, { method = "GET", form } = {}) {
+async function request(actor, path, { method = "GET", form, json } = {}) {
   const response = await fetch(BASE_URL + path, {
     method,
     redirect: "manual",
@@ -105,8 +211,9 @@ async function request(actor, path, { method = "GET", form } = {}) {
       Cookie: [...actor.jar.entries()].map(([name, value]) => `${name}=${value}`).join("; "),
       Origin: BASE_URL,
       ...(form ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
+      ...(json ? { "Content-Type": "application/json" } : {}),
     },
-    body: form ? new URLSearchParams(form).toString() : undefined,
+    body: form ? new URLSearchParams(form).toString() : json ? JSON.stringify(json) : undefined,
   });
   storeCookies(actor.jar, response);
   return {
@@ -115,6 +222,13 @@ async function request(actor, path, { method = "GET", form } = {}) {
     body: await response.text(),
     cacheControl: response.headers.get("cache-control") ?? "",
   };
+}
+
+function assertImportNotFound(actual, hidden) {
+  assertResponse(actual, { status: 404 });
+  check(actual.body === '{"error":"import-not-found"}', "unexpected import 404 body");
+  for (const value of hidden) check(!actual.body.includes(value), "import 404 disclosed private request data");
+  check(!/cudzy|foreign|nie istnieje|nonexistent|decision/i.test(actual.body), "import 404 disclosed a reason");
 }
 
 function check(condition, message) {
@@ -257,6 +371,7 @@ steps.push([
   async () => {
     seedRecipe(actorA.email, fixture.actorA, "a".repeat(64));
     seedRecipe(actorB.email, fixture.actorB, "b".repeat(64));
+    seedImportIsolationFixtures();
     return { status: 204, body: "", cacheControl: "" };
   },
   { status: 204, cache: false },
@@ -307,6 +422,68 @@ steps.push(
     { status: 404, owner: actorA, notFound: true, hidden: ["not-a-uuid"] },
   ],
 );
+const nonexistentImportId = randomUUID();
+const nonexistentDecisionId = randomUUID();
+let foreignStatusBody = "";
+let foreignDecisionBody = "";
+steps.push(
+  [
+    "owner-scoped create accepts one public import id for two owners",
+    async () => {
+      assertImportIsolationState();
+      return { status: 204, body: "", cacheControl: "" };
+    },
+    { status: 204, cache: false },
+  ],
+  [
+    "A receives common 404 for foreign import status",
+    async () => {
+      const actual = await request(actorA, `/api/imports/${fixture.actorB.importId}`);
+      foreignStatusBody = actual.body;
+      assertImportNotFound(actual, [fixture.actorB.importId, fixture.actorB.title, privateImportSentinel]);
+      return { status: 204, body: "", cacheControl: "" };
+    },
+    { status: 204, cache: false },
+  ],
+  [
+    "A receives common 404 for nonexistent import status",
+    async () => {
+      const actual = await request(actorA, `/api/imports/${nonexistentImportId}`);
+      assertImportNotFound(actual, [nonexistentImportId, privateImportSentinel]);
+      check(actual.body === foreignStatusBody, "foreign and nonexistent import status differ");
+      return { status: 204, body: "", cacheControl: "" };
+    },
+    { status: 204, cache: false },
+  ],
+  [
+    "A receives common 404 for foreign decision mutation",
+    async () => {
+      const actual = await request(
+        actorA,
+        `/api/imports/${fixture.actorB.importId}/decisions/${fixture.actorB.decisionId}`,
+        { method: "POST", json: { action: "discard" } },
+      );
+      foreignDecisionBody = actual.body;
+      assertImportNotFound(actual, [fixture.actorB.importId, fixture.actorB.decisionId, privateImportSentinel]);
+      return { status: 204, body: "", cacheControl: "" };
+    },
+    { status: 204, cache: false },
+  ],
+  [
+    "A receives common 404 for nonexistent decision mutation",
+    async () => {
+      const actual = await request(actorA, `/api/imports/${nonexistentImportId}/decisions/${nonexistentDecisionId}`, {
+        method: "POST",
+        json: { action: "discard" },
+      });
+      assertImportNotFound(actual, [nonexistentImportId, nonexistentDecisionId, privateImportSentinel]);
+      check(actual.body === foreignDecisionBody, "foreign and nonexistent decision responses differ");
+      assertImportIsolationState();
+      return { status: 204, body: "", cacheControl: "" };
+    },
+    { status: 204, cache: false },
+  ],
+);
 steps.push(
   [
     "malformed session cannot access dashboard",
@@ -355,27 +532,5 @@ for (const [label, actor] of [
     ]);
 }
 
-let failed = 0;
-try {
-  for (const [name, run, expected] of steps) {
-    try {
-      const actual = await run();
-      assertResponse(actual, expected);
-      console.log(`PASS  ${name}`);
-    } catch {
-      failed++;
-      // Never log responses, redirect queries or exception details that could contain session secrets.
-      console.log(`FAIL  ${name} (request or assertion failed)`);
-    }
-  }
-} finally {
-  try {
-    cleanupLocalFixtures();
-    console.log("PASS  local smoke fixtures and accounts cleaned up");
-  } catch {
-    failed++;
-    console.log("FAIL  local smoke cleanup failed");
-  }
-}
-console.log(failed ? `\n${failed} step(s) failed` : "\nAll smoke steps passed");
+const failed = await runSmokeSteps({ steps, assertResponse, cleanup: cleanupLocalFixtures });
 process.exit(failed ? 1 : 0);

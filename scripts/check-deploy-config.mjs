@@ -31,6 +31,7 @@ export function checkConfig(config, target) {
   );
   assert.equal(config.queues?.consumers?.length ?? 0, 0, "Web Worker must not consume queues");
   assert.equal(config.assets?.binding, "ASSETS");
+  assert.equal(config.assets?.directory, "../client", "Public assets must be the generated client directory");
   // Enumerate binding identifiers recursively so newly added provider resource types cannot slip through.
   const bindings = [];
   function visit(value, key = "") {

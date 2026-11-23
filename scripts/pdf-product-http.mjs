@@ -129,7 +129,7 @@ export async function withCleanup(work, cleanup) {
 
 function cleanupSmokeOwner(databaseUrl, actor) {
   if (!actor.id) return;
-  const importId = actor.importId ?? randomUUID();
+  const clientImportId = actor.importId ?? randomUUID();
   execFileSync(
     "npx",
     [
@@ -141,15 +141,18 @@ function cleanupSmokeOwner(databaseUrl, actor) {
       databaseUrl.href,
       `
         do $cleanup$
+        declare v_internal_import_id uuid;
         begin
-          update public.pdf_import_batches set reservation_id = null where import_id = ${sqlLiteral(importId)};
+          select id into v_internal_import_id from public.pdf_imports
+          where owner_id = ${sqlLiteral(actor.id)} and client_import_id = ${sqlLiteral(clientImportId)};
+          update public.pdf_import_batches set reservation_id = null where import_id = v_internal_import_id;
           delete from public.pdf_usage_reports where reservation_id in (
-            select id from public.pdf_budget_reservations where import_id = ${sqlLiteral(importId)}
+            select id from public.pdf_budget_reservations where import_id = v_internal_import_id
           );
-          delete from public.pdf_budget_reservations where import_id = ${sqlLiteral(importId)};
+          delete from public.pdf_budget_reservations where import_id = v_internal_import_id;
           delete from public.recipes where owner_id = ${sqlLiteral(actor.id)};
           delete from public.pdf_imports where owner_id = ${sqlLiteral(actor.id)};
-          delete from public.pdf_budget_scopes where scope_key = ${sqlLiteral(`import:${importId}`)};
+          delete from public.pdf_budget_scopes where scope_key = 'import:' || v_internal_import_id::text;
           delete from auth.users where id = ${sqlLiteral(actor.id)};
         end
         $cleanup$;
@@ -307,9 +310,10 @@ export async function runProductHttpSmoke(options = {}) {
       if (login.error) throw new Error("Could not verify owner-scoped recipe read-back");
       const recipes = await browser.from("recipes").select("id").order("source_start_page");
       if (recipes.error) throw new Error("Could not verify owner-scoped recipe read-back");
-      assert.deepEqual(
-        recipes.data.map((row) => row.id),
-        result.outcome.savedIds,
+      assert.equal(
+        recipes.data.length,
+        result.outcome.saved + result.outcome.alreadySaved,
+        "public counts do not match the owner-scoped recipe read-back",
       );
       assert.equal(recipes.data.length, 1, "status recovery created a duplicate recipe");
 

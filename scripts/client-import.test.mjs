@@ -342,8 +342,6 @@ function pendingProductOutcome(overrides = {}) {
         sourceStart: incompleteCandidate.candidate.sourceStart,
         state: "pending",
         missingReasonCodes: ["missing-title", "missing-category"],
-        recipeId: null,
-        resolvedAt: null,
       },
     ],
     ...overrides,
@@ -407,7 +405,7 @@ test("a decision response preserves another card's independent submitting state"
   const otherId = "33333333-3333-4333-8333-333333333333";
   const other = { ...pending, decisionId: otherId, status: "discarding" };
   const references = [
-    { ...pendingProductOutcome().decisions[0], state: "kept", recipeId: "44444444-4444-4444-8444-444444444444" },
+    { ...pendingProductOutcome().decisions[0], state: "kept" },
     { ...pendingProductOutcome().decisions[0], decisionId: otherId },
   ];
   const merged = mergeDecisionReferences([pending, other], references);
@@ -418,7 +416,7 @@ test("a decision response preserves another card's independent submitting state"
 
 test("late concurrent responses cannot regress resolved cards or outcome counters", () => {
   const [pending] = joinProductDecisions([incompleteCandidate], pendingProductOutcome());
-  const resolved = { ...pending, status: "discarded", recipeId: null };
+  const resolved = { ...pending, status: "discarded" };
   const staleReference = pendingProductOutcome().decisions[0];
   const [merged] = mergeDecisionReferences([resolved], [staleReference]);
   assert.equal(merged.status, "discarded");
@@ -450,8 +448,6 @@ test("keep and discard responses update decision-aware outcomes", async () => {
     const reference = {
       ...pendingProductOutcome().decisions[0],
       state,
-      recipeId: action === "keep" ? "44444444-4444-4444-8444-444444444444" : null,
-      resolvedAt: "2026-10-15T10:00:00.000Z",
     };
     const resolvedOutcome = pendingProductOutcome({
       pending: 0,
@@ -483,8 +479,6 @@ test("a lost decision response recovers the durable result from status without r
   const kept = {
     ...pendingProductOutcome().decisions[0],
     state: "kept",
-    recipeId: "44444444-4444-4444-8444-444444444444",
-    resolvedAt: "2026-10-15T10:00:00.000Z",
   };
   let resolveCalls = 0;
   let statusCalls = 0;
@@ -511,8 +505,6 @@ test("a lost decision response recovers the durable result from status without r
           pending: statusCalls === 1 ? 1 : 0,
           kept: statusCalls === 1 ? 0 : 1,
           discarded: 0,
-          savedIds: [],
-          existingIds: [],
           decisions: [reference],
         },
       };

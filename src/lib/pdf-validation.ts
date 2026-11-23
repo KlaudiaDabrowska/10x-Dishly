@@ -28,6 +28,7 @@ import {
   readBoundedImportJson,
 } from "@/lib/pdf-import-access";
 import type { ImportOperation } from "@/lib/pdf-import-access";
+import { pdfFailureEvent, sanitizePdfErrorCode } from "@/lib/pdf-security";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -70,41 +71,31 @@ export function privateJson(body: unknown, status = 200): Response {
 
 // Content-free server trace for 5xx outcomes: fixed codes and identifiers only, never messages,
 // provider/database bodies, source text or recipe content.
-function logFailure(error: unknown, status: number, route: string, channel: ImportChannel) {
+function logFailure(error: unknown, status: number, route: string, channel: ImportChannel, code: string) {
   const accountingDiagnostic = inputTokenAccountingDiagnostic(error);
   if (accountingDiagnostic) {
     // eslint-disable-next-line no-console
     console.error(JSON.stringify(accountingDiagnostic.privateEvent));
     return;
   }
-  const cause = error instanceof Error ? error.cause : undefined;
-  const dbCode = (cause as { code?: unknown } | undefined)?.code;
   // eslint-disable-next-line no-console
-  console.error(
-    JSON.stringify({
-      event: "pdf_import_error",
-      channel,
-      route,
-      status,
-      error: error instanceof Error ? error.name : typeof error,
-      code: (error as { code?: unknown } | null)?.code ?? null,
-      db_code: typeof dbCode === "string" && /^[0-9A-Z]{5}$/.test(dbCode) ? dbCode : null,
-    }),
-  );
+  console.error(JSON.stringify(pdfFailureEvent(error, status, route, channel, code)));
 }
 
 function errorStatus(error: unknown): { code: string; status: number } {
-  if (error instanceof PdfRequestError) return { code: error.code, status: 400 };
-  if (error instanceof PdfReadError) return { code: error.code, status: 422 };
-  if (error instanceof OpenAiPdfError) return { code: error.code, status: 502 };
-  if (error instanceof SpendingControlError) return { code: error.code, status: importErrorHttpStatus(error.code) };
+  const code = sanitizePdfErrorCode((error as { code?: unknown } | null)?.code);
+  if (code === "internal-error") return { code, status: 500 };
+  if (error instanceof PdfRequestError) return { code, status: 400 };
+  if (error instanceof PdfReadError) return { code, status: 422 };
+  if (error instanceof OpenAiPdfError) return { code, status: 502 };
+  if (error instanceof SpendingControlError) return { code, status: importErrorHttpStatus(code) };
   return { code: "internal-error", status: 500 };
 }
 
 // Sanitized error codes only: never provider bodies, source text or database messages.
 export function errorResponse(error: unknown, route = "unknown", channel: ImportChannel = "evaluation"): Response {
   const { code, status } = errorStatus(error);
-  if (status >= 500) logFailure(error, status, route, channel);
+  if (status >= 500) logFailure(error, status, route, channel, code);
   return privateJson(sanitizedPdfErrorBody(error, code), status);
 }
 
