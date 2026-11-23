@@ -1,7 +1,7 @@
 ---
 change_id: edit-saved-recipe
 title: Edit saved recipe
-status: preparing
+status: implementing
 created: 2026-11-23
 updated: 2026-11-23
 archived_at: null

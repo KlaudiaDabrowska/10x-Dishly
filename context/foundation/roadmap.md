@@ -50,7 +50,7 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 | S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | done        |
 | S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | done        |
 | S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed    |
-| S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | proposed    |
+| S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | in-progress |
 | S-07 | delete-saved-recipe           | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results.                                                                                                                                 | S-04          | FR-009, US-04; Access Control                                                                                   | proposed    |
 
 ## Baseline
@@ -193,7 +193,7 @@ US-02 verification goes from registration/login through local PDF selection, tex
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Ingredient changes must be reflected in filtering results after integration with S-05; editing must not allow category changes or modifications to another user's data.
-- **Status:** proposed
+- **Status:** in-progress
 
 Controlled data is sufficient to test incomplete content; after S-03 is complete, also verify the actual keep flow and subsequent editing. Editing during import remains out of scope.
 
