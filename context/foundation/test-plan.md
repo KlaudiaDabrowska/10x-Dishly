@@ -47,7 +47,7 @@ Każdy wiersz otwiera osobną zmianę. Statusy są stanem odczytywanym przez orc
 | #   | Phase name                              | Goal (one line)                                                    | Risks covered         | Test types                                       | Status      | Change folder                                |
 | --- | --------------------------------------- | ------------------------------------------------------------------ | --------------------- | ------------------------------------------------ | ----------- | -------------------------------------------- |
 | 1   | Krytyczna poprawność importu i recovery | Udowodnić uczciwy zapis, odporność na retry i pełny przepływ.      | #1, #2, #5            | contract + DB integration + selective acceptance | complete    | testing-critical-import-correctness-recovery |
-| 2   | Izolacja właścicieli i prywatność       | Zablokować IDOR na istniejących powierzchniach oraz wycieki poza prywatnym UI właściciela. | #3, #4                | DB/API integration + security contract + smoke   | implementing | testing-owner-isolation-privacy              |
+| 2   | Izolacja właścicieli i prywatność       | Zablokować IDOR na istniejących powierzchniach oraz wycieki poza prywatnym UI właściciela. | #3, #4                | DB/API integration + security contract + smoke   | complete    | testing-owner-isolation-privacy              |
 | 3   | Filtrowanie i mutacje kolekcji          | Chronić filtrowanie oraz operacje edit/delete.                     | #3, #6                | unit + integration + critical-flow e2e           | not started | —                                            |
 | 4   | Selektywna ocena AI i bramki jakości    | Wykrywać semantyczne błędy ekstrakcji i utrwalić minimalne bramki. | #1, #5, cross-cutting | AI-native review + acceptance gates              | not started | —                                            |
 
@@ -147,10 +147,10 @@ Rollout Phase 1 rozdziela sygnał na: exact golden (`scripts/pdf-acceptance*.mjs
 
 Status rollout opisuje wdrożenie ochrony testowej, a release readiness opisuje wynik gate'u dla konkretnego wydania. Rollout Phase 1 może przejść z `implementing` na `complete` po zweryfikowaniu harnessu, bezpiecznej ścieżki błędu, pełnych lokalnych bramek i cookbooka. Release pozostaje `blocked` do czasu zapisania dwóch rzeczywistych, zaliczonych recordów live i zatwierdzenia ich sanitizowanego podsumowania; ukończony rollout, zielony self-test ani preflight nie autoryzują wydania.
 
-Rollout Phase 2 pozostaje `implementing`, dopóki cały plan
-`testing-owner-isolation-privacy` — łącznie z ręcznym odczytem pierwszego runu PR —
-nie jest zaliczony. Dopiero wtedy zmień jego status na `complete`; same zielone
-bramki lokalne nie zamykają rollout'u.
+Rollout Phase 2 jest `complete`: cały plan `testing-owner-isolation-privacy`,
+łącznie z ręcznym odczytem pierwszego runu PR, został zaliczony. Run GitHub Actions
+`45190387946` pokazał osobne zielone kroki security contract, client privacy i owner
+smoke, a skan pełnych logów nie znalazł zasianych prywatnych sentinelów.
 
 ## 7. What We Deliberately Don't Test
 

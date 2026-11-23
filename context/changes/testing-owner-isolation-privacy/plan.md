@@ -355,7 +355,7 @@ i nie usuwać starego PK.
 
 #### Manual
 
-- [ ] 4.5 Pierwszy PR run pokazuje osobne, czytelne wyniki security contract, client privacy i owner smoke bez wypisywania sentinelów.
+- [x] 4.5 Pierwszy PR run pokazuje osobne, czytelne wyniki security contract, client privacy i owner smoke bez wypisywania sentinelów. — eb0d87f
 
 ### Phase 5: Cookbook and closeout
 

@@ -1,7 +1,7 @@
 ---
 change_id: testing-owner-isolation-privacy
 title: Izolacja właścicieli i prywatność
-status: implementing
+status: implemented
 created: 2026-11-23
 updated: 2026-11-23
 archived_at: null
