@@ -2,7 +2,7 @@
 
 ## Overview
 
-Wzmocnić ochronę ryzyk #1, #2 i #5 przez pełniejszy golden oracle, brakujące kontrakty recovery, produktowe testy współbieżności, deterministyczny most HTTP oraz selektywną bramkę release acceptance.
+Wzmocnić ochronę ryzyk #1, #2 i #5 przez pełniejszy golden oracle, brakujące kontrakty recovery, produktowe testy współbieżności, deterministyczny most HTTP oraz selektywną bramkę release acceptance. Oddzielić ukończenie implementacji tej bramki od jej wyniku dla konkretnego wydania.
 
 ## Current State Analysis
 
@@ -14,7 +14,7 @@ Wzmocnić ochronę ryzyk #1, #2 i #5 przez pełniejszy golden oracle, brakujące
 - Lost create i wyczerpany polling nie ponawiają modelu ani nie zgłaszają fałszywego sukcesu.
 - Równoległe operacje produktu kończą się jednym trwałym outcome bez częściowych zapisów.
 - CI sprawdza realne finalize/status/read-back bez OpenAI.
-- Przed każdym wydaniem jedna próba `summer` i jedna `lunchboxy` przechodzą kanał produktu w czasie do 300 sekund.
+- Gotowy runner i cookbook wymuszają przed każdym wydaniem jedną udaną próbę `summer` i jedną `lunchboxy` w czasie do 300 sekund; nieudany gate blokuje wydanie, ale nie blokuje dalszego rollout'u testów.
 
 ### Key Discoveries
 
@@ -22,6 +22,7 @@ Wzmocnić ochronę ryzyk #1, #2 i #5 przez pełniejszy golden oracle, brakujące
 - Product finalize jest transakcyjny, ale legacy cancel może zwrócić outcome bez product decisions, gdy finalize wygra wyścig.
 - Obecny CI uruchamia Worker i Supabase, więc nowy smoke może wykorzystać istniejące środowisko.
 - Prywatny reader output umożliwia odtworzenie batchy bez ponownego parsowania PDF.
+- Diagnostyka wykazała powtarzalny `count-vs-usage`; bezpieczny failure record i held reservation są prawidłowym wynikiem niezaliczonego gate'u, a nie brakiem implementacji testów.
 
 ## What We're NOT Doing
 
@@ -31,10 +32,11 @@ Wzmocnić ochronę ryzyk #1, #2 i #5 przez pełniejszy golden oracle, brakujące
 - Nie edytujemy wdrożonych migracji i nie dodajemy nowej migracji.
 - Nie regenerujemy ani automatycznie nie zatwierdzamy goldenów.
 - Nie zmieniamy istniejącej semantyki retry providera: tylko jeden ograniczony retry 429; timeout/5xx/transport pozostają bez retry.
+- Nie uznajemy nieudanego live runu za sukces release gate'u i nie wykonujemy kolejnej płatnej próby jako warunku zakończenia tej zmiany.
 
 ## Implementation Approach
 
-Zachować istniejące warstwy testów i domknąć ich granice. Najpierw ustalić niezależny oracle, następnie pokryć hermetyczne recovery, potem realne wyścigi DB. Na tej podstawie dodać deterministyczny HTTP smoke i osobny płatny release gate. Każda warstwa ma wykrywać inne ryzyko i nie powielać kosztownie sygnału wcześniejszej warstwy.
+Zachować istniejące warstwy testów i domknąć ich granice. Najpierw ustalić niezależny oracle, następnie pokryć hermetyczne recovery, potem realne wyścigi DB. Na tej podstawie dodać deterministyczny HTTP smoke i osobny płatny release gate. Implementacja rollout'u kończy się, gdy mechanizm gate'u, jego bezpieczna ścieżka błędu i dokumentacja są zweryfikowane; gotowość wydania pozostaje osobnym stanem wymagającym dwóch udanych rekordów live.
 
 ## Critical Implementation Details
 
@@ -190,11 +192,11 @@ Połączyć recovery klienta z prawdziwymi endpointami finalize/status, lokalną
 
 ---
 
-## Phase 5: Release product acceptance i cookbook
+## Phase 5: Release acceptance harness i cookbook
 
 ### Overview
 
-Dodać aktualny, płatny dowód pełnej ścieżki produktu i utrwalić wzorce testowe fazy rolloutowej.
+Dodać gotową do użycia bramkę pełnej ścieżki produktu, bezpiecznie utrwalić jej niepowodzenia i zapisać wzorce testowe fazy rolloutowej. Wynik gate'u dla konkretnego wydania pozostaje niezależny od ukończenia implementacji harnessu.
 
 ### Changes Required
 
@@ -202,11 +204,11 @@ Dodać aktualny, płatny dowód pełnej ścieżki produktu i utrwalić wzorce te
 
 **Files:** `scripts/pdf-product-acceptance.mjs`, `scripts/pdf-product-acceptance.test.mjs`, `package.json`
 
-**Intent:** Uruchomić aktualny kanał produktu na zatwierdzonych ebookach i zapisać odtwarzalny dowód.
+**Intent:** Umożliwić kontrolowane uruchomienie aktualnego kanału produktu na zatwierdzonych ebookach oraz zapisać odtwarzalny dowód sukcesu albo bezpieczny dowód niepowodzenia.
 
 **Contract:** `pdf:product-acceptance` ma tryb preflight/self-test oraz live. Live używa prywatnych reader artifacts do utworzenia batchy, wywołuje aktualne `/api/imports/**` na czystym disposable ownerze i wykonuje dokładnie jedną próbę `summer` oraz jedną `lunchboxy`.
 
-Każdy record zawiera HEAD/dirty state, code/config digest, fixture/reference/reader hashes, import i owner IDs, `committed`, `readBack=true`, `pending=0`, saved/existing counts, owner-scoped persisted count, semantic blocking result, elapsed time, token/cost totals i brak unresolved holds. Artefakty są exclusive-create, tryb `0600`, pod `evaluation/validate-pdf-processing/local/product-acceptance/`; stdout pozostaje sanitizowany.
+Każdy success record zawiera HEAD/dirty state, code/config digest, fixture/reference/reader hashes, import i owner IDs, `committed`, `readBack=true`, `pending=0`, saved/existing counts, owner-scoped persisted count, semantic blocking result, elapsed time, token/cost totals i brak unresolved holds. Failure record zachowuje wyłącznie allowlistowany kod, correlation ID, bezpieczny read-back ledgera i prawdziwy status cleanupu. Artefakty są exclusive-create, tryb `0600`, pod `evaluation/validate-pdf-processing/local/product-acceptance/`; stdout pozostaje sanitizowany.
 
 #### 2. Release policy and cookbook
 
@@ -214,7 +216,7 @@ Każdy record zawiera HEAD/dirty state, code/config digest, fixture/reference/re
 
 **Intent:** Uczynić gate i wzorce trwałą częścią procesu jakości.
 
-**Contract:** §5 opisuje product acceptance jako obowiązkową bramkę przed każdym wydaniem, nie jako gate każdego PR. §6.1, §6.4 i §6.6 dokumentują referencyjne testy, warstwy, komendy, wymagane approval oraz różnicę między status recovery i retry providera. Wiersz rollout Phase 1 przechodzi na `complete` dopiero po przejściu wszystkich faz i zapisaniu rzeczywistego live evidence.
+**Contract:** §5 opisuje product acceptance jako obowiązkową bramkę przed każdym wydaniem, nie jako gate każdego PR. §6.1, §6.4 i §6.6 dokumentują referencyjne testy, warstwy, komendy, wymagane approval, różnicę między status recovery i retry providera oraz niezależność statusów rollout i release readiness. Wiersz rollout Phase 1 przechodzi na `complete` po zweryfikowaniu implementacji wszystkich warstw; wydanie pozostaje `blocked`, dopóki nie istnieją dwa rzeczywiste, zaliczone rekordy live.
 
 ### Success Criteria
 
@@ -222,13 +224,13 @@ Każdy record zawiera HEAD/dirty state, code/config digest, fixture/reference/re
 
 - Self-tests product acceptance odrzucają brak fixture, niezgodne hashe, dirty/mismatched revision, niepełny outcome, brak read-back, pending decisions, błędne counts, semantic mismatch, czas ponad 300 sekund i unreconciled cost.
 - Preflight jawnie potwierdza dostępność obu prywatnych fixture, referencji, reader artifacts, lokalnego środowiska i budżetu przed wywołaniem providera.
-- Po jawnej zgodzie płatny run zapisuje po jednym zaliczonym recordzie `summer` i `lunchboxy`, każdy z czasem do 300 sekund.
-- `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą, a `test-plan.md` zawiera uzupełniony cookbook i zakończony rollout Phase 1.
+- Mismatch zapisuje prywatny, sanitizowany failure record, pozostawia niepewną rezerwację held i zatrzymuje run przed drugim fixture bez automatycznego retry lub reconciliation.
+- `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą, a `test-plan.md` dokumentuje niezależne statusy rollout i release readiness.
 
 #### Manual Verification
 
-- Użytkownik zatwierdza koszt uruchomienia oraz przegląda sanitizowane podsumowanie dwóch zaliczonych importów.
-- Kontrola artefaktów potwierdza prywatne uprawnienia, kompletność evidence i brak treści PDF, credentials lub provider response poza ignorowanym katalogiem prywatnym.
+- Użytkownik potwierdza, że ukończenie rollout'u nie autoryzuje wydania ani kolejnej płatnej próby; release pozostaje zablokowany do dwóch zaliczonych rekordów live.
+- Kontrola istniejących failure artifacts potwierdza prywatne uprawnienia, kompletność allowlistowanego evidence i brak treści PDF, credentials lub provider response poza ignorowanym katalogiem prywatnym.
 
 ## Testing Strategy
 
@@ -243,14 +245,14 @@ Każdy record zawiera HEAD/dirty state, code/config digest, fixture/reference/re
 
 - Product finalize–finalize i oba rozstrzygnięcia finalize–cancel.
 - Realny finalize/status/read-back przez Worker i lokalny Supabase.
-- Jedna płatna próba `summer` i jedna `lunchboxy` przez kanał produktu.
+- Hermetyczna ścieżka nieudanego product acceptance oraz osobna, ręcznie zatwierdzana próba `summer` i `lunchboxy` przed wydaniem.
 
 ### Manual Testing Steps
 
 1. Zatwierdzić uruchomienie lokalnego Supabase/Workera i sprawdzić product HTTP smoke.
 2. Przed wydaniem uruchomić product acceptance preflight.
-3. Zatwierdzić koszt dwóch importów i wykonać live gate.
-4. Sprawdzić sanitizowane podsumowanie, prywatne artefakty i zgodność cookbooka.
+3. Przy nieudanym gate sprawdzić sanitizowane podsumowanie i pozostawić release jako `blocked` bez automatycznego ponowienia.
+4. Dopiero przed wydaniem zatwierdzić świeży koszt dwóch importów, wykonać live gate i sprawdzić prywatne artefakty.
 
 ## Performance Considerations
 
@@ -332,16 +334,16 @@ Brak migracji. Nie edytować istniejących plików SQL. Ewentualna poprawka race
 
 - [x] 4.5 Lokalny log smoke’a zawiera wyłącznie identyfikatory i stałe kody; nie zawiera tekstu PDF, przepisu, credentials ani provider response. — c570958
 
-### Phase 5: Release product acceptance i cookbook
+### Phase 5: Release acceptance harness i cookbook
 
 #### Automated
 
-- [ ] 5.1 Self-tests product acceptance odrzucają brak fixture, niezgodne hashe, dirty/mismatched revision, niepełny outcome, brak read-back, pending decisions, błędne counts, semantic mismatch, czas ponad 300 sekund i unreconciled cost.
-- [ ] 5.2 Preflight jawnie potwierdza dostępność obu prywatnych fixture, referencji, reader artifacts, lokalnego środowiska i budżetu przed wywołaniem providera.
-- [ ] 5.3 Po jawnej zgodzie płatny run zapisuje po jednym zaliczonym recordzie `summer` i `lunchboxy`, każdy z czasem do 300 sekund.
-- [ ] 5.4 `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą, a `test-plan.md` zawiera uzupełniony cookbook i zakończony rollout Phase 1.
+- [x] 5.1 Self-tests product acceptance odrzucają brak fixture, niezgodne hashe, dirty/mismatched revision, niepełny outcome, brak read-back, pending decisions, błędne counts, semantic mismatch, czas ponad 300 sekund i unreconciled cost.
+- [x] 5.2 Preflight jawnie potwierdza dostępność obu prywatnych fixture, referencji, reader artifacts, lokalnego środowiska i budżetu przed wywołaniem providera.
+- [x] 5.3 Mismatch zapisuje prywatny, sanitizowany failure record, pozostawia niepewną rezerwację held i zatrzymuje run przed drugim fixture bez automatycznego retry lub reconciliation.
+- [x] 5.4 `npm run test:pdf`, `npm run lint` i `npx --no-install astro check` przechodzą, a `test-plan.md` dokumentuje niezależne statusy rollout i release readiness.
 
 #### Manual
 
-- [ ] 5.5 Użytkownik zatwierdza koszt uruchomienia oraz przegląda sanitizowane podsumowanie dwóch zaliczonych importów.
-- [ ] 5.6 Kontrola artefaktów potwierdza prywatne uprawnienia, kompletność evidence i brak treści PDF, credentials lub provider response poza ignorowanym katalogiem prywatnym.
+- [x] 5.5 Użytkownik potwierdza, że ukończenie rollout'u nie autoryzuje wydania ani kolejnej płatnej próby; release pozostaje zablokowany do dwóch zaliczonych rekordów live.
+- [x] 5.6 Kontrola istniejących failure artifacts potwierdza prywatne uprawnienia, kompletność allowlistowanego evidence i brak treści PDF, credentials lub provider response poza ignorowanym katalogiem prywatnym.

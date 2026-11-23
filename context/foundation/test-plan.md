@@ -46,7 +46,7 @@ Każdy wiersz otwiera osobną zmianę. Statusy są stanem odczytywanym przez orc
 
 | #   | Phase name                              | Goal (one line)                                                    | Risks covered         | Test types                                       | Status      | Change folder                                |
 | --- | --------------------------------------- | ------------------------------------------------------------------ | --------------------- | ------------------------------------------------ | ----------- | -------------------------------------------- |
-| 1   | Krytyczna poprawność importu i recovery | Udowodnić uczciwy zapis, odporność na retry i pełny przepływ.      | #1, #2, #5            | contract + DB integration + selective acceptance | researched  | testing-critical-import-correctness-recovery |
+| 1   | Krytyczna poprawność importu i recovery | Udowodnić uczciwy zapis, odporność na retry i pełny przepływ.      | #1, #2, #5            | contract + DB integration + selective acceptance | complete    | testing-critical-import-correctness-recovery |
 | 2   | Izolacja właścicieli i prywatność       | Zablokować IDOR oraz wycieki treści i sekretów.                    | #3, #4                | DB/API integration + security contract + smoke   | not started | —                                            |
 | 3   | Filtrowanie i mutacje kolekcji          | Chronić filtrowanie oraz operacje edit/delete.                     | #3, #6                | unit + integration + critical-flow e2e           | not started | —                                            |
 | 4   | Selektywna ocena AI i bramki jakości    | Wykrywać semantyczne błędy ekstrakcji i utrwalić minimalne bramki. | #1, #5, cross-cutting | AI-native review + acceptance gates              | not started | —                                            |
@@ -79,7 +79,7 @@ Profil testów: **meaningful** — 22 pliki `node:test` obejmują PDF, DB, deplo
 | unit + contract                   | lokalnie + CI `validate`                                          | required                  | Regresje PDF, deploymentu i logiki.                                                 |
 | DB integration                    | lokalnie + CI `smoke`                                             | required                  | Transakcje, RLS, idempotency.                                                       |
 | auth/owner smoke                  | CI `smoke`                                                        | required                  | Zepsuty przepływ sesji i izolacji.                                                  |
-| reprezentatywny import acceptance | środowisko kontrolowane, przed każdym wydaniem (nie na każdym PR) | required after §3 Phase 1 | Pełny przepływ produktu, koszt, czas i uczciwy wynik dla `summer` oraz `lunchboxy`. |
+| reprezentatywny import acceptance | środowisko kontrolowane, przed każdym wydaniem (nie na każdym PR) | required before release; currently blocked | Pełny przepływ produktu, koszt, czas i uczciwy wynik dla `summer` oraz `lunchboxy`. |
 | krytyczne filtrowanie/mutacje e2e | CI/pre-prod                                                       | required after §3 Phase 3 | Integrację S-05–S-07.                                                               |
 | selektywna ocena AI               | kontrolowana ewaluacja                                            | required after §3 Phase 4 | Błędy semantyczne poza deterministycznym kontraktem.                                |
 
@@ -101,7 +101,7 @@ TBD — see §3 Phase 3 for polskie odmiany, AND oraz edit/delete.
 
 ### 6.4 Test krytycznego przepływu
 
-Przed każdym wydaniem uruchom selektywny gate produktu na czystych, disposable ownerach: najpierw `npm run pdf:product-acceptance -- --preflight --revision <pełny-SHA>`, następnie — dopiero po zatwierdzeniu kosztu z preflight — `npm run pdf:product-acceptance -- --live --revision <pełny-SHA> --approved-max-nano-usd <wartość-z-preflight>`. Gate wykonuje dokładnie po jednej próbie `summer` i `lunchboxy`, wymaga committed/read-back, braku pending decisions, zgodnych counts i goldenu, czasu do 300 sekund oraz pełnego reconciliation kosztu. Nie uruchamiaj go na każdym PR ani w CI.
+Przed każdym wydaniem uruchom selektywny gate produktu na czystych, disposable ownerach: najpierw `npm run pdf:product-acceptance -- --preflight --revision <pełny-SHA>`, następnie — dopiero po zatwierdzeniu kosztu z preflight — `npm run pdf:product-acceptance -- --live --revision <pełny-SHA> --approved-max-nano-usd <wartość-z-preflight>`. Gate wykonuje dokładnie po jednej próbie `summer` i `lunchboxy`, wymaga committed/read-back, braku pending decisions, zgodnych counts i goldenu, czasu do 300 sekund oraz pełnego reconciliation kosztu. Mismatch lub held reservation pozostawia gate czerwony i blokuje wydanie; nie ponawiaj płatnej próby bez świeżego preflightu, nowej zgody kosztowej i nowego dowodu uzasadniającego próbę. Nie uruchamiaj go na każdym PR ani w CI.
 
 ### 6.5 Selektywna ocena wyniku AI
 
@@ -111,7 +111,7 @@ TBD — see §3 Phase 4 for semantic extraction review and when not to use it.
 
 Rollout Phase 1 rozdziela sygnał na: exact golden (`scripts/pdf-acceptance*.mjs`), hermetyczne recovery klienta, realne race DB, deterministyczny most HTTP oraz płatny release gate (`scripts/pdf-product-acceptance*.mjs`). Tanie warstwy działają w CI; prywatne fixture i płatny provider pozostają wyłącznie w kontrolowanym środowisku lokalnym.
 
-Status rollout pozostaje `researched` do czasu zapisania dwóch rzeczywistych, zaliczonych recordów live i zatwierdzenia ich sanitizowanego podsumowania. Po tym dowodzie zmień wiersz §3 Phase 1 na `complete`; sam zielony self-test lub preflight nie wystarcza.
+Status rollout opisuje wdrożenie ochrony testowej, a release readiness opisuje wynik gate'u dla konkretnego wydania. Rollout Phase 1 może przejść z `implementing` na `complete` po zweryfikowaniu harnessu, bezpiecznej ścieżki błędu, pełnych lokalnych bramek i cookbooka. Release pozostaje `blocked` do czasu zapisania dwóch rzeczywistych, zaliczonych recordów live i zatwierdzenia ich sanitizowanego podsumowania; ukończony rollout, zielony self-test ani preflight nie autoryzują wydania.
 
 ## 7. What We Deliberately Don't Test
 
