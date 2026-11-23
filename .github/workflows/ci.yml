@@ -69,6 +69,10 @@ jobs:
           supabase_secret="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
           printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nSUPABASE_SECRET_KEY=%s\nDEPLOY_PROBE_TOKEN=ci-local-test-only\n' "$API_URL" "$PUBLISHABLE_KEY" "$supabase_secret" > .env
       - run: npm run build
+      - name: Prepare local Worker secrets
+        run: |
+          npm run prepare:smoke-worker
+          cp .env dist/server/.dev.vars
       - name: Run auth and product import smoke tests against local Worker
         run: |
           npm run preview:worker -- --port 4321 > smoke-preview.log 2>&1 &
