@@ -57,3 +57,4 @@ evaluation/validate-pdf-processing/local/
 
 # stryker temp files
 .stryker-tmp
+reports/mutation/

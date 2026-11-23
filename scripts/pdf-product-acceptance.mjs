@@ -409,7 +409,7 @@ export function productAcceptanceFailureRecord(error, fixture) {
   };
 }
 
-function persistedRecipe(row) {
+export function persistedRecipe(row) {
   return {
     title: row.title,
     category: row.category,
@@ -423,7 +423,7 @@ function persistedRecipe(row) {
   };
 }
 
-function usageOf(ledger) {
+export function usageOf(ledger) {
   const usage = { inputTokens: 0, outputTokens: 0, confirmedNanoUsd: 0, heldNanoUsd: 0 };
   for (const batch of ledger?.batches ?? []) {
     usage.inputTokens += Number(batch.inputTokens ?? 0);
@@ -434,7 +434,7 @@ function usageOf(ledger) {
   return usage;
 }
 
-function productReport(importRow, ledger, rows) {
+export function productReport(importRow, ledger, rows) {
   const recipes = rows.map(persistedRecipe);
   return {
     failure: importRow.status === "committed" ? null : `import-${importRow.status}`,
