@@ -9,7 +9,7 @@ function config(target = "preview") {
     name: target === "preview" ? "dishly-web-preview" : "dishly-web",
     vars: { DEPLOYMENT_ENV: target },
     secrets: { required: target === "preview" ? [] : [...requiredSecrets] },
-    assets: { binding: "ASSETS" },
+    assets: { binding: "ASSETS", directory: "../client" },
     r2_buckets:
       target === "preview" ? [] : [{ binding: "PDF_BUCKET", bucket_name: "dishly-pdf-imports-eu", jurisdiction: "eu" }],
     queues: { producers: target === "preview" ? [] : [{ binding: "PDF_IMPORT_QUEUE", queue: "dishly-pdf-imports" }] },
@@ -57,6 +57,9 @@ test("rejects automatic bindings and missing production contracts", () => {
     },
     (c) => {
       c.queues.consumers = [{ queue: "unexpected" }];
+    },
+    (c) => {
+      c.assets.directory = "../server";
     },
   ]) {
     const c = config("production");

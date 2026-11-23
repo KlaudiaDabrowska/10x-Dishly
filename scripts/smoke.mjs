@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { URL } from "node:url";
+import { runSmokeSteps } from "./smoke-output.mjs";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:4321";
 const applicationUrl = new URL(BASE_URL);
@@ -531,27 +532,5 @@ for (const [label, actor] of [
     ]);
 }
 
-let failed = 0;
-try {
-  for (const [name, run, expected] of steps) {
-    try {
-      const actual = await run();
-      assertResponse(actual, expected);
-      console.log(`PASS  ${name}`);
-    } catch {
-      failed++;
-      // Never log responses, redirect queries or exception details that could contain session secrets.
-      console.log(`FAIL  ${name} (request or assertion failed)`);
-    }
-  }
-} finally {
-  try {
-    cleanupLocalFixtures();
-    console.log("PASS  local smoke fixtures and accounts cleaned up");
-  } catch {
-    failed++;
-    console.log("FAIL  local smoke cleanup failed");
-  }
-}
-console.log(failed ? `\n${failed} step(s) failed` : "\nAll smoke steps passed");
+const failed = await runSmokeSteps({ steps, assertResponse, cleanup: cleanupLocalFixtures });
 process.exit(failed ? 1 : 0);

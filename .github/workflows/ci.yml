@@ -31,7 +31,13 @@ jobs:
       - run: npm run test:deployment
       - run: npm run test:deploy-config
       - run: npm run test:pdf
+      - name: Security contracts
+        run: npm run test:security
+      - name: Client privacy scanner tests
+        run: npm run test:client-privacy
       - run: npm run build
+      - name: Client privacy scan
+        run: npm run check:client-privacy
       - run: npm run check:deploy -- production
       - run: npx --no-install wrangler deploy --dry-run
       - run: npx --no-install wrangler deploy --config workers/pdf-consumer/wrangler.jsonc --dry-run
@@ -69,7 +75,11 @@ jobs:
           supabase_secret="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
           printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nSUPABASE_SECRET_KEY=%s\nDEPLOY_PROBE_TOKEN=ci-local-test-only\n' "$API_URL" "$PUBLISHABLE_KEY" "$supabase_secret" > .env
       - run: npm run build
-      - name: Run auth and product import smoke tests against local Worker
+      - name: Prepare local Worker secrets
+        run: |
+          npm run prepare:smoke-worker
+          cp .env dist/server/.dev.vars
+      - name: Owner isolation and product import smoke
         run: |
           npm run preview:worker -- --port 4321 > smoke-preview.log 2>&1 &
           preview_pid=$!

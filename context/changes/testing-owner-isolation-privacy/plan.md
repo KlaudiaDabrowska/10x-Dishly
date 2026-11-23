@@ -335,23 +335,23 @@ i nie usuwać starego PK.
 
 #### Automated
 
-- [x] 3.1 `npm run test:security` zalicza planted sentinels w auth, logach, statusie i kodach klienta.
-- [x] 3.2 Exact-key assertions odrzucają każde dodatkowe pole statusu i decyzji.
-- [x] 3.3 `npm run test:pdf` przechodzi po dostosowaniu recovery i product acceptance.
-- [x] 3.4 `npm run lint` oraz `npx --no-install astro check` przechodzą.
+- [x] 3.1 `npm run test:security` zalicza planted sentinels w auth, logach, statusie i kodach klienta. — 6e46bc4
+- [x] 3.2 Exact-key assertions odrzucają każde dodatkowe pole statusu i decyzji. — 6e46bc4
+- [x] 3.3 `npm run test:pdf` przechodzi po dostosowaniu recovery i product acceptance. — 6e46bc4
+- [x] 3.4 `npm run lint` oraz `npx --no-install astro check` przechodzą. — 6e46bc4
 
 #### Manual
 
-- [x] 3.5 Sign-in i sign-up pokazują ustalone copy dla `auth_failed`, a nieznane query nie tworzy banera.
+- [x] 3.5 Sign-in i sign-up pokazują ustalone copy dla `auth_failed`, a nieznane query nie tworzy banera. — 6e46bc4
 
 ### Phase 4: Bundle and CI gate
 
 #### Automated
 
-- [ ] 4.1 Test skanera zalicza czysty fixture i odrzuca każdy typ zasianego sentinela.
-- [ ] 4.2 `npm run build && npm run check:client-privacy` przechodzi dla produkcyjnego `dist/client`.
-- [ ] 4.3 Lokalny odpowiednik jobów `validate` i `smoke` przechodzi.
-- [ ] 4.4 CI uruchamia kontrakty, skan bundla i owner smoke na każdym PR.
+- [x] 4.1 Test skanera zalicza czysty fixture i odrzuca każdy typ zasianego sentinela.
+- [x] 4.2 `npm run build && npm run check:client-privacy` przechodzi dla produkcyjnego `dist/client`.
+- [x] 4.3 Lokalny odpowiednik jobów `validate` i `smoke` przechodzi.
+- [x] 4.4 CI uruchamia kontrakty, skan bundla i owner smoke na każdym PR.
 
 #### Manual
 
