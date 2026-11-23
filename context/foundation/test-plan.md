@@ -47,7 +47,7 @@ Każdy wiersz otwiera osobną zmianę. Statusy są stanem odczytywanym przez orc
 | #   | Phase name                              | Goal (one line)                                                    | Risks covered         | Test types                                       | Status      | Change folder                                |
 | --- | --------------------------------------- | ------------------------------------------------------------------ | --------------------- | ------------------------------------------------ | ----------- | -------------------------------------------- |
 | 1   | Krytyczna poprawność importu i recovery | Udowodnić uczciwy zapis, odporność na retry i pełny przepływ.      | #1, #2, #5            | contract + DB integration + selective acceptance | complete    | testing-critical-import-correctness-recovery |
-| 2   | Izolacja właścicieli i prywatność       | Zablokować IDOR na istniejących powierzchniach oraz wycieki poza prywatnym UI właściciela. | #3, #4                | DB/API integration + security contract + smoke   | researched  | testing-owner-isolation-privacy              |
+| 2   | Izolacja właścicieli i prywatność       | Zablokować IDOR na istniejących powierzchniach oraz wycieki poza prywatnym UI właściciela. | #3, #4                | DB/API integration + security contract + smoke   | implementing | testing-owner-isolation-privacy              |
 | 3   | Filtrowanie i mutacje kolekcji          | Chronić filtrowanie oraz operacje edit/delete.                     | #3, #6                | unit + integration + critical-flow e2e           | not started | —                                            |
 | 4   | Selektywna ocena AI i bramki jakości    | Wykrywać semantyczne błędy ekstrakcji i utrwalić minimalne bramki. | #1, #5, cross-cutting | AI-native review + acceptance gates              | not started | —                                            |
 
@@ -93,7 +93,41 @@ Referencyjna bramka kontraktowa: `npm run test:pdf`. Integracja DB/HTTP wymaga l
 
 ### 6.2 Test integracyjny DB/API
 
-TBD — see §3 Phase 2 for owner isolation, RLS i nieujawniające odmowy.
+Rollout izolacji właścicieli i prywatności składa się z czterech uzupełniających
+się warstw. Każda ma osobny oracle i żadnej nie zastępuj testem UI ani mockiem
+niższej granicy:
+
+1. **Hermetyczne allowlisty — `npm run test:security`.** Sadź unikalny prywatny
+   sentinel w wiadomości, kodzie, przyczynie i payloadzie zależności. Wymagaj
+   exact body oraz exact keys dla publicznych błędów, logów, statusów i decyzji.
+   Nieznane wartości muszą przejść do stałego publicznego kodu, a błąd testu może
+   podać kategorię lub ścieżkę, nigdy wartość sentinela. Ta warstwa chroni też
+   stałe copy auth i ignorowanie nieznanego `?error=`.
+2. **Realna baza — `npm run test:pdf:db`.** Użyj prawdziwych migracji, constraintów,
+   RLS i aktywnych RPC. Udowodnij, że dwóch ownerów może użyć tego samego publicznego
+   UUID, własny replay jest idempotentny, a foreign i nonexistent nie odczytują ani
+   nie mutują importu, decyzji lub przepisu. Brak mutacji sprawdzaj owner-scoped
+   read-backiem; stub klienta nie jest oracle dla własności, constraintów ani race.
+3. **Zbudowany Worker — `npm run smoke`.** Uruchom produkcyjny build z lokalnym
+   Supabase i dwiema niezależnymi sesjami. Dla istniejących odczytów przepisów oraz
+   statusu i reprezentatywnej mutacji importu wymagaj tej samej odpowiedzi dla
+   foreign i nonexistent, w tym exact status/body oraz `private, no-store`.
+   Sprawdź brak efektów ubocznych i niezależny create wspólnego publicznego UUID.
+   W CI ta warstwa pozostaje w jobie `smoke`; nie przenoś jej do hermetycznego
+   testu, który ominąłby session guard i rzeczywiste RPC.
+4. **Statyczna granica klienta — `npm run build && npm run check:client-privacy`.**
+   Skanuj rekurencyjnie wszystkie bajty dokładnie w katalogu wskazanym przez
+   wygenerowane `assets.directory` jako `dist/client`. Skaner ma własny test z
+   zasianymi canary dla sekretu, treści PDF, prywatnego payloadu i nazw prywatnych
+   zmiennych. Zielony skan innego katalogu nie jest dowodem. Ta bramka działa po
+   produkcyjnym buildzie w jobie `validate`.
+
+Zakaz wycieku nie obejmuje legalnej treści widocznej uwierzytelnionemu właścicielowi
+w jego prywatnym UI; takie odpowiedzi nadal muszą być owner-scoped i mieć
+`Cache-Control: private, no-store`. Obejmuje logi, publiczne błędy i statusy,
+statyczny bundle oraz odpowiedzi dla nieuprawnionego użytkownika. Recipe
+edit/delete pozostają poza tym rolloutem i wchodzą dopiero w §3 Phase 3, gdy te
+powierzchnie istnieją.
 
 ### 6.3 Test filtrowania lub mutacji przepisu
 
@@ -112,6 +146,11 @@ TBD — see §3 Phase 4 for semantic extraction review and when not to use it.
 Rollout Phase 1 rozdziela sygnał na: exact golden (`scripts/pdf-acceptance*.mjs`), hermetyczne recovery klienta, realne race DB, deterministyczny most HTTP oraz płatny release gate (`scripts/pdf-product-acceptance*.mjs`). Tanie warstwy działają w CI; prywatne fixture i płatny provider pozostają wyłącznie w kontrolowanym środowisku lokalnym.
 
 Status rollout opisuje wdrożenie ochrony testowej, a release readiness opisuje wynik gate'u dla konkretnego wydania. Rollout Phase 1 może przejść z `implementing` na `complete` po zweryfikowaniu harnessu, bezpiecznej ścieżki błędu, pełnych lokalnych bramek i cookbooka. Release pozostaje `blocked` do czasu zapisania dwóch rzeczywistych, zaliczonych recordów live i zatwierdzenia ich sanitizowanego podsumowania; ukończony rollout, zielony self-test ani preflight nie autoryzują wydania.
+
+Rollout Phase 2 pozostaje `implementing`, dopóki cały plan
+`testing-owner-isolation-privacy` — łącznie z ręcznym odczytem pierwszego runu PR —
+nie jest zaliczony. Dopiero wtedy zmień jego status na `complete`; same zielone
+bramki lokalne nie zamykają rollout'u.
 
 ## 7. What We Deliberately Don't Test
 

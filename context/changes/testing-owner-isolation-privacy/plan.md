@@ -348,10 +348,10 @@ i nie usuwać starego PK.
 
 #### Automated
 
-- [x] 4.1 Test skanera zalicza czysty fixture i odrzuca każdy typ zasianego sentinela.
-- [x] 4.2 `npm run build && npm run check:client-privacy` przechodzi dla produkcyjnego `dist/client`.
-- [x] 4.3 Lokalny odpowiednik jobów `validate` i `smoke` przechodzi.
-- [x] 4.4 CI uruchamia kontrakty, skan bundla i owner smoke na każdym PR.
+- [x] 4.1 Test skanera zalicza czysty fixture i odrzuca każdy typ zasianego sentinela. — 6a7d379
+- [x] 4.2 `npm run build && npm run check:client-privacy` przechodzi dla produkcyjnego `dist/client`. — 6a7d379
+- [x] 4.3 Lokalny odpowiednik jobów `validate` i `smoke` przechodzi. — 6a7d379
+- [x] 4.4 CI uruchamia kontrakty, skan bundla i owner smoke na każdym PR. — 6a7d379
 
 #### Manual
 
@@ -361,6 +361,6 @@ i nie usuwać starego PK.
 
 #### Automated
 
-- [ ] 5.1 Wszystkie komendy faz 1–4 przechodzą w jednym końcowym przebiegu.
-- [ ] 5.2 Plan testów zawiera kompletne §6.2 i poprawny status Phase 2.
-- [ ] 5.3 `git diff --check` nie zgłasza błędów.
+- [x] 5.1 Wszystkie komendy faz 1–4 przechodzą w jednym końcowym przebiegu.
+- [x] 5.2 Plan testów zawiera kompletne §6.2 i poprawny status Phase 2.
+- [x] 5.3 `git diff --check` nie zgłasza błędów.
