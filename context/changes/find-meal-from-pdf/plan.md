@@ -156,8 +156,8 @@ Exercise the complete owner-scoped flow, document the shipped contract, and pres
 
 #### Automated
 
-- [x] 1.1 Migration equivalence suite passes
-- [x] 1.2 Real database filtering contract passes
+- [x] 1.1 Migration equivalence suite passes — 212b50d
+- [x] 1.2 Real database filtering contract passes — 212b50d
 
 #### Manual
 
@@ -165,9 +165,9 @@ Exercise the complete owner-scoped flow, document the shipped contract, and pres
 
 #### Automated
 
-- [ ] 2.1 Recipe reader suite passes
-- [ ] 2.2 Selective Stryker run reviewed
-- [ ] 2.3 Existing CI validation invokes recipe tests
+- [x] 2.1 Recipe reader suite passes
+- [x] 2.2 Selective Stryker run reviewed
+- [x] 2.3 Existing CI validation invokes recipe tests
 
 #### Manual
 

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   PAGE_SIZE,
+  buildRecipeListHref,
   isRecipeId,
   mapRecipeDetail,
   parsePage,
+  parseRecipeListSearchParams,
   readRecipeDetail,
   readRecipePage,
 } from "../src/lib/recipes/read.ts";
@@ -74,8 +76,52 @@ test("page parser defaults to page one and accepts only positive safe integers",
   assert.equal(parsePage("1"), 1);
   assert.equal(parsePage("01"), 1);
   assert.equal(parsePage("27"), 27);
-  for (const value of ["", "0", "-1", "1.5", " 1", "word", String(Number.MAX_SAFE_INTEGER + 1)])
+  for (const value of ["", "0", "-1", "1.5", " 1", "1x", "x1", "word", String(Number.MAX_SAFE_INTEGER + 1)])
     assert.equal(parsePage(value), null);
+});
+
+test("list search parameters validate filters without losing valid state on an invalid page", () => {
+  assert.deepEqual(parseRecipeListSearchParams(new URLSearchParams()), {
+    status: "ok",
+    page: 1,
+    filters: { category: null, ingredient: null },
+  });
+  assert.deepEqual(
+    parseRecipeListSearchParams(new URLSearchParams("category=lunch&ingredient=%20ryz%CC%87%20basmati%20&page=2")),
+    {
+      status: "ok",
+      page: 2,
+      filters: { category: "lunch", ingredient: "ryż basmati" },
+    },
+  );
+  assert.deepEqual(parseRecipeListSearchParams(new URLSearchParams("ingredient=%20%20%20")), {
+    status: "ok",
+    page: 1,
+    filters: { category: null, ingredient: null },
+  });
+  assert.deepEqual(parseRecipeListSearchParams(new URLSearchParams(`category=&ingredient=${"a".repeat(500)}`)), {
+    status: "ok",
+    page: 1,
+    filters: { category: null, ingredient: "a".repeat(500) },
+  });
+  assert.deepEqual(parseRecipeListSearchParams(new URLSearchParams("category=dinner&ingredient=pomidor&page=0")), {
+    status: "invalid-page",
+    filters: { category: "dinner", ingredient: "pomidor" },
+  });
+  assert.equal(
+    buildRecipeListHref(1, { category: "dinner", ingredient: "sos pomidorowy" }),
+    "/dashboard?category=dinner&ingredient=sos+pomidorowy",
+  );
+  assert.equal(buildRecipeListHref(1, { category: null, ingredient: null }), "/dashboard");
+  assert.equal(buildRecipeListHref(2, { category: "dinner", ingredient: null }), "/dashboard?category=dinner&page=2");
+
+  for (const search of [
+    "category=supper",
+    "category=lunch&category=dinner",
+    "ingredient=ryż&ingredient=kasza",
+    `ingredient=${"a".repeat(501)}`,
+  ])
+    assert.deepEqual(parseRecipeListSearchParams(new URLSearchParams(search)), { status: "invalid-filter" });
 });
 
 test("list requests exact count, 24-row ranges and deterministic newest-first ordering", async () => {
@@ -104,7 +150,8 @@ test("list requests exact count, 24-row ranges and deterministic newest-first or
   assert.equal(first.totalCount, 25);
   assert.equal(first.totalPages, 2);
   assert.deepEqual(port.calls[0].query, {
-    select: "id,title,current_missing_reason_codes,created_at",
+    function: "search_recipes",
+    parameters: { p_category: null, p_ingredient: null },
     count: "exact",
     range: { from: 0, to: 23 },
     order: [
@@ -122,6 +169,22 @@ test("list requests exact count, 24-row ranges and deterministic newest-first or
   assert.deepEqual(port.calls[1].query.range, { from: 24, to: 47 });
 });
 
+test("list forwards validated category and ingredient filters to the search function", async () => {
+  const port = fakePort({ rows: [listRow(firstId, "Pomidorowa", "2026-10-14T08:00:00.000Z")] });
+  const result = await readRecipePage(port, "1", { category: "lunch", ingredient: "pomidor" });
+  assert.equal(result.status, "ok");
+  assert.deepEqual(port.calls[0].query, {
+    function: "search_recipes",
+    parameters: { p_category: "lunch", p_ingredient: "pomidor" },
+    count: "exact",
+    range: { from: 0, to: 23 },
+    order: [
+      { column: "created_at", ascending: false },
+      { column: "id", ascending: true },
+    ],
+  });
+});
+
 test("an out-of-range page is not presented as an empty collection", async () => {
   const port = fakePort({ rows: [listRow(firstId, "Jedyny", "2026-10-14T08:00:00.000Z")] });
   assert.deepEqual(await readRecipePage(port, "2"), { status: "invalid-page" });
@@ -132,7 +195,8 @@ test("an out-of-range page is not presented as an empty collection", async () =>
 
 test("the Supabase adapter classifies only PGRST103 as an unsatisfied range", async () => {
   const query = {
-    select: "id,title,current_missing_reason_codes,created_at",
+    function: "search_recipes",
+    parameters: { p_category: null, p_ingredient: null },
     count: "exact",
     range: { from: 24, to: 47 },
     order: [
@@ -150,12 +214,8 @@ test("the Supabase adapter classifies only PGRST103 as an unsatisfied range", as
       },
     };
     return {
-      from() {
-        return {
-          select() {
-            return request;
-          },
-        };
+      rpc() {
+        return request;
       },
     };
   };
@@ -165,6 +225,48 @@ test("the Supabase adapter classifies only PGRST103 as an unsatisfied range", as
 
   const failedPort = createSupabaseRecipeReadPort(clientWith({ data: null, count: null, error: { code: "PGRST001" } }));
   assert.deepEqual(await failedPort.listRecipes(query), { status: "error" });
+});
+
+test("the Supabase adapter paginates the search RPC with an exact count", async () => {
+  const calls = [];
+  const request = {
+    order(column, options) {
+      calls.push(["order", column, options]);
+      return request;
+    },
+    async range(from, to) {
+      calls.push(["range", from, to]);
+      return { data: [listRow(firstId, "Pomidorowa", "2026-10-14T08:00:00.000Z")], count: 1, error: null };
+    },
+  };
+  const client = {
+    rpc(name, parameters, options) {
+      calls.push(["rpc", name, parameters, options]);
+      return request;
+    },
+  };
+  const port = createSupabaseRecipeReadPort(client);
+  const result = await port.listRecipes({
+    function: "search_recipes",
+    parameters: { p_category: "lunch", p_ingredient: "pomidor" },
+    count: "exact",
+    range: { from: 0, to: 23 },
+    order: [
+      { column: "created_at", ascending: false },
+      { column: "id", ascending: true },
+    ],
+  });
+  assert.deepEqual(result, {
+    status: "ok",
+    data: [listRow(firstId, "Pomidorowa", "2026-10-14T08:00:00.000Z")],
+    count: 1,
+  });
+  assert.deepEqual(calls, [
+    ["rpc", "search_recipes", { p_category: "lunch", p_ingredient: "pomidor" }, { count: "exact" }],
+    ["order", "created_at", { ascending: false }],
+    ["order", "id", { ascending: true }],
+    ["range", 0, 23],
+  ]);
 });
 
 test("an empty first page remains a successful empty collection", async () => {
