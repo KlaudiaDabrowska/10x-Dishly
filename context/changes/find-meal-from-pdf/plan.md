@@ -165,9 +165,9 @@ Exercise the complete owner-scoped flow, document the shipped contract, and pres
 
 #### Automated
 
-- [x] 2.1 Recipe reader suite passes
-- [x] 2.2 Selective Stryker run reviewed
-- [x] 2.3 Existing CI validation invokes recipe tests
+- [x] 2.1 Recipe reader suite passes — 9d8fd77
+- [x] 2.2 Selective Stryker run reviewed — 9d8fd77
+- [x] 2.3 Existing CI validation invokes recipe tests — 9d8fd77
 
 #### Manual
 
@@ -175,13 +175,13 @@ Exercise the complete owner-scoped flow, document the shipped contract, and pres
 
 #### Automated
 
-- [ ] 3.1 Lint, Astro check, and product build pass
-- [ ] 3.2 UI preview contract passes
+- [x] 3.1 Lint, Astro check, and product build pass
+- [x] 3.2 UI preview contract passes
 
 #### Manual
 
-- [ ] 3.3 Keyboard and 390px responsive flow accepted
-- [ ] 3.4 Filter states and UI contract accepted
+- [x] 3.3 Keyboard and 390px responsive flow accepted
+- [x] 3.4 Filter states and UI contract accepted
 
 ### Phase 4: Integration, performance, and evidence
 

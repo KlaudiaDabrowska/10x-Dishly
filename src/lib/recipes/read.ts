@@ -7,6 +7,10 @@ import {
   type OmissionCode,
   type RecipeCategory,
 } from "../pdf-processing/contracts.ts";
+import type { RecipeFilters } from "./list-params.ts";
+
+export { buildRecipeListHref } from "./list-params.ts";
+export type { RecipeFilters } from "./list-params.ts";
 
 export const PAGE_SIZE = 24;
 export const MAX_INGREDIENT_FILTER_LENGTH = 500;
@@ -21,11 +25,6 @@ export interface RecipeListQuery {
   count: "exact";
   range: { from: number; to: number };
   order: readonly [{ column: "created_at"; ascending: false }, { column: "id"; ascending: true }];
-}
-
-export interface RecipeFilters {
-  category: RecipeCategory | null;
-  ingredient: string | null;
 }
 
 export type RecipeListSearchParamsResult =
@@ -117,15 +116,6 @@ export function parseRecipeListSearchParams(searchParams: URLSearchParams): Reci
   };
   const page = parsePage(searchParams.get("page"));
   return page === null ? { status: "invalid-page", filters } : { status: "ok", page, filters };
-}
-
-export function buildRecipeListHref(page: number, filters: RecipeFilters): string {
-  const searchParams = new URLSearchParams();
-  if (filters.category !== null) searchParams.set("category", filters.category);
-  if (filters.ingredient !== null) searchParams.set("ingredient", filters.ingredient);
-  if (page > 1) searchParams.set("page", String(page));
-  const query = searchParams.toString();
-  return query ? `/dashboard?${query}` : "/dashboard";
 }
 
 export function isRecipeId(value: string): boolean {

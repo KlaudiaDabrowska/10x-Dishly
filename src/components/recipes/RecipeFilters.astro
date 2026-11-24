@@ -1,0 +1,74 @@
+---
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import type { RecipeFilters } from "@/lib/recipes/list-params";
+
+interface Props {
+  filters: RecipeFilters;
+}
+
+const { filters } = Astro.props;
+const hasActiveFilters = filters.category !== null || filters.ingredient !== null;
+---
+
+<Card>
+  <CardHeader>
+    <h2 id="recipe-filters-title" class="text-xl font-semibold">
+      Znajdź przepis
+    </h2>
+    <p class="text-sm text-muted-foreground">Zawęź kolekcję według kategorii lub składnika.</p>
+  </CardHeader>
+  <CardContent>
+    <form method="GET" action="/dashboard" aria-labelledby="recipe-filters-title" class="grid gap-5 md:grid-cols-2">
+      <div class="grid gap-2">
+        <label for="recipe-category" class="text-sm font-medium">
+          Kategoria
+        </label>
+        <NativeSelect id="recipe-category" name="category">
+          <NativeSelectOption value="" selected={filters.category === null}>
+            Wszystkie kategorie
+          </NativeSelectOption>
+          <NativeSelectOption value="breakfast" selected={filters.category === "breakfast"}>
+            Śniadanie
+          </NativeSelectOption>
+          <NativeSelectOption value="lunch" selected={filters.category === "lunch"}>
+            Obiad
+          </NativeSelectOption>
+          <NativeSelectOption value="dinner" selected={filters.category === "dinner"}>
+            Kolacja
+          </NativeSelectOption>
+          <NativeSelectOption value="dessert" selected={filters.category === "dessert"}>
+            Deser
+          </NativeSelectOption>
+        </NativeSelect>
+      </div>
+
+      <div class="grid gap-2">
+        <label for="recipe-ingredient" class="text-sm font-medium">
+          Składnik
+        </label>
+        <Input
+          id="recipe-ingredient"
+          name="ingredient"
+          type="search"
+          value={filters.ingredient ?? ""}
+          maxLength={500}
+          placeholder="np. pomidor"
+        />
+      </div>
+
+      <div class="flex flex-col gap-3 md:col-span-2 sm:flex-row sm:items-center">
+        <button type="submit" class:list={[buttonVariants(), "w-full sm:w-auto"]}>
+          Filtruj
+        </button>
+        {hasActiveFilters && (
+          <a href="/dashboard" class:list={[buttonVariants({ variant: "outline" }), "w-full sm:w-auto"]}>
+            Wyczyść filtry
+          </a>
+        )}
+      </div>
+    </form>
+  </CardContent>
+</Card>

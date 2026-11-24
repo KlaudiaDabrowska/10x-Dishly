@@ -9,6 +9,7 @@ const files = [
   "src/components/pdf-processing/RecipeDecisionCard.tsx",
   "src/components/pdf-processing/RecipeImportPanel.tsx",
   "src/components/recipes/RecipeDetail.astro",
+  "src/components/recipes/RecipeFilters.astro",
   "src/components/recipes/RecipeList.astro",
   "src/pages/dashboard/import.astro",
 ];
