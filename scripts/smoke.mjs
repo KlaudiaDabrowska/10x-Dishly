@@ -29,6 +29,7 @@ const fixture = {
     importId: randomUUID(),
     sourceFilename: "smoke-fixture.pdf",
     title: `Smoke owner A recipe ${runId}`,
+    updatedAt: "2026-11-24T08:00:00+00:00",
   },
   actorB: {
     id: randomUUID(),
@@ -37,6 +38,7 @@ const fixture = {
     decisionId: randomUUID(),
     sourceFilename: `${privateImportSentinel}.pdf`,
     title: `Smoke owner B recipe ${runId}`,
+    updatedAt: "2026-11-24T08:01:00+00:00",
   },
 };
 
@@ -68,12 +70,12 @@ function seedRecipe(ownerEmail, recipe, fingerprint) {
       );
       insert into public.recipes (
         id, owner_id, file_fingerprint, source_start_page, source_start_item, import_id, source_filename,
-        source_pages, title, category, ingredient_groups, instructions
+        source_pages, title, category, ingredient_groups, instructions, updated_at
       ) values (
         ${sqlLiteral(recipe.id)}, v_owner_id, ${sqlLiteral(fingerprint)}, 1, 0, ${sqlLiteral(recipe.internalImportId)},
         ${sqlLiteral(recipe.sourceFilename)}, array[1], ${sqlLiteral(recipe.title)}, 'lunch',
         '[{"label":null,"ingredients":[{"name":"water","quantity":"200","unit":"ml","sourceText":"200 ml water"}]}]'::jsonb,
-        '["Mix and serve."]'::jsonb
+        '["Mix and serve."]'::jsonb, ${sqlLiteral(recipe.updatedAt)}
       );
     end
     $seed$;
@@ -174,6 +176,47 @@ function assertImportIsolationState() {
   `);
 }
 
+function assertRecipeEditState(editedTitle, editedIngredient, editedInstruction) {
+  localAdminSql(`
+    do $assert$
+    declare
+      v_owner_a uuid;
+      v_owner_b uuid;
+    begin
+      select id into strict v_owner_a from auth.users where email = ${sqlLiteral(actorA.email)};
+      select id into strict v_owner_b from auth.users where email = ${sqlLiteral(actorB.email)};
+      if not exists (
+        select 1 from public.recipes
+        where id = ${sqlLiteral(fixture.actorA.id)} and owner_id = v_owner_a
+          and title = ${sqlLiteral(editedTitle)}
+          and ingredient_groups = ${sqlLiteral(
+            JSON.stringify([
+              {
+                label: null,
+                ingredients: [{ name: "sparkling water", quantity: null, unit: null, sourceText: editedIngredient }],
+              },
+            ]),
+          )}::jsonb
+          and instructions = ${sqlLiteral(JSON.stringify([editedInstruction]))}::jsonb
+      ) then
+        raise exception 'own recipe edit did not persist';
+      end if;
+      if not exists (
+        select 1 from public.recipes
+        where id = ${sqlLiteral(fixture.actorB.id)} and owner_id = v_owner_b
+          and title = ${sqlLiteral(fixture.actorB.title)}
+          and ingredient_groups =
+            '[{"label":null,"ingredients":[{"name":"water","quantity":"200","unit":"ml","sourceText":"200 ml water"}]}]'::jsonb
+          and instructions = '["Mix and serve."]'::jsonb
+          and updated_at = ${sqlLiteral(fixture.actorB.updatedAt)}::timestamptz
+      ) then
+        raise exception 'foreign recipe was mutated';
+      end if;
+    end
+    $assert$;
+  `);
+}
+
 function cleanupLocalFixtures() {
   localAdminSql(`
     do $cleanup$
@@ -246,6 +289,7 @@ function assertResponse(
     collection = false,
     home = false,
     detailTitle,
+    detailIngredient = "200 ml water",
     notFound = false,
     hidden = [],
     cache = true,
@@ -305,7 +349,7 @@ function assertResponse(
   if (detailTitle) {
     check(actual.body.includes(detailTitle), "missing own recipe detail title");
     check(actual.body.includes("smoke-fixture.pdf"), "missing recipe source filename");
-    check(actual.body.includes("200 ml water"), "missing recipe ingredient source text");
+    check(actual.body.includes(detailIngredient), "missing recipe ingredient source text");
   }
   if (notFound) {
     check(actual.body.includes("Przepis niedostępny"), "missing common recipe 404 marker");
@@ -400,6 +444,10 @@ for (const [label, actor, other] of [
   }
 }
 const nonexistentId = randomUUID();
+const editedTitle = `Smoke corrected recipe ${runId}`;
+const editedIngredient = "250 ml sparkling water";
+const editedInstruction = "Stir and chill.";
+let foreignRecipeEditBody = "";
 steps.push(
   [
     "A opens own recipe detail",
@@ -420,6 +468,86 @@ steps.push(
     "A receives common 404 for malformed recipe detail",
     () => request(actorA, "/dashboard/recipes/not-a-uuid"),
     { status: 404, owner: actorA, notFound: true, hidden: ["not-a-uuid"] },
+  ],
+  [
+    "A edits and reads back own recipe through the built Worker",
+    async () => {
+      const edit = await request(actorA, `/api/recipes/${fixture.actorA.id}`, {
+        method: "PATCH",
+        json: {
+          updatedAt: fixture.actorA.updatedAt,
+          title: editedTitle,
+          ingredientGroups: [
+            {
+              originIndex: 0,
+              label: null,
+              ingredients: [
+                {
+                  originIndex: 0,
+                  name: "sparkling water",
+                  sourceText: editedIngredient,
+                },
+              ],
+            },
+          ],
+          instructions: [{ originIndex: 0, text: editedInstruction }],
+        },
+      });
+      assertResponse(edit, { status: 200 });
+      const body = JSON.parse(edit.body);
+      check(
+        body &&
+          typeof body === "object" &&
+          Object.keys(body).sort().join(",") === "recipeId,updatedAt" &&
+          body.recipeId === fixture.actorA.id &&
+          typeof body.updatedAt === "string" &&
+          body.updatedAt !== fixture.actorA.updatedAt,
+        "unexpected recipe edit success body",
+      );
+      assertRecipeEditState(editedTitle, editedIngredient, editedInstruction);
+      fixture.actorA.title = editedTitle;
+      return request(actorA, `/dashboard/recipes/${fixture.actorA.id}`);
+    },
+    { status: 200, owner: actorA, detailTitle: editedTitle, detailIngredient: editedIngredient },
+  ],
+  [
+    "A receives common 404 for foreign recipe edit",
+    async () => {
+      const actual = await request(actorA, `/api/recipes/${fixture.actorB.id}`, {
+        method: "PATCH",
+        json: {
+          updatedAt: fixture.actorB.updatedAt,
+          title: "Foreign overwrite",
+          ingredientGroups: [],
+          instructions: [],
+        },
+      });
+      assertResponse(actual, { status: 404 });
+      check(actual.body === '{"error":"recipe-not-found"}', "unexpected foreign recipe edit body");
+      foreignRecipeEditBody = actual.body;
+      assertRecipeEditState(editedTitle, editedIngredient, editedInstruction);
+      return { status: 204, body: "", cacheControl: "" };
+    },
+    { status: 204, cache: false },
+  ],
+  [
+    "A receives the same 404 for nonexistent recipe edit",
+    async () => {
+      const actual = await request(actorA, `/api/recipes/${nonexistentId}`, {
+        method: "PATCH",
+        json: {
+          updatedAt: fixture.actorA.updatedAt,
+          title: "Nonexistent overwrite",
+          ingredientGroups: [],
+          instructions: [],
+        },
+      });
+      assertResponse(actual, { status: 404 });
+      check(actual.body === foreignRecipeEditBody, "foreign and nonexistent recipe edit responses differ");
+      assertRecipeEditState(editedTitle, editedIngredient, editedInstruction);
+      return { status: 204, body: "", cacheControl: "" };
+    },
+    { status: 204, cache: false },
   ],
 );
 const nonexistentImportId = randomUUID();

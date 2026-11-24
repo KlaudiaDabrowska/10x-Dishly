@@ -282,24 +282,24 @@ Apply the additive migration before application code. Roll back UI/API first; th
 
 #### Automated
 
-- [x] 3.1 Recipe UI and type contracts pass: `npm run test:recipes && npm run lint && npx --no-install astro check`
-- [x] 3.2 Isolated edit preview passes: `npm run check:ui-preview`
-- [x] 3.3 Edit evidence matrix is captured: `npm run capture:ui-preview:recipe-edit`
+- [x] 3.1 Recipe UI and type contracts pass: `npm run test:recipes && npm run lint && npx --no-install astro check` — 9bb8c5e
+- [x] 3.2 Isolated edit preview passes: `npm run check:ui-preview` — 9bb8c5e
+- [x] 3.3 Edit evidence matrix is captured: `npm run capture:ui-preview:recipe-edit` — 9bb8c5e
 
 #### Manual
 
-- [x] 3.4 Desktop/mobile matrix passes for complete, incomplete, validation, saving, failure, conflict, cancel, and success states
-- [x] 3.5 Keyboard, focus, dirty-navigation warning, and persisted read-back are verified
+- [x] 3.4 Desktop/mobile matrix passes for complete, incomplete, validation, saving, failure, conflict, cancel, and success states — 9bb8c5e
+- [x] 3.5 Keyboard, focus, dirty-navigation warning, and persisted read-back are verified — 9bb8c5e
 
 ### Phase 4: Integrated verification and rollout
 
 #### Automated
 
-- [ ] 4.1 Full recipe/security/DB regression passes: `npm run test:recipes && npm run test:security && npm run test:pdf:db`
-- [ ] 4.2 Production checks pass: `npm run lint && npx --no-install astro check && npm run build`
-- [ ] 4.3 Built Worker smoke proves owner edit/read-back and foreign no-mutation: `npm run smoke`
+- [x] 4.1 Full recipe/security/DB regression passes: `npm run test:recipes && npm run test:security && npm run test:pdf:db`
+- [x] 4.2 Production checks pass: `npm run lint && npx --no-install astro check && npm run build`
+- [x] 4.3 Built Worker smoke proves owner edit/read-back and foreign no-mutation: `npm run smoke`
 
 #### Manual
 
-- [ ] 4.4 Contract registry and rollout evidence match the implemented route, errors, and migration order
-- [ ] 4.5 S-05 handoff records the deferred filter-freshness gate without claiming it passed
+- [x] 4.4 Contract registry and rollout evidence match the implemented route, errors, and migration order
+- [x] 4.5 S-05 handoff records the deferred filter-freshness gate without claiming it passed

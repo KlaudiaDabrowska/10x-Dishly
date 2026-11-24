@@ -3,7 +3,7 @@ project: Dishly
 version: 6
 status: draft
 created: 2026-09-23
-updated: 2026-10-27
+updated: 2026-11-24
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -196,6 +196,8 @@ US-02 verification goes from registration/login through local PDF selection, tex
 - **Status:** in-progress
 
 Controlled data is sufficient to test incomplete content; after S-03 is complete, also verify the actual keep flow and subsequent editing. Editing during import remains out of scope.
+
+S-06 verifies owner-only JSON persistence and read-back through the built Worker. It does not claim ingredient-filter freshness: that shared integration gate remains deferred until S-05 defines and implements its direct-JSON or derived-search contract.
 
 ### S-07: Delete a saved recipe
 
