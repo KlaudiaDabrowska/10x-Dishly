@@ -295,11 +295,11 @@ Apply the additive migration before application code. Roll back UI/API first; th
 
 #### Automated
 
-- [x] 4.1 Full recipe/security/DB regression passes: `npm run test:recipes && npm run test:security && npm run test:pdf:db`
-- [x] 4.2 Production checks pass: `npm run lint && npx --no-install astro check && npm run build`
-- [x] 4.3 Built Worker smoke proves owner edit/read-back and foreign no-mutation: `npm run smoke`
+- [x] 4.1 Full recipe/security/DB regression passes: `npm run test:recipes && npm run test:security && npm run test:pdf:db` — 6d05547
+- [x] 4.2 Production checks pass: `npm run lint && npx --no-install astro check && npm run build` — 6d05547
+- [x] 4.3 Built Worker smoke proves owner edit/read-back and foreign no-mutation: `npm run smoke` — 6d05547
 
 #### Manual
 
-- [x] 4.4 Contract registry and rollout evidence match the implemented route, errors, and migration order
-- [x] 4.5 S-05 handoff records the deferred filter-freshness gate without claiming it passed
+- [x] 4.4 Contract registry and rollout evidence match the implemented route, errors, and migration order — 6d05547
+- [x] 4.5 S-05 handoff records the deferred filter-freshness gate without claiming it passed — 6d05547
