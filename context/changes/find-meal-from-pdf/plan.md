@@ -187,11 +187,11 @@ Exercise the complete owner-scoped flow, document the shipped contract, and pres
 
 #### Automated
 
-- [x] 4.1 Recipe, PDF, database, and smoke suites pass
-- [x] 4.2 Five warmed 1,000-recipe requests stay below 1,000 ms
-- [x] 4.3 Filter visual evidence captured
+- [x] 4.1 Recipe, PDF, database, and smoke suites pass — 9dc6008
+- [x] 4.2 Five warmed 1,000-recipe requests stay below 1,000 ms — 9dc6008
+- [x] 4.3 Filter visual evidence captured — 9dc6008
 
 #### Manual
 
-- [x] 4.4 Visual matrix accepted
-- [x] 4.5 Representative filter-to-detail and owner isolation accepted
+- [x] 4.4 Visual matrix accepted — 9dc6008
+- [x] 4.5 Representative filter-to-detail and owner isolation accepted — 9dc6008
