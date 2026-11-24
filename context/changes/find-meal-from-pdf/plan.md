@@ -175,23 +175,23 @@ Exercise the complete owner-scoped flow, document the shipped contract, and pres
 
 #### Automated
 
-- [x] 3.1 Lint, Astro check, and product build pass
-- [x] 3.2 UI preview contract passes
+- [x] 3.1 Lint, Astro check, and product build pass — d938c7d
+- [x] 3.2 UI preview contract passes — d938c7d
 
 #### Manual
 
-- [x] 3.3 Keyboard and 390px responsive flow accepted
-- [x] 3.4 Filter states and UI contract accepted
+- [x] 3.3 Keyboard and 390px responsive flow accepted — d938c7d
+- [x] 3.4 Filter states and UI contract accepted — d938c7d
 
 ### Phase 4: Integration, performance, and evidence
 
 #### Automated
 
-- [ ] 4.1 Recipe, PDF, database, and smoke suites pass
-- [ ] 4.2 Five warmed 1,000-recipe requests stay below 1,000 ms
-- [ ] 4.3 Filter visual evidence captured
+- [x] 4.1 Recipe, PDF, database, and smoke suites pass
+- [x] 4.2 Five warmed 1,000-recipe requests stay below 1,000 ms
+- [x] 4.3 Filter visual evidence captured
 
 #### Manual
 
-- [ ] 4.4 Visual matrix accepted
-- [ ] 4.5 Representative filter-to-detail and owner isolation accepted
+- [x] 4.4 Visual matrix accepted
+- [x] 4.5 Representative filter-to-detail and owner isolation accepted

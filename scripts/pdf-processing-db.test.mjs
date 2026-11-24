@@ -10,6 +10,7 @@ import { dispatchWithSpendingControl } from "../src/lib/pdf-processing/import-st
 import { batchFromManifest } from "../src/lib/pdf-processing/manifest.ts";
 import { createValidationService } from "../src/lib/pdf-processing/service.ts";
 import { verifyIsolatedDbProject, isolatedSupabaseEnv } from "./pdf-processing-db-runner.mjs";
+import { probeRecipeFilterPerformance } from "./recipe-filter-performance.mjs";
 
 // Deliberately refuse direct execution against the developer's paid-usage ledger.
 const isolated = verifyIsolatedDbProject(process.env);
@@ -1746,6 +1747,62 @@ test("ingredient-only search includes a kept recipe whose category is missing", 
   });
   assert.ifError(categoryAndIngredient.error);
   assert.deepEqual(categoryAndIngredient.data, []);
+});
+
+test("authenticated recipe search stays below one second for 1,000 owner recipes", async () => {
+  const user = await createUser(`recipe-search-performance-${randomUUID()}@example.test`);
+  const importId = randomUUID();
+  const fingerprint = sha();
+  sql(`
+    insert into public.pdf_imports (
+      id, client_import_id, owner_id, channel, file_fingerprint, manifest_digest, status, expires_at, source_filename
+    ) values (
+      '${importId}', '${importId}', '${user.id}', 'product', '${fingerprint}', '${digest("m")}', 'committed',
+      '2099-01-01T00:00:00Z', 'recipe-filter-performance.pdf'
+    )
+  `);
+  sql(`
+    insert into public.recipes (
+      id, owner_id, file_fingerprint, source_start_page, source_start_item, import_id, source_filename,
+      source_pages, title, category, ingredient_groups, instructions, created_at, updated_at
+    )
+    select
+      gen_random_uuid(),
+      '${user.id}',
+      '${fingerprint}',
+      1 + ((fixture.number - 1) / 10),
+      (fixture.number - 1) % 10,
+      '${importId}',
+      'recipe-filter-performance.pdf',
+      array[1 + ((fixture.number - 1) / 10)],
+      'Performance recipe ' || fixture.number,
+      case when fixture.number % 2 = 0 then 'lunch' else 'dinner' end,
+      jsonb_build_array(jsonb_build_object(
+        'label', null,
+        'ingredients', jsonb_build_array(jsonb_build_object(
+          'name', case when fixture.number % 4 = 0 then 'Pomidory czerwone' else 'ryż basmati' end,
+          'quantity', null,
+          'unit', null,
+          'sourceText', case when fixture.number % 4 = 0 then 'Pomidory czerwone' else 'ryż basmati' end
+        ))
+      )),
+      '["Mix and serve."]'::jsonb,
+      '2026-11-24T00:00:00Z'::timestamptz + fixture.number * interval '1 second',
+      '2026-11-24T00:00:00Z'::timestamptz + fixture.number * interval '1 second'
+    from generate_series(1, 1000) as fixture(number);
+  `);
+
+  const samplesMs = await probeRecipeFilterPerformance({
+    client: await signedIn(user),
+    filters: { p_category: "lunch", p_ingredient: "pomidor" },
+    expectedCount: 250,
+  });
+  assert.equal(samplesMs.length, 5);
+  assert.ok(
+    samplesMs.every((durationMs) => durationMs < 1_000),
+    samplesMs.join(", "),
+  );
+  console.log(`Recipe filter performance (ms): ${samplesMs.map((durationMs) => durationMs.toFixed(1)).join(", ")}`);
 });
 
 test("the f01 carry-over is service-role only, additive, once-only and leaves other scopes untouched", async () => {
