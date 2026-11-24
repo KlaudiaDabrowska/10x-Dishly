@@ -270,13 +270,13 @@ Apply the additive migration before application code. Roll back UI/API first; th
 
 #### Automated
 
-- [ ] 2.1 Recipe contract suite passes: `npm run test:recipes`
-- [ ] 2.2 Security allowlist suite passes with recipe mutation sentinels: `npm run test:security`
-- [ ] 2.3 CI validate job invokes `test:recipes`
+- [x] 2.1 Recipe contract suite passes: `npm run test:recipes`
+- [x] 2.2 Security allowlist suite passes with recipe mutation sentinels: `npm run test:security`
+- [x] 2.3 CI validate job invokes `test:recipes`
 
 #### Manual
 
-- [ ] 2.4 Exact PATCH success/error bodies are reviewed without recipe content or database messages
+- [x] 2.4 Exact PATCH success/error bodies are reviewed without recipe content or database messages
 
 ### Phase 3: Dedicated edit experience
 

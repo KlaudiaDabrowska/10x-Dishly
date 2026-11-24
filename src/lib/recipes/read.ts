@@ -13,7 +13,7 @@ export const PAGE_SIZE = 24;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const LIST_SELECT = "id,title,current_missing_reason_codes,created_at";
 const DETAIL_SELECT =
-  "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at";
+  "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at,updated_at";
 
 export interface RecipeListQuery {
   select: typeof LIST_SELECT;
@@ -53,6 +53,7 @@ export interface RecipeOmission {
 }
 
 export interface RecipeDetail extends RecipeListItem {
+  updatedAt: string;
   category: RecipeCategory | null;
   ingredientGroups: IngredientGroup[];
   instructions: string[];
@@ -180,6 +181,7 @@ export function mapRecipeDetail(value: unknown): RecipeDetail | null {
       "import_missing_reason_codes",
       "current_missing_reason_codes",
       "created_at",
+      "updated_at",
     ])
   )
     return null;
@@ -209,8 +211,10 @@ export function mapRecipeDetail(value: unknown): RecipeDetail | null {
   }
   if (typeof value.source_filename !== "string" || !value.source_filename.trim()) return null;
   if (!Number.isSafeInteger(value.source_start_page) || Number(value.source_start_page) < 1) return null;
+  if (typeof value.updated_at !== "string" || !value.updated_at.trim()) return null;
   return {
     ...identity,
+    updatedAt: value.updated_at,
     category: value.category,
     ingredientGroups,
     instructions,
