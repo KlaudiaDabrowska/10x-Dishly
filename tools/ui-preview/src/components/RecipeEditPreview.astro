@@ -1,0 +1,69 @@
+---
+import DashboardView from "@/components/dashboard/DashboardView.astro";
+import RecipeEditForm, { type RecipeEditPreviewState } from "@/components/recipes/RecipeEditForm";
+import type { RecipeDetail } from "@/lib/recipes/read";
+
+const email = "redaktorka.przepisow@przykladowa-domena.example";
+const completeRecipe: RecipeDetail = {
+  id: "10000000-0000-4000-8000-000000000001",
+  title: "Zupa z pieczonej dyni",
+  createdAt: "2026-10-15",
+  updatedAt: "2026-10-15T12:00:00.000Z",
+  category: "lunch",
+  ingredientGroups: [
+    {
+      label: "Wariant klasyczny",
+      ingredients: [
+        { name: "dynia", quantity: "1", unit: "szt.", sourceText: "1 mała dynia" },
+        { name: "bulion", quantity: "500", unit: "ml", sourceText: "500 ml bulionu warzywnego" },
+      ],
+    },
+  ],
+  instructions: ["Upiecz dynię do miękkości.", "Zblenduj ją z bulionem i dopraw."],
+  sourceFilename: "Jesienne obiady.pdf",
+  sourceStartPage: 12,
+  incompleteAtImport: false,
+  importMissingReasonCodes: [],
+  currentMissingReasonCodes: [],
+  currentMissingReasons: [],
+};
+const incompleteRecipe: RecipeDetail = {
+  ...completeRecipe,
+  id: "10000000-0000-4000-8000-000000000002",
+  title: null,
+  category: null,
+  ingredientGroups: [],
+  instructions: [],
+  sourceFilename: "Notatki kuchenne.pdf",
+  sourceStartPage: 37,
+  incompleteAtImport: true,
+  importMissingReasonCodes: ["missing-title", "missing-ingredients", "missing-instructions", "missing-category"],
+  currentMissingReasonCodes: ["missing-title", "missing-ingredients", "missing-instructions", "missing-category"],
+  currentMissingReasons: [
+    { code: "missing-title", fieldPath: "title", explanation: "Brakuje tytułu przepisu." },
+    { code: "missing-ingredients", fieldPath: "ingredientGroups", explanation: "Brakuje składników." },
+    { code: "missing-instructions", fieldPath: "instructions", explanation: "Brakuje przygotowania." },
+    { code: "missing-category", fieldPath: "category", explanation: "Brakuje kategorii." },
+  ],
+};
+const states: { name: string; recipe: RecipeDetail; previewState: RecipeEditPreviewState }[] = [
+  { name: "complete", recipe: completeRecipe, previewState: "default" },
+  { name: "incomplete", recipe: incompleteRecipe, previewState: "default" },
+  { name: "validation", recipe: completeRecipe, previewState: "validation" },
+  { name: "saving", recipe: completeRecipe, previewState: "saving" },
+  { name: "failure", recipe: completeRecipe, previewState: "failure" },
+  { name: "conflict", recipe: completeRecipe, previewState: "conflict" },
+  { name: "cancel", recipe: completeRecipe, previewState: "cancel" },
+  { name: "success", recipe: completeRecipe, previewState: "success" },
+];
+---
+
+<div data-recipe-edit-preview>
+  {states.map(({ name, recipe, previewState }) => (
+    <div data-recipe-edit-variant={name}>
+      <DashboardView {email} importAvailable={false} title={`Edytuj: ${recipe.title ?? "Przepis bez tytułu"}`}>
+        <RecipeEditForm {recipe} {previewState} />
+      </DashboardView>
+    </div>
+  ))}
+</div>

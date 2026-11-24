@@ -16,9 +16,14 @@ const recipeReasons = recipe.currentMissingReasons.filter((reason) => reason.fie
 ---
 
 <article class="flex flex-col gap-8">
-  <a href="/dashboard" class:list={[buttonVariants({ variant: "link" }), "self-start"]}>
-    Wróć do swoich przepisów
-  </a>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <a href="/dashboard" class:list={[buttonVariants({ variant: "link" })]}>
+      Wróć do swoich przepisów
+    </a>
+    <a href={`/dashboard/recipes/${recipe.id}/edit`} class:list={[buttonVariants()]}>
+      Edytuj przepis
+    </a>
+  </div>
 
   {[...titleReasons, ...recipeReasons].map((reason) => (
     <Alert>

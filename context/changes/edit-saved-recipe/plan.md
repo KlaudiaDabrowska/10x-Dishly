@@ -270,26 +270,26 @@ Apply the additive migration before application code. Roll back UI/API first; th
 
 #### Automated
 
-- [x] 2.1 Recipe contract suite passes: `npm run test:recipes`
-- [x] 2.2 Security allowlist suite passes with recipe mutation sentinels: `npm run test:security`
-- [x] 2.3 CI validate job invokes `test:recipes`
+- [x] 2.1 Recipe contract suite passes: `npm run test:recipes` — 92c6e07
+- [x] 2.2 Security allowlist suite passes with recipe mutation sentinels: `npm run test:security` — 92c6e07
+- [x] 2.3 CI validate job invokes `test:recipes` — 92c6e07
 
 #### Manual
 
-- [x] 2.4 Exact PATCH success/error bodies are reviewed without recipe content or database messages
+- [x] 2.4 Exact PATCH success/error bodies are reviewed without recipe content or database messages — 92c6e07
 
 ### Phase 3: Dedicated edit experience
 
 #### Automated
 
-- [ ] 3.1 Recipe UI and type contracts pass: `npm run test:recipes && npm run lint && npx --no-install astro check`
-- [ ] 3.2 Isolated edit preview passes: `npm run check:ui-preview`
-- [ ] 3.3 Edit evidence matrix is captured: `npm run capture:ui-preview:recipe-edit`
+- [x] 3.1 Recipe UI and type contracts pass: `npm run test:recipes && npm run lint && npx --no-install astro check`
+- [x] 3.2 Isolated edit preview passes: `npm run check:ui-preview`
+- [x] 3.3 Edit evidence matrix is captured: `npm run capture:ui-preview:recipe-edit`
 
 #### Manual
 
-- [ ] 3.4 Desktop/mobile matrix passes for complete, incomplete, validation, saving, failure, conflict, cancel, and success states
-- [ ] 3.5 Keyboard, focus, dirty-navigation warning, and persisted read-back are verified
+- [x] 3.4 Desktop/mobile matrix passes for complete, incomplete, validation, saving, failure, conflict, cancel, and success states
+- [x] 3.5 Keyboard, focus, dirty-navigation warning, and persisted read-back are verified
 
 ### Phase 4: Integrated verification and rollout
 
