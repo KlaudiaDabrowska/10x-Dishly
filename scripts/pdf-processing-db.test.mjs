@@ -638,6 +638,20 @@ function seedReadableRecipe({ id, importId, ownerId, fingerprint, title, created
   `);
 }
 
+function seedSearchRecipe({ ingredientNames, category = "lunch", ...recipe }) {
+  seedReadableRecipe(recipe);
+  const ingredientGroups = [
+    {
+      label: null,
+      ingredients: ingredientNames.map((name) => ({ name, quantity: null, unit: null, sourceText: name })),
+    },
+  ];
+  const encodedGroups = JSON.stringify(ingredientGroups).replaceAll("'", "''");
+  sql(`update public.recipes
+    set category = '${category}', ingredient_groups = '${encodedGroups}'::jsonb
+    where id = '${recipe.id}'`);
+}
+
 async function productDecisionFixture(
   user,
   fingerprint = sha(),
@@ -1572,6 +1586,166 @@ test("benchmark recipe read-back is service-role only and scoped to owner and im
   assert.deepEqual(foreign.data, []);
   for (const caller of [publicClient(), await signedIn(user)])
     assert.ok((await caller.rpc("get_pdf_import_recipes", parameters)).error);
+});
+
+test("recipe search matches tomato forms without substitutions and stays owner scoped", async () => {
+  const user = await createUser(`recipe-search-${randomUUID()}@example.test`);
+  const foreignUser = await createUser(`recipe-search-foreign-${randomUUID()}@example.test`);
+  const fixtures = [
+    { owner: user, title: "Tomato salad", ingredient: "Pomidory czerwone" },
+    { owner: user, title: "Passata soup", ingredient: "passata" },
+    { owner: foreignUser, title: "Foreign tomato", ingredient: "pomidor" },
+  ];
+
+  for (const [index, fixture] of fixtures.entries()) {
+    const recipeId = randomUUID();
+    const importId = randomUUID();
+    seedSearchRecipe({
+      id: recipeId,
+      importId,
+      ownerId: fixture.owner.id,
+      fingerprint: sha(),
+      title: fixture.title,
+      createdAt: `2026-11-24T00:00:0${index}Z`,
+      ingredientNames: [fixture.ingredient],
+    });
+  }
+
+  const client = await signedIn(user);
+  const result = await client.rpc("search_recipes", { p_category: null, p_ingredient: "pomidor" });
+  assert.ifError(result.error);
+  assert.deepEqual(
+    result.data.map((recipe) => recipe.title),
+    ["Tomato salad"],
+  );
+  assert.ok((await publicClient().rpc("search_recipes", { p_category: null, p_ingredient: "pomidor" })).error);
+});
+
+test("the tomato rule normalizes only the approved noun and adjective endings", async () => {
+  const user = await createUser(`recipe-search-tomato-family-${randomUUID()}@example.test`);
+  const id = randomUUID();
+  const approved = [
+    "pomidor",
+    "pomidora",
+    "pomidorowi",
+    "pomidorem",
+    "pomidorze",
+    "pomidory",
+    "pomidorów",
+    "pomidorom",
+    "pomidorami",
+    "pomidorach",
+    "pomidorowy",
+    "pomidorowa",
+    "pomidorowe",
+    "pomidorowego",
+    "pomidorowej",
+    "pomidorowemu",
+    "pomidorowym",
+    "pomidorową",
+    "pomidorowych",
+    "pomidorowymi",
+  ];
+  seedSearchRecipe({
+    id,
+    importId: randomUUID(),
+    ownerId: user.id,
+    fingerprint: sha(),
+    title: "Tomato family",
+    createdAt: "2026-11-24T00:30:00Z",
+    ingredientNames: [...approved, "pomidorowo", "pomidorek"],
+  });
+
+  const stored = await (await signedIn(user)).from("recipes").select("ingredient_search_groups").eq("id", id).single();
+  assert.ifError(stored.error);
+  assert.deepEqual(stored.data.ingredient_search_groups, [
+    ...approved.map(() => ["pomidor"]),
+    ["pomidorowo"],
+    ["pomidorek"],
+  ]);
+});
+
+test("recipe search keeps multiword tokens in one ingredient and combines filters with AND", async () => {
+  const user = await createUser(`recipe-search-tokens-${randomUUID()}@example.test`);
+  const fixtures = [
+    { title: "Rice bowl", category: "lunch", ingredients: ["Ryż basmati"] },
+    { title: "Split tokens", category: "lunch", ingredients: ["ryż", "basmati"] },
+    { title: "Inflected rice", category: "lunch", ingredients: ["ryżu basmati"] },
+    { title: "Dinner rice", category: "dinner", ingredients: ["ryż basmati"] },
+  ];
+  const ids = new Map();
+
+  for (const [index, fixture] of fixtures.entries()) {
+    const id = randomUUID();
+    ids.set(fixture.title, id);
+    seedSearchRecipe({
+      id,
+      importId: randomUUID(),
+      ownerId: user.id,
+      fingerprint: sha(),
+      title: fixture.title,
+      createdAt: `2026-11-24T01:00:0${index}Z`,
+      category: fixture.category,
+      ingredientNames: fixture.ingredients,
+    });
+  }
+
+  const client = await signedIn(user);
+  const combined = await client.rpc("search_recipes", { p_category: "lunch", p_ingredient: "BASMATI ryż" });
+  assert.ifError(combined.error);
+  assert.deepEqual(
+    combined.data.map((recipe) => recipe.title),
+    ["Rice bowl"],
+  );
+
+  const exact = await client.rpc("search_recipes", { p_category: null, p_ingredient: "ryż" });
+  assert.ifError(exact.error);
+  assert.deepEqual(
+    exact.data.map((recipe) => recipe.title),
+    ["Dinner rice", "Split tokens", "Rice bowl"],
+  );
+
+  sql(`update public.recipes
+    set ingredient_groups = '[{"label":null,"ingredients":[{"name":"sos pomidorowy","quantity":null,"unit":null,"sourceText":"sos pomidorowy"}]}]'::jsonb
+    where id = '${ids.get("Inflected rice")}'`);
+  const updated = await client.rpc("search_recipes", { p_category: "lunch", p_ingredient: "pomidor" });
+  assert.ifError(updated.error);
+  assert.deepEqual(
+    updated.data.map((recipe) => recipe.title),
+    ["Inflected rice"],
+  );
+});
+
+test("ingredient-only search includes a kept recipe whose category is missing", async () => {
+  const user = await createUser(`recipe-search-null-category-${randomUUID()}@example.test`);
+  const fixture = await productDecisionFixture(user, sha(), "null-category.pdf", (candidate) => ({
+    ...candidate,
+    category: null,
+    missingFieldReasons: [...candidate.missingFieldReasons, { code: "missing-category", fieldPath: "category" }],
+  }));
+  const kept = await admin().rpc("resolve_pdf_product_decision", {
+    p_owner_id: user.id,
+    p_import_id: fixture.created.importId,
+    p_decision_id: fixture.decisionId,
+    p_action: "keep",
+    p_payload_digest: fixture.decisionDigest,
+    p_recipe: fixture.incomplete,
+  });
+  assert.ifError(kept.error);
+
+  const client = await signedIn(user);
+  const ingredientOnly = await client.rpc("search_recipes", { p_category: null, p_ingredient: "water" });
+  assert.ifError(ingredientOnly.error);
+  assert.deepEqual(
+    ingredientOnly.data.map((recipe) => recipe.title),
+    ["Soup"],
+  );
+  const categoryAndIngredient = await client.rpc("search_recipes", {
+    p_category: "lunch",
+    p_ingredient: "water",
+  });
+  assert.ifError(categoryAndIngredient.error);
+  assert.deepEqual(categoryAndIngredient.data, []);
 });
 
 test("the f01 carry-over is service-role only, additive, once-only and leaves other scopes untouched", async () => {

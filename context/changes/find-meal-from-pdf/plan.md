@@ -156,8 +156,8 @@ Exercise the complete owner-scoped flow, document the shipped contract, and pres
 
 #### Automated
 
-- [ ] 1.1 Migration equivalence suite passes
-- [ ] 1.2 Real database filtering contract passes
+- [x] 1.1 Migration equivalence suite passes
+- [x] 1.2 Real database filtering contract passes
 
 #### Manual
 
