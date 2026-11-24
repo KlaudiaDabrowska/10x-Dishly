@@ -737,6 +737,18 @@ test("browser roles cannot call finalization RPCs or mutate recipes", async () =
       ["finalize_pdf_product_import", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["resolve_pdf_product_decision", { p_owner_id: user.id, p_import_id: randomUUID() }],
       ["get_pdf_product_decisions", { p_owner_id: user.id, p_import_id: randomUUID() }],
+      [
+        "update_owned_recipe",
+        {
+          p_owner_id: user.id,
+          p_recipe_id: randomUUID(),
+          p_expected_updated_at: "2026-11-24T08:00:00.000Z",
+          p_title: "x",
+          p_ingredient_groups: [],
+          p_instructions: [],
+          p_current_missing_reason_codes: [],
+        },
+      ],
     ])
       assert.ok((await caller.rpc(name, parameters)).error, name);
     const insert = await caller.from("recipes").insert({
@@ -755,6 +767,155 @@ test("browser roles cannot call finalization RPCs or mutate recipes", async () =
     assert.ok(insert.error);
     assert.ok((await caller.from("pdf_incomplete_recipe_decisions").select("*")).error);
   }
+});
+
+test("service role atomically edits only owner-mutable recipe fields", async () => {
+  const user = await createUser(`pdf-recipe-edit-${randomUUID()}@example.test`);
+  const recipeId = randomUUID();
+  const importId = randomUUID();
+  const fingerprint = sha();
+  const createdAt = "2026-11-24T08:00:00.000Z";
+  seedReadableRecipe({
+    id: recipeId,
+    importId,
+    ownerId: user.id,
+    fingerprint,
+    title: "Pancakes",
+    createdAt,
+  });
+  const [before] = await ownRecipes(user);
+  const ingredientGroups = [
+    {
+      label: "Batter",
+      ingredients: [{ name: "oat milk", quantity: null, unit: null, sourceText: "oat milk" }],
+    },
+  ];
+  const instructions = ["Whisk the batter.", "Cook until golden."];
+
+  const updated = await admin().rpc("update_owned_recipe", {
+    p_owner_id: user.id,
+    p_recipe_id: recipeId,
+    p_expected_updated_at: before.updated_at,
+    p_title: "Oat pancakes",
+    p_ingredient_groups: ingredientGroups,
+    p_instructions: instructions,
+    p_current_missing_reason_codes: [],
+  });
+
+  assert.ifError(updated.error);
+  assert.equal(updated.data.length, 1);
+  assert.equal(updated.data[0].recipe_id, recipeId);
+  assert.notEqual(updated.data[0].updated_at, before.updated_at);
+  const [after] = await ownRecipes(user);
+  assert.equal(after.title, "Oat pancakes");
+  assert.deepEqual(after.ingredient_groups, ingredientGroups);
+  assert.deepEqual(after.instructions, instructions);
+  assert.deepEqual(after.current_missing_reason_codes, []);
+  for (const immutable of [
+    "id",
+    "owner_id",
+    "file_fingerprint",
+    "source_start_page",
+    "source_start_item",
+    "import_id",
+    "source_filename",
+    "source_pages",
+    "category",
+    "source_category",
+    "servings",
+    "footnotes",
+    "created_at",
+    "incomplete_at_import",
+    "import_missing_reason_codes",
+    "kept_from_decision_id",
+  ])
+    assert.deepEqual(after[immutable], before[immutable], immutable);
+});
+
+test("owner scope and row locking reject neutral, stale, and concurrent recipe edits", async () => {
+  const user = await createUser(`pdf-recipe-edit-lock-${randomUUID()}@example.test`);
+  const other = await createUser(`pdf-recipe-edit-lock-other-${randomUUID()}@example.test`);
+  const recipeId = randomUUID();
+  seedReadableRecipe({
+    id: recipeId,
+    importId: randomUUID(),
+    ownerId: user.id,
+    fingerprint: sha(),
+    title: "Original",
+    createdAt: "2026-11-24T08:05:00.000Z",
+  });
+  const [before] = await ownRecipes(user);
+  const edit = (overrides = {}) => ({
+    p_owner_id: user.id,
+    p_recipe_id: recipeId,
+    p_expected_updated_at: before.updated_at,
+    p_title: "First writer",
+    p_ingredient_groups: before.ingredient_groups,
+    p_instructions: before.instructions,
+    p_current_missing_reason_codes: before.current_missing_reason_codes,
+    ...overrides,
+  });
+
+  const foreign = await admin().rpc("update_owned_recipe", edit({ p_owner_id: other.id }));
+  const missing = await admin().rpc("update_owned_recipe", edit({ p_recipe_id: randomUUID() }));
+  assert.equal(foreign.error?.message, "recipe not found");
+  assert.equal(missing.error?.message, "recipe not found");
+  assert.equal((await ownRecipes(user))[0].title, "Original");
+
+  const raced = await Promise.all([
+    admin().rpc("update_owned_recipe", edit({ p_title: "First writer" })),
+    admin().rpc("update_owned_recipe", edit({ p_title: "Second writer" })),
+  ]);
+  assert.equal(raced.filter((result) => result.error === null).length, 1);
+  assert.deepEqual(
+    raced.filter((result) => result.error).map((result) => result.error.message),
+    ["recipe conflict"],
+  );
+  const [afterRace] = await ownRecipes(user);
+  assert.ok(["First writer", "Second writer"].includes(afterRace.title));
+
+  const stale = await admin().rpc("update_owned_recipe", edit({ p_title: "Stale overwrite" }));
+  assert.equal(stale.error?.message, "recipe conflict");
+  assert.equal((await ownRecipes(user))[0].title, afterRace.title);
+});
+
+test("recipe edits enforce structural and omission constraints atomically", async () => {
+  const user = await createUser(`pdf-recipe-edit-shape-${randomUUID()}@example.test`);
+  const recipeId = randomUUID();
+  seedReadableRecipe({
+    id: recipeId,
+    importId: randomUUID(),
+    ownerId: user.id,
+    fingerprint: sha(),
+    title: "Original",
+    createdAt: "2026-11-24T08:10:00.000Z",
+  });
+  const [before] = await ownRecipes(user);
+  const edit = (overrides = {}) => ({
+    p_owner_id: user.id,
+    p_recipe_id: recipeId,
+    p_expected_updated_at: before.updated_at,
+    p_title: before.title,
+    p_ingredient_groups: before.ingredient_groups,
+    p_instructions: before.instructions,
+    p_current_missing_reason_codes: before.current_missing_reason_codes,
+    ...overrides,
+  });
+
+  for (const invalid of [
+    { p_ingredient_groups: { ingredients: [] } },
+    { p_instructions: [""] },
+    { p_title: null, p_current_missing_reason_codes: ["missing-title"] },
+  ]) {
+    const rejected = await admin().rpc("update_owned_recipe", edit(invalid));
+    assert.ok(rejected.error);
+    assert.deepEqual(await ownRecipes(user), [before]);
+  }
+
+  const semanticCodes = ["missing-ingredient-content", "missing-variant-content", "missing-continuation"];
+  const semantic = await admin().rpc("update_owned_recipe", edit({ p_current_missing_reason_codes: semanticCodes }));
+  assert.ifError(semantic.error);
+  assert.deepEqual((await ownRecipes(user))[0].current_missing_reason_codes, semanticCodes);
 });
 
 test("authenticated recipe list and detail reads stay owner-scoped and deterministically ordered", async () => {
@@ -1508,7 +1669,17 @@ test("identical bytes under a renamed file skip saved recipes and keep edits; ot
   const committed = await svc.finalize(first.created.importId, first.body);
   assert.equal(committed.saved, 1);
   const [saved] = committed.savedIds;
-  sql(`update public.recipes set title = 'Edited pancakes' where id = '${saved}'`);
+  const [beforeEdit] = await ownRecipes(user);
+  const edited = await admin().rpc("update_owned_recipe", {
+    p_owner_id: user.id,
+    p_recipe_id: saved,
+    p_expected_updated_at: beforeEdit.updated_at,
+    p_title: "Edited pancakes",
+    p_ingredient_groups: beforeEdit.ingredient_groups,
+    p_instructions: beforeEdit.instructions,
+    p_current_missing_reason_codes: beforeEdit.current_missing_reason_codes,
+  });
+  assert.ifError(edited.error);
 
   const renamed = await processAll(svc, sourceDocument(fingerprint, "renamed copy.pdf"));
   const again = await svc.finalize(renamed.created.importId, renamed.body);
