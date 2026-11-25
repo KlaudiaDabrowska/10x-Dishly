@@ -16,6 +16,7 @@ export const PAGE_SIZE = 24;
 export const MAX_INGREDIENT_FILTER_LENGTH = 500;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const INGREDIENT_TOKEN = /[0-9a-ząćęłńóśźż]/iu;
 const DETAIL_SELECT =
   "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at";
 
@@ -110,6 +111,7 @@ export function parseRecipeListSearchParams(searchParams: URLSearchParams): Reci
   const ingredientValue = searchParams.get("ingredient");
   const normalizedIngredient = ingredientValue?.normalize("NFC").trim() ?? "";
   if (Array.from(normalizedIngredient).length > MAX_INGREDIENT_FILTER_LENGTH) return { status: "invalid-filter" };
+  if (normalizedIngredient && !INGREDIENT_TOKEN.test(normalizedIngredient)) return { status: "invalid-filter" };
   const filters: RecipeFilters = {
     category,
     ingredient: normalizedIngredient || null,

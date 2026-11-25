@@ -1595,6 +1595,7 @@ test("recipe search matches tomato forms without substitutions and stays owner s
   const fixtures = [
     { owner: user, title: "Tomato salad", ingredient: "Pomidory czerwone" },
     { owner: user, title: "Passata soup", ingredient: "passata" },
+    { owner: user, title: "Ketchup sauce", ingredient: "ketchup" },
     { owner: foreignUser, title: "Foreign tomato", ingredient: "pomidor" },
   ];
 
@@ -1619,7 +1620,13 @@ test("recipe search matches tomato forms without substitutions and stays owner s
     result.data.map((recipe) => recipe.title),
     ["Tomato salad"],
   );
+  for (const unsupported of ["!!!", "🥑", "é"]) {
+    const emptyTokens = await client.rpc("search_recipes", { p_category: null, p_ingredient: unsupported });
+    assert.ifError(emptyTokens.error);
+    assert.deepEqual(emptyTokens.data, []);
+  }
   assert.ok((await publicClient().rpc("search_recipes", { p_category: null, p_ingredient: "pomidor" })).error);
+  assert.ok((await admin().rpc("search_recipes", { p_category: null, p_ingredient: "pomidor" })).error);
 });
 
 test("the tomato rule normalizes only the approved noun and adjective endings", async () => {
@@ -1747,6 +1754,24 @@ test("ingredient-only search includes a kept recipe whose category is missing", 
   });
   assert.ifError(categoryAndIngredient.error);
   assert.deepEqual(categoryAndIngredient.data, []);
+});
+
+test("recipe search validates direct RPC inputs before tokenization", async () => {
+  const user = await createUser(`recipe-search-validation-${randomUUID()}@example.test`);
+  const client = await signedIn(user);
+
+  for (const parameters of [
+    { p_category: "supper", p_ingredient: null },
+    { p_category: null, p_ingredient: "a".repeat(501) },
+  ]) {
+    const invalid = await client.rpc("search_recipes", parameters);
+    assert.equal(invalid.error?.code, "22023");
+    assert.equal(invalid.data, null);
+  }
+
+  const boundary = await client.rpc("search_recipes", { p_category: null, p_ingredient: "a".repeat(500) });
+  assert.ifError(boundary.error);
+  assert.deepEqual(boundary.data, []);
 });
 
 test("authenticated recipe search stays below one second for 1,000 owner recipes", async () => {

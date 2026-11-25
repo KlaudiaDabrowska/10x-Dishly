@@ -31,7 +31,11 @@ active values, conditional clear action, distinct no-results and invalid states,
 value clipping, and horizontal overflow. No exception was found. The 390 px layout stacks both controls and actions,
 keeps the 44 px control scale, and preserves readable collection cards below the form.
 
-The user accepted the visual matrix and the representative filter-to-detail and owner-isolation flow on 2026-11-24.
+The user accepted the visual matrix on 2026-11-24. The representative product-import flow is exercised by
+`npm run smoke:pdf-product`: its deterministic local PDF fixture is finalized through the product API, appears in a
+category-and-ingredient filtered dashboard, and opens through the rendered result link with its source PDF and
+ingredient intact. The separate authenticated Worker smoke confirms that the same dashboard search cannot reveal a
+foreign owner's ingredient canary.
 
 ## Commands and runtime evidence
 
@@ -41,6 +45,8 @@ The user accepted the visual matrix and the representative filter-to-detail and 
   1000 owner recipes took 5.0, 4.6, 5.2, 5.3, and 5.0 ms after one warm-up request.
 - `npm run smoke` — passed all authenticated built-Worker steps, including filter → detail and a private ingredient
   canary owned by the second account.
+- `npm run smoke:pdf-product` — passed the provider-free product import, status recovery, filtered dashboard → imported
+  recipe detail, and owner-scoped read-back checks.
 
 The preview and Worker processes were stopped. The local Supabase stack was stopped with backup enabled, preserving
 its data and the applied filtering migration. No external deployment or AI-provider request was performed.

@@ -70,6 +70,17 @@ function privateNoStore(response) {
   return directives.includes("private") && directives.includes("no-store");
 }
 
+async function requestPrivatePage(baseUrl, actor, path, fetchImpl) {
+  const response = await fetchImpl(new URL(path, baseUrl), {
+    redirect: "manual",
+    headers: { Cookie: cookieHeader(actor.jar), Origin: baseUrl.origin },
+  });
+  storeCookies(actor.jar, response);
+  assert.equal(response.status, 200, `private page failed: ${path}`);
+  assert.ok(privateNoStore(response), `private page is not private/no-store: ${path}`);
+  return response.text();
+}
+
 export function createHttpJsonRequest({ baseUrl, jar, fetchImpl = fetch }) {
   return async (path, init = {}) => {
     const response = await fetchImpl(new URL(path, baseUrl), {
@@ -316,6 +327,29 @@ export async function runProductHttpSmoke(options = {}) {
         "public counts do not match the owner-scoped recipe read-back",
       );
       assert.equal(recipes.data.length, 1, "status recovery created a duplicate recipe");
+
+      const [importedRecipe] = recipes.data;
+      const filteredCollection = await requestPrivatePage(
+        baseUrl,
+        actor,
+        "/dashboard?category=lunch&ingredient=water",
+        fetchImpl,
+      );
+      assert.ok(filteredCollection.includes("Bridge soup"), "filtered collection omitted the imported recipe");
+      assert.ok(
+        filteredCollection.includes(`/dashboard/recipes/${importedRecipe.id}`),
+        "filtered collection omitted the imported recipe detail link",
+      );
+
+      const importedDetail = await requestPrivatePage(
+        baseUrl,
+        actor,
+        `/dashboard/recipes/${importedRecipe.id}`,
+        fetchImpl,
+      );
+      assert.ok(importedDetail.includes("Bridge soup"), "imported recipe detail omitted the title");
+      assert.ok(importedDetail.includes("product-http-smoke.pdf"), "imported recipe detail omitted the source PDF");
+      assert.ok(importedDetail.includes("200 ml water"), "imported recipe detail omitted the ingredient");
 
       return {
         status: result.outcome.status,

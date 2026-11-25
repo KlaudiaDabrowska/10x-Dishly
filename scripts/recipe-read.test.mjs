@@ -119,6 +119,9 @@ test("list search parameters validate filters without losing valid state on an i
     "category=supper",
     "category=lunch&category=dinner",
     "ingredient=ryż&ingredient=kasza",
+    "ingredient=!!!",
+    "ingredient=🥑",
+    "ingredient=é",
     `ingredient=${"a".repeat(501)}`,
   ])
     assert.deepEqual(parseRecipeListSearchParams(new URLSearchParams(search)), { status: "invalid-filter" });

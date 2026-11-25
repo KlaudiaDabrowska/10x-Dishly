@@ -72,11 +72,21 @@ returns table (
   current_missing_reason_codes text[],
   created_at timestamptz
 )
-language sql
+language plpgsql
 stable
 security invoker
 set search_path = ''
 as $search$
+begin
+  if p_category is not null and p_category not in ('breakfast', 'lunch', 'dinner', 'dessert') then
+    raise exception 'invalid recipe filter' using errcode = '22023';
+  end if;
+  if p_ingredient is not null
+     and pg_catalog.char_length(pg_catalog.normalize(pg_catalog.btrim(p_ingredient))) > 500 then
+    raise exception 'invalid recipe filter' using errcode = '22023';
+  end if;
+
+  return query
   with query_tokens as (
     select coalesce(
       pg_catalog.jsonb_agg(
@@ -111,9 +121,13 @@ as $search$
     and (
       p_ingredient is null
       or pg_catalog.btrim(p_ingredient) = ''
-      or recipe.ingredient_search_groups @> pg_catalog.jsonb_build_array(query_tokens.value)
+      or (
+        query_tokens.value <> '[]'::jsonb
+        and recipe.ingredient_search_groups @> pg_catalog.jsonb_build_array(query_tokens.value)
+      )
     )
   order by recipe.created_at desc, recipe.id asc;
+end;
 $search$;
 
 revoke all on function public.recipe_search_tokens(text) from public, anon, authenticated, service_role;
