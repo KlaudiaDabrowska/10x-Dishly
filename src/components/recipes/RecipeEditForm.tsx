@@ -7,16 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   createRecipeEditDraft,
+  focusRecipeEditError,
   isRecipeEditDraftDirty,
   recipeEditDraftReducer,
   recipeEditPayload,
   warnBeforeRecipeEditNavigation,
+  type RecipeEditStatus,
 } from "@/lib/recipes/edit-form";
 import type { RecipeDetail } from "@/lib/recipes/read";
 import type { RecipeEditIssue } from "@/lib/recipes/write";
 
-export type RecipeEditPreviewState =
-  "default" | "validation" | "saving" | "failure" | "conflict" | "cancel" | "success";
+export type RecipeEditPreviewState = RecipeEditStatus;
 
 interface Props {
   recipe: RecipeDetail;
@@ -75,6 +76,7 @@ export default function RecipeEditForm({ recipe, previewState = "default" }: Pro
     previewState === "validation" ? [{ path: "ingredientGroups[0].ingredients[0].name", code: "blank" }] : [],
   );
   const allowNavigation = useRef(false);
+  const errorSummaryRef = useRef<HTMLDivElement>(null);
   const dirty = isRecipeEditDraftDirty(initial, draft);
   const pending = status === "saving";
   const interactivePreview = previewState !== "default";
@@ -87,6 +89,10 @@ export default function RecipeEditForm({ recipe, previewState = "default" }: Pro
       window.removeEventListener("beforeunload", beforeUnload);
     };
   }, [dirty]);
+
+  useEffect(() => {
+    focusRecipeEditError(status, errorSummaryRef.current);
+  }, [status]);
 
   function cancel() {
     if (interactivePreview) {
@@ -132,7 +138,7 @@ export default function RecipeEditForm({ recipe, previewState = "default" }: Pro
   return (
     <form className="flex flex-col gap-8" onSubmit={submit} aria-busy={pending} noValidate>
       {status === "validation" && (
-        <Alert variant="destructive">
+        <Alert ref={errorSummaryRef} tabIndex={-1} variant="destructive">
           <AlertTitle className="line-clamp-none">Sprawdź zaznaczone pola</AlertTitle>
           <AlertDescription>Popraw dane i spróbuj zapisać przepis ponownie.</AlertDescription>
         </Alert>
@@ -144,13 +150,13 @@ export default function RecipeEditForm({ recipe, previewState = "default" }: Pro
         </Alert>
       )}
       {status === "failure" && (
-        <Alert variant="destructive">
+        <Alert ref={errorSummaryRef} tabIndex={-1} variant="destructive">
           <AlertTitle className="line-clamp-none">Nie udało się zapisać zmian</AlertTitle>
           <AlertDescription>Twoje wpisy zostały zachowane. Spróbuj ponownie.</AlertDescription>
         </Alert>
       )}
       {status === "conflict" && (
-        <Alert variant="destructive">
+        <Alert ref={errorSummaryRef} tabIndex={-1} variant="destructive">
           <AlertTitle className="line-clamp-none">Przepis zmienił się w innym miejscu</AlertTitle>
           <AlertDescription>
             <p>Twoje wpisy pozostały w formularzu. Odśwież dane, zanim ponowisz edycję.</p>

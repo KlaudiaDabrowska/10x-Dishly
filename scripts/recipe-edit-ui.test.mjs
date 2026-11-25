@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createRecipeEditDraft,
+  focusRecipeEditError,
   isRecipeEditDraftDirty,
   recipeEditDraftReducer,
   recipeEditPayload,
@@ -86,4 +87,31 @@ test("only a dirty recipe draft warns before browser navigation", () => {
   assert.equal(warnBeforeRecipeEditNavigation(true, event), true);
   assert.equal(event.prevented, true);
   assert.equal(event.returnValue, "");
+});
+
+test("rejected saves move focus to the error summary", () => {
+  for (const status of ["validation", "conflict", "failure"]) {
+    let focusCalls = 0;
+    assert.equal(
+      focusRecipeEditError(status, {
+        focus() {
+          focusCalls += 1;
+        },
+      }),
+      true,
+    );
+    assert.equal(focusCalls, 1);
+  }
+
+  let focusCalls = 0;
+  assert.equal(
+    focusRecipeEditError("saving", {
+      focus() {
+        focusCalls += 1;
+      },
+    }),
+    false,
+  );
+  assert.equal(focusCalls, 0);
+  assert.equal(focusRecipeEditError("failure", null), false);
 });

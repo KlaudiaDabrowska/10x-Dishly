@@ -259,12 +259,12 @@ Apply the additive migration before application code. Roll back UI/API first; th
 
 #### Automated
 
-- [x] 1.1 Migration and owner update scenarios pass in isolated Supabase: `npm run test:pdf:db`
-- [x] 1.2 DB suite rejects foreign/nonexistent/direct-browser/tampered/stale updates without mutation and preserves reimported edits
+- [x] 1.1 Migration and owner update scenarios pass in isolated Supabase: `npm run test:pdf:db` — 3c3134c
+- [x] 1.2 DB suite rejects foreign/nonexistent/direct-browser/tampered/stale updates without mutation and preserves reimported edits — 3c3134c
 
 #### Manual
 
-- [x] 1.3 Forward-only migration and application-first rollback sequence are reviewed without destructive down migration
+- [x] 1.3 Forward-only migration and application-first rollback sequence are reviewed without destructive down migration — 3c3134c
 
 ### Phase 2: Authenticated recipe API
 

@@ -25,6 +25,8 @@ export interface RecipeEditDraft {
   instructions: RecipeEditDraftInstruction[];
 }
 
+export type RecipeEditStatus = "default" | "validation" | "saving" | "failure" | "conflict" | "cancel" | "success";
+
 export type RecipeEditDraftAction =
   | { type: "set-title"; value: string }
   | { type: "add-group" }
@@ -157,5 +159,11 @@ export function warnBeforeRecipeEditNavigation(
   // Legacy browser support still requires returnValue in addition to preventDefault.
   // eslint-disable-next-line @typescript-eslint/no-deprecated
   event.returnValue = "";
+  return true;
+}
+
+export function focusRecipeEditError(status: RecipeEditStatus, target: Pick<HTMLElement, "focus"> | null): boolean {
+  if (!target || !["validation", "conflict", "failure"].includes(status)) return false;
+  target.focus();
   return true;
 }
