@@ -49,8 +49,8 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 | S-08 | unify-dashboard-design-system | The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.                                                               | S-02          | FR-006, US-02; Non-Functional Requirements — responsiveness                                                     | done        |
 | S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | done        |
 | S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | done        |
-| S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | in-progress |
-| S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | in-progress |
+| S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | done        |
+| S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | done        |
 | S-07 | delete-saved-recipe           | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results.                                                                                                                                 | S-04          | FR-009, US-04; Access Control                                                                                   | proposed    |
 
 ## Baseline
@@ -179,7 +179,7 @@ The view preserves separately labelled ingredient variants and shared instructio
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Matching Polish inflected ingredient names must not broaden results to substitutions or related products.
-- **Status:** in-progress
+- **Status:** done
 
 US-02 verification goes from registration/login through local PDF selection, text reading, AI analysis and saving to filtering and opening a recipe. “Pomidor” matches “pomidory”, “pomidora” and “pomidorów” regardless of capitalization, but not “passata” or “ketchup”. Both filters apply together. Check the PRD response-time limit on a collection of 1000 recipes and the main flow in Chrome and Firefox on mobile and desktop, as specified in shape-notes.
 
@@ -193,7 +193,7 @@ US-02 verification goes from registration/login through local PDF selection, tex
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Ingredient changes must be reflected in filtering results after integration with S-05; editing must not allow category changes or modifications to another user's data.
-- **Status:** in-progress
+- **Status:** done
 
 Controlled data is sufficient to test incomplete content; after S-03 is complete, also verify the actual keep flow and subsequent editing. Editing during import remains out of scope.
 
@@ -270,3 +270,5 @@ Q1–Q2 are copied verbatim from the PRD; Q4 corresponds to question 3, resolved
 - **S-08: The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.** — Archived 2026-10-13 → `context/archive/2026-10-12-unify-dashboard-design-system/`. Lesson: —.
 - **S-03: The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.** — Archived 2026-10-15 → `context/archive/2026-10-14-resolve-incomplete-recipes/`. Lesson: —.
 - **S-04: The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.** — Archived 2026-10-27 → `context/archive/2026-10-14-browse-and-read-recipes/`. Lesson: —.
+- **S-05: After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.** — Archived 2026-11-26 → `context/archive/2026-11-23-find-meal-from-pdf/`. Lesson: —.
+- **S-06: The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.** — Archived 2026-11-26 → `context/archive/2026-11-23-edit-saved-recipe/`. Lesson: —.
