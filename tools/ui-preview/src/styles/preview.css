@@ -10,9 +10,11 @@
 html:not([data-preview-view="dashboard"]) [data-dashboard-preview],
 html:not([data-preview-view="decisions"]) [data-decision-preview],
 html:not([data-preview-view="recipes"]) [data-recipe-browse-preview],
+html:not([data-preview-view="recipe-edit"]) [data-recipe-edit-preview-root],
 html[data-preview-view="dashboard"] [data-component-preview],
 html[data-preview-view="decisions"] [data-component-preview],
 html[data-preview-view="recipes"] [data-component-preview],
+html[data-preview-view="recipe-edit"] [data-component-preview],
 html[data-import-availability="available"] [data-dashboard-variant="unavailable"],
 html[data-import-availability="unavailable"] [data-dashboard-variant="available"] {
   display: none;
@@ -134,6 +136,17 @@ html[data-recipe-state="filter-invalid"] [data-recipe-variant]:not([data-recipe-
 html[data-recipe-state="filter-hover"] [data-recipe-variant]:not([data-recipe-variant="filter-hover"]),
 html[data-recipe-state="filter-focus"] [data-recipe-variant]:not([data-recipe-variant="filter-focus"]),
 html[data-recipe-state="filter-long"] [data-recipe-variant]:not([data-recipe-variant="filter-long"]) {
+  display: none;
+}
+
+html[data-recipe-edit-state="complete"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="complete"]),
+html[data-recipe-edit-state="incomplete"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="incomplete"]),
+html[data-recipe-edit-state="validation"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="validation"]),
+html[data-recipe-edit-state="saving"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="saving"]),
+html[data-recipe-edit-state="failure"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="failure"]),
+html[data-recipe-edit-state="conflict"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="conflict"]),
+html[data-recipe-edit-state="cancel"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="cancel"]),
+html[data-recipe-edit-state="success"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="success"]) {
   display: none;
 }
 

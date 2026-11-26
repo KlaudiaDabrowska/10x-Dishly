@@ -3,6 +3,7 @@ import DashboardView from "@/components/dashboard/DashboardView.astro";
 import ImportOutcomeFeedback from "@/components/dashboard/ImportOutcomeFeedback";
 import ComponentPreview from "../components/ComponentPreview";
 import RecipeBrowsePreview from "../components/RecipeBrowsePreview.astro";
+import RecipeEditPreview from "../components/RecipeEditPreview.astro";
 import RecipeDecisionPreview from "../components/RecipeDecisionPreview";
 import "../styles/preview.css";
 ---
@@ -18,7 +19,10 @@ import "../styles/preview.css";
       document.documentElement.classList.toggle("dark", parameters.get("theme") === "dark");
       const requestedView = parameters.get("view");
       document.documentElement.dataset.previewView =
-        requestedView === "dashboard" || requestedView === "decisions" || requestedView === "recipes"
+        requestedView === "dashboard" ||
+        requestedView === "decisions" ||
+        requestedView === "recipes" ||
+        requestedView === "recipe-edit"
           ? requestedView
           : "components";
       document.documentElement.dataset.importAvailability =
@@ -27,6 +31,7 @@ import "../styles/preview.css";
       document.documentElement.dataset.capture = parameters.get("capture") ?? "preview";
       document.documentElement.dataset.decisionState = parameters.get("decision") ?? "all";
       document.documentElement.dataset.recipeState = parameters.get("recipe") ?? "populated";
+      document.documentElement.dataset.recipeEditState = parameters.get("edit") ?? "complete";
     </script>
   </head>
   <body data-ui-preview>
@@ -38,6 +43,9 @@ import "../styles/preview.css";
     </main>
     <div data-recipe-browse-preview>
       <RecipeBrowsePreview />
+    </div>
+    <div data-recipe-edit-preview-root>
+      <RecipeEditPreview />
     </div>
     <div data-dashboard-preview>
       <div data-dashboard-variant="available">

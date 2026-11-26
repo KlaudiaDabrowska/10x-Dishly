@@ -17,21 +17,24 @@ const option = (name) =>
 const changeId = option("change") ?? "unify-dashboard-design-system";
 const captureSet = option("set") ?? "dashboard";
 if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(changeId)) throw new Error("Invalid --change slug.");
-if (!["dashboard", "decisions", "recipes", "filters"].includes(captureSet)) throw new Error("Invalid --set value.");
+if (!["dashboard", "decisions", "recipes", "filters", "recipe-edit"].includes(captureSet))
+  throw new Error("Invalid --set value.");
 if (captureSet === "recipes" && changeId !== "browse-and-read-recipes")
   throw new Error("The recipes capture profile must use --change=browse-and-read-recipes.");
 if (captureSet === "filters" && changeId !== "find-meal-from-pdf")
   throw new Error("The filters capture profile must use --change=find-meal-from-pdf.");
+if (captureSet === "recipe-edit" && changeId !== "edit-saved-recipe")
+  throw new Error("The recipe-edit capture profile must use --change=edit-saved-recipe.");
 const evidenceDirectory = path.join(
   repositoryRoot,
   "context/changes",
   changeId,
-  captureSet === "recipes" || captureSet === "filters" ? "evidence" : "screenshots",
+  captureSet === "recipes" || captureSet === "filters" || captureSet === "recipe-edit" ? "evidence" : "screenshots",
 );
 
 if (mode !== "isolation" && mode !== "check" && mode !== "capture") {
   throw new Error(
-    "Usage: node scripts/ui-preview.mjs <isolation|check|capture> [--change=<change-id>] [--set=<dashboard|decisions|recipes|filters>]",
+    "Usage: node scripts/ui-preview.mjs <isolation|check|capture> [--change=<change-id>] [--set=<dashboard|decisions|recipes|filters|recipe-edit>]",
   );
 }
 
@@ -346,6 +349,29 @@ async function captureScreenshots() {
       height: 844,
     },
   ]);
+  const recipeEditVariants = [
+    "complete",
+    "incomplete",
+    "validation",
+    "saving",
+    "failure",
+    "conflict",
+    "cancel",
+    "success",
+  ].flatMap((state) => [
+    {
+      name: `recipe-edit-${state}-desktop.png`,
+      query: `theme=light&view=recipe-edit&edit=${state}`,
+      width: 1440,
+      height: 900,
+    },
+    {
+      name: `recipe-edit-${state}-mobile.png`,
+      query: `theme=light&view=recipe-edit&edit=${state}`,
+      width: 390,
+      height: 844,
+    },
+  ]);
   const filterVariants = [
     "filter-default",
     "filter-category",
@@ -375,9 +401,11 @@ async function captureScreenshots() {
       ? decisionVariants
       : captureSet === "recipes"
         ? recipeVariants
-        : captureSet === "filters"
-          ? filterVariants
-          : dashboardVariants;
+        : captureSet === "recipe-edit"
+          ? recipeEditVariants
+          : captureSet === "filters"
+            ? filterVariants
+            : dashboardVariants;
 
   for (const variant of variants) {
     const output = path.join(evidenceDirectory, variant.name);

@@ -146,8 +146,13 @@ canary drugiego użytkownika. Probe wydajności zasiewa zbiorczo 1000 przepisów
 jednego właściciela w izolowanym Supabase, wykonuje jedno rozgrzewające i pięć
 mierzonych uwierzytelnionych wywołań `search_recipes`; każde musi zwrócić
 oczekiwany zbiór w czasie poniżej 1000 ms. Nie zastępuj tych testów mockiem ani
-ogólnym progiem coverage. Edit/delete pozostają do uzupełnienia, gdy ich
-powierzchnie zostaną wdrożone.
+ogólnym progiem coverage. Edycję chroni service-role-only `update_owned_recipe`
+z optimistic concurrency, realnymi constraintami i owner scope. W tym samym
+teście DB po zmianie `ingredient_groups` stary filtr musi zwrócić pusty wynik, a
+nowy — edytowany przepis; built-Worker smoke powtarza tę sekwencję przez
+uwierzytelniony PATCH i dashboard. To jest bramka integracyjna S-05/S-06, której
+nie wolno zastąpić samym read-backiem JSON. Delete pozostaje do uzupełnienia po
+wdrożeniu S-07.
 
 ### 6.4 Test krytycznego przepływu
 

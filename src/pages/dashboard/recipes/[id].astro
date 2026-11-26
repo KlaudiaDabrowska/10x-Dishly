@@ -33,10 +33,17 @@ const shellTitle =
     : result.status === "not-found"
       ? "Przepis niedostępny"
       : "Przepis";
+const edited = result.status === "ok" && Astro.url.searchParams.get("edited") === "1";
 ---
 
 <Layout title={pageTitle} lang="pl">
   <DashboardView email={user?.email} {importAvailable} title={shellTitle}>
+    {edited && (
+      <Alert slot="feedback" className="mt-8" data-recipe-edit-feedback>
+        <AlertTitle className="line-clamp-none">Zmiany zapisane</AlertTitle>
+        <AlertDescription>Przepis został zaktualizowany.</AlertDescription>
+      </Alert>
+    )}
     {result.status === "ok" && <RecipeDetail recipe={result.recipe} />}
     {result.status === "not-found" && (
       <Alert>
@@ -67,3 +74,9 @@ const shellTitle =
     )}
   </DashboardView>
 </Layout>
+
+{edited && <script is:inline>
+  const url = new URL(window.location.href);
+  url.searchParams.delete("edited");
+  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+</script>}

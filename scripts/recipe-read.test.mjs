@@ -42,6 +42,7 @@ function detailRow(overrides = {}) {
     import_missing_reason_codes: [],
     current_missing_reason_codes: [],
     created_at: "2026-10-14T08:00:00.000Z",
+    updated_at: "2026-10-14T09:00:00.000Z",
     ...overrides,
   };
 }
@@ -323,7 +324,7 @@ test("detail maps validated nested ingredient variants and ordered instructions"
   assert.deepEqual(result.recipe.instructions, ["Wymieszaj składniki.", "Gotuj przez pięć minut."]);
   assert.deepEqual(port.calls[0].query, {
     select:
-      "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at",
+      "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at,updated_at",
     id: firstId,
   });
 });
