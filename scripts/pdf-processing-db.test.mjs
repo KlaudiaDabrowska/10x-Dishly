@@ -10,6 +10,7 @@ import { dispatchWithSpendingControl } from "../src/lib/pdf-processing/import-st
 import { batchFromManifest } from "../src/lib/pdf-processing/manifest.ts";
 import { createValidationService } from "../src/lib/pdf-processing/service.ts";
 import { verifyIsolatedDbProject, isolatedSupabaseEnv } from "./pdf-processing-db-runner.mjs";
+import { probeRecipeFilterPerformance } from "./recipe-filter-performance.mjs";
 
 // Deliberately refuse direct execution against the developer's paid-usage ledger.
 const isolated = verifyIsolatedDbProject(process.env);
@@ -636,6 +637,20 @@ function seedReadableRecipe({ id, importId, ownerId, fingerprint, title, created
       '["Mix and serve."]'::jsonb, '${createdAt}', '${createdAt}'
     );
   `);
+}
+
+function seedSearchRecipe({ ingredientNames, category = "lunch", ...recipe }) {
+  seedReadableRecipe(recipe);
+  const ingredientGroups = [
+    {
+      label: null,
+      ingredients: ingredientNames.map((name) => ({ name, quantity: null, unit: null, sourceText: name })),
+    },
+  ];
+  const encodedGroups = JSON.stringify(ingredientGroups).replaceAll("'", "''");
+  sql(`update public.recipes
+    set category = '${category}', ingredient_groups = '${encodedGroups}'::jsonb
+    where id = '${recipe.id}'`);
 }
 
 async function productDecisionFixture(
@@ -1572,6 +1587,247 @@ test("benchmark recipe read-back is service-role only and scoped to owner and im
   assert.deepEqual(foreign.data, []);
   for (const caller of [publicClient(), await signedIn(user)])
     assert.ok((await caller.rpc("get_pdf_import_recipes", parameters)).error);
+});
+
+test("recipe search matches tomato forms without substitutions and stays owner scoped", async () => {
+  const user = await createUser(`recipe-search-${randomUUID()}@example.test`);
+  const foreignUser = await createUser(`recipe-search-foreign-${randomUUID()}@example.test`);
+  const fixtures = [
+    { owner: user, title: "Tomato salad", ingredient: "Pomidory czerwone" },
+    { owner: user, title: "Passata soup", ingredient: "passata" },
+    { owner: user, title: "Ketchup sauce", ingredient: "ketchup" },
+    { owner: foreignUser, title: "Foreign tomato", ingredient: "pomidor" },
+  ];
+
+  for (const [index, fixture] of fixtures.entries()) {
+    const recipeId = randomUUID();
+    const importId = randomUUID();
+    seedSearchRecipe({
+      id: recipeId,
+      importId,
+      ownerId: fixture.owner.id,
+      fingerprint: sha(),
+      title: fixture.title,
+      createdAt: `2026-11-24T00:00:0${index}Z`,
+      ingredientNames: [fixture.ingredient],
+    });
+  }
+
+  const client = await signedIn(user);
+  const result = await client.rpc("search_recipes", { p_category: null, p_ingredient: "pomidor" });
+  assert.ifError(result.error);
+  assert.deepEqual(
+    result.data.map((recipe) => recipe.title),
+    ["Tomato salad"],
+  );
+  for (const unsupported of ["!!!", "🥑", "é"]) {
+    const emptyTokens = await client.rpc("search_recipes", { p_category: null, p_ingredient: unsupported });
+    assert.ifError(emptyTokens.error);
+    assert.deepEqual(emptyTokens.data, []);
+  }
+  assert.ok((await publicClient().rpc("search_recipes", { p_category: null, p_ingredient: "pomidor" })).error);
+  assert.ok((await admin().rpc("search_recipes", { p_category: null, p_ingredient: "pomidor" })).error);
+});
+
+test("the tomato rule normalizes only the approved noun and adjective endings", async () => {
+  const user = await createUser(`recipe-search-tomato-family-${randomUUID()}@example.test`);
+  const id = randomUUID();
+  const approved = [
+    "pomidor",
+    "pomidora",
+    "pomidorowi",
+    "pomidorem",
+    "pomidorze",
+    "pomidory",
+    "pomidorów",
+    "pomidorom",
+    "pomidorami",
+    "pomidorach",
+    "pomidorowy",
+    "pomidorowa",
+    "pomidorowe",
+    "pomidorowego",
+    "pomidorowej",
+    "pomidorowemu",
+    "pomidorowym",
+    "pomidorową",
+    "pomidorowych",
+    "pomidorowymi",
+  ];
+  seedSearchRecipe({
+    id,
+    importId: randomUUID(),
+    ownerId: user.id,
+    fingerprint: sha(),
+    title: "Tomato family",
+    createdAt: "2026-11-24T00:30:00Z",
+    ingredientNames: [...approved, "pomidorowo", "pomidorek"],
+  });
+
+  const stored = await (await signedIn(user)).from("recipes").select("ingredient_search_groups").eq("id", id).single();
+  assert.ifError(stored.error);
+  assert.deepEqual(stored.data.ingredient_search_groups, [
+    ...approved.map(() => ["pomidor"]),
+    ["pomidorowo"],
+    ["pomidorek"],
+  ]);
+});
+
+test("recipe search keeps multiword tokens in one ingredient and combines filters with AND", async () => {
+  const user = await createUser(`recipe-search-tokens-${randomUUID()}@example.test`);
+  const fixtures = [
+    { title: "Rice bowl", category: "lunch", ingredients: ["Ryż basmati"] },
+    { title: "Split tokens", category: "lunch", ingredients: ["ryż", "basmati"] },
+    { title: "Inflected rice", category: "lunch", ingredients: ["ryżu basmati"] },
+    { title: "Dinner rice", category: "dinner", ingredients: ["ryż basmati"] },
+  ];
+  const ids = new Map();
+
+  for (const [index, fixture] of fixtures.entries()) {
+    const id = randomUUID();
+    ids.set(fixture.title, id);
+    seedSearchRecipe({
+      id,
+      importId: randomUUID(),
+      ownerId: user.id,
+      fingerprint: sha(),
+      title: fixture.title,
+      createdAt: `2026-11-24T01:00:0${index}Z`,
+      category: fixture.category,
+      ingredientNames: fixture.ingredients,
+    });
+  }
+
+  const client = await signedIn(user);
+  const combined = await client.rpc("search_recipes", { p_category: "lunch", p_ingredient: "BASMATI ryż" });
+  assert.ifError(combined.error);
+  assert.deepEqual(
+    combined.data.map((recipe) => recipe.title),
+    ["Rice bowl"],
+  );
+
+  const exact = await client.rpc("search_recipes", { p_category: null, p_ingredient: "ryż" });
+  assert.ifError(exact.error);
+  assert.deepEqual(
+    exact.data.map((recipe) => recipe.title),
+    ["Dinner rice", "Split tokens", "Rice bowl"],
+  );
+
+  sql(`update public.recipes
+    set ingredient_groups = '[{"label":null,"ingredients":[{"name":"sos pomidorowy","quantity":null,"unit":null,"sourceText":"sos pomidorowy"}]}]'::jsonb
+    where id = '${ids.get("Inflected rice")}'`);
+  const updated = await client.rpc("search_recipes", { p_category: "lunch", p_ingredient: "pomidor" });
+  assert.ifError(updated.error);
+  assert.deepEqual(
+    updated.data.map((recipe) => recipe.title),
+    ["Inflected rice"],
+  );
+});
+
+test("ingredient-only search includes a kept recipe whose category is missing", async () => {
+  const user = await createUser(`recipe-search-null-category-${randomUUID()}@example.test`);
+  const fixture = await productDecisionFixture(user, sha(), "null-category.pdf", (candidate) => ({
+    ...candidate,
+    category: null,
+    missingFieldReasons: [...candidate.missingFieldReasons, { code: "missing-category", fieldPath: "category" }],
+  }));
+  const kept = await admin().rpc("resolve_pdf_product_decision", {
+    p_owner_id: user.id,
+    p_import_id: fixture.created.importId,
+    p_decision_id: fixture.decisionId,
+    p_action: "keep",
+    p_payload_digest: fixture.decisionDigest,
+    p_recipe: fixture.incomplete,
+  });
+  assert.ifError(kept.error);
+
+  const client = await signedIn(user);
+  const ingredientOnly = await client.rpc("search_recipes", { p_category: null, p_ingredient: "water" });
+  assert.ifError(ingredientOnly.error);
+  assert.deepEqual(
+    ingredientOnly.data.map((recipe) => recipe.title),
+    ["Soup"],
+  );
+  const categoryAndIngredient = await client.rpc("search_recipes", {
+    p_category: "lunch",
+    p_ingredient: "water",
+  });
+  assert.ifError(categoryAndIngredient.error);
+  assert.deepEqual(categoryAndIngredient.data, []);
+});
+
+test("recipe search validates direct RPC inputs before tokenization", async () => {
+  const user = await createUser(`recipe-search-validation-${randomUUID()}@example.test`);
+  const client = await signedIn(user);
+
+  for (const parameters of [
+    { p_category: "supper", p_ingredient: null },
+    { p_category: null, p_ingredient: "a".repeat(501) },
+  ]) {
+    const invalid = await client.rpc("search_recipes", parameters);
+    assert.equal(invalid.error?.code, "22023");
+    assert.equal(invalid.data, null);
+  }
+
+  const boundary = await client.rpc("search_recipes", { p_category: null, p_ingredient: "a".repeat(500) });
+  assert.ifError(boundary.error);
+  assert.deepEqual(boundary.data, []);
+});
+
+test("authenticated recipe search stays below one second for 1,000 owner recipes", async () => {
+  const user = await createUser(`recipe-search-performance-${randomUUID()}@example.test`);
+  const importId = randomUUID();
+  const fingerprint = sha();
+  sql(`
+    insert into public.pdf_imports (
+      id, client_import_id, owner_id, channel, file_fingerprint, manifest_digest, status, expires_at, source_filename
+    ) values (
+      '${importId}', '${importId}', '${user.id}', 'product', '${fingerprint}', '${digest("m")}', 'committed',
+      '2099-01-01T00:00:00Z', 'recipe-filter-performance.pdf'
+    )
+  `);
+  sql(`
+    insert into public.recipes (
+      id, owner_id, file_fingerprint, source_start_page, source_start_item, import_id, source_filename,
+      source_pages, title, category, ingredient_groups, instructions, created_at, updated_at
+    )
+    select
+      gen_random_uuid(),
+      '${user.id}',
+      '${fingerprint}',
+      1 + ((fixture.number - 1) / 10),
+      (fixture.number - 1) % 10,
+      '${importId}',
+      'recipe-filter-performance.pdf',
+      array[1 + ((fixture.number - 1) / 10)],
+      'Performance recipe ' || fixture.number,
+      case when fixture.number % 2 = 0 then 'lunch' else 'dinner' end,
+      jsonb_build_array(jsonb_build_object(
+        'label', null,
+        'ingredients', jsonb_build_array(jsonb_build_object(
+          'name', case when fixture.number % 4 = 0 then 'Pomidory czerwone' else 'ryż basmati' end,
+          'quantity', null,
+          'unit', null,
+          'sourceText', case when fixture.number % 4 = 0 then 'Pomidory czerwone' else 'ryż basmati' end
+        ))
+      )),
+      '["Mix and serve."]'::jsonb,
+      '2026-11-24T00:00:00Z'::timestamptz + fixture.number * interval '1 second',
+      '2026-11-24T00:00:00Z'::timestamptz + fixture.number * interval '1 second'
+    from generate_series(1, 1000) as fixture(number);
+  `);
+
+  const samplesMs = await probeRecipeFilterPerformance({
+    client: await signedIn(user),
+    filters: { p_category: "lunch", p_ingredient: "pomidor" },
+    expectedCount: 250,
+  });
+  assert.equal(samplesMs.length, 5);
+  assert.ok(
+    samplesMs.every((durationMs) => durationMs < 1_000),
+    samplesMs.join(", "),
+  );
+  console.log(`Recipe filter performance (ms): ${samplesMs.map((durationMs) => durationMs.toFixed(1)).join(", ")}`);
 });
 
 test("the f01 carry-over is service-role only, additive, once-only and leaves other scopes untouched", async () => {

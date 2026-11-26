@@ -21,6 +21,7 @@ const actorB = { email: `smoke-b-${runId}@example.com`, jar: new Map() };
 const anonymous = { jar: new Map() };
 const malformed = { jar: new Map() };
 const privateImportSentinel = `private-import-${runId}`;
+const foreignIngredientSentinel = `foreign-ingredient-${runId}`;
 const sharedClientImportId = randomUUID();
 const fixture = {
   actorA: {
@@ -29,6 +30,8 @@ const fixture = {
     importId: randomUUID(),
     sourceFilename: "smoke-fixture.pdf",
     title: `Smoke owner A recipe ${runId}`,
+    ingredientName: "water",
+    ingredientSourceText: "200 ml water",
   },
   actorB: {
     id: randomUUID(),
@@ -37,6 +40,8 @@ const fixture = {
     decisionId: randomUUID(),
     sourceFilename: `${privateImportSentinel}.pdf`,
     title: `Smoke owner B recipe ${runId}`,
+    ingredientName: foreignIngredientSentinel,
+    ingredientSourceText: foreignIngredientSentinel,
   },
 };
 
@@ -53,6 +58,14 @@ function localAdminSql(statement) {
 }
 
 function seedRecipe(ownerEmail, recipe, fingerprint) {
+  const ingredientGroups = JSON.stringify([
+    {
+      label: null,
+      ingredients: [
+        { name: recipe.ingredientName, quantity: null, unit: null, sourceText: recipe.ingredientSourceText },
+      ],
+    },
+  ]);
   localAdminSql(`
     do $seed$
     declare v_owner_id uuid;
@@ -72,7 +85,7 @@ function seedRecipe(ownerEmail, recipe, fingerprint) {
       ) values (
         ${sqlLiteral(recipe.id)}, v_owner_id, ${sqlLiteral(fingerprint)}, 1, 0, ${sqlLiteral(recipe.internalImportId)},
         ${sqlLiteral(recipe.sourceFilename)}, array[1], ${sqlLiteral(recipe.title)}, 'lunch',
-        '[{"label":null,"ingredients":[{"name":"water","quantity":"200","unit":"ml","sourceText":"200 ml water"}]}]'::jsonb,
+        ${sqlLiteral(ingredientGroups)}::jsonb,
         '["Mix and serve."]'::jsonb
       );
     end
@@ -247,6 +260,7 @@ function assertResponse(
     home = false,
     detailTitle,
     notFound = false,
+    filters,
     hidden = [],
     cache = true,
   },
@@ -284,6 +298,12 @@ function assertResponse(
         !actual.body.includes(fixture.actorA.title) && !actual.body.includes(fixture.actorB.title),
         "recipe title was exposed",
       );
+    } else if (collection === "filtered-empty") {
+      check(actual.body.includes("Brak przepisów pasujących do filtrów"), "missing filtered empty state");
+      check(
+        !actual.body.includes(fixture.actorA.title) && !actual.body.includes(fixture.actorB.title),
+        "filtered empty state exposed a recipe title",
+      );
     } else {
       const ownFixture = owner === actorA ? fixture.actorA : fixture.actorB;
       const foreignFixture = owner === actorA ? fixture.actorB : fixture.actorA;
@@ -295,6 +315,11 @@ function assertResponse(
       "missing POST signout form",
     );
     check(actual.body.includes("Wyloguj się"), "missing signout control");
+  }
+  if (filters) {
+    const category = filters.category ?? "";
+    check(actual.body.includes(`value="${category}" selected=""`), "active category filter was not preserved");
+    check(actual.body.includes(`value="${filters.ingredient}"`), "active ingredient filter was not preserved");
   }
   if (home) {
     check(
@@ -402,9 +427,29 @@ for (const [label, actor, other] of [
 const nonexistentId = randomUUID();
 steps.push(
   [
-    "A opens own recipe detail",
+    "A filters own collection before opening a result",
+    () => request(actorA, "/dashboard?category=lunch&ingredient=water"),
+    {
+      status: 200,
+      owner: actorA,
+      collection: true,
+      filters: { category: "lunch", ingredient: "water" },
+    },
+  ],
+  [
+    "A opens recipe selected from the filtered collection",
     () => request(actorA, `/dashboard/recipes/${fixture.actorA.id}`),
     { status: 200, owner: actorA, detailTitle: fixture.actorA.title },
+  ],
+  [
+    "A filter cannot discover B's private ingredient canary",
+    () => request(actorA, `/dashboard?ingredient=${encodeURIComponent(foreignIngredientSentinel)}`),
+    {
+      status: 200,
+      owner: actorA,
+      collection: "filtered-empty",
+      filters: { category: null, ingredient: foreignIngredientSentinel },
+    },
   ],
   [
     "A receives common 404 for foreign recipe detail",
