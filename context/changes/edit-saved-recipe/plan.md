@@ -67,7 +67,7 @@ Add the forward migration and real-database contract for atomic owner-only editi
 
 #### 1. Recipe update migration
 
-**File**: `supabase/migrations/20261123150000_edit_saved_recipes.sql`
+**File**: `supabase/migrations/20261123220000_edit_saved_recipes.sql`
 
 **Intent**: Add the narrow RPC without widening browser privileges.
 
@@ -303,3 +303,7 @@ Apply the additive migration before application code. Roll back UI/API first; th
 
 - [x] 4.4 Contract registry and rollout evidence match the implemented route, errors, and migration order — 6d05547
 - [x] 4.5 S-05 handoff records the deferred filter-freshness gate without claiming it passed — 6d05547
+
+## S-05 integration follow-up
+
+On 2026-11-26, merged S-05 filtering was integrated from `origin/main` (`4895897`). The edit migration was reordered after the filtering migration, and the deferred freshness gate now passes at both real-DB and built-Worker layers: after an owner changes an ingredient, the old ingredient filter returns no recipe and the corrected ingredient filter returns the edited recipe immediately. Full recipe/security/DB, lint, Astro, preview, build, and Worker smoke gates passed on the combined tree.

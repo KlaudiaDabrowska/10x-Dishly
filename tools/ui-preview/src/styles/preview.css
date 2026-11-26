@@ -126,7 +126,16 @@ html[data-recipe-state="pagination"] [data-recipe-variant]:not([data-recipe-vari
 html[data-recipe-state="detail"] [data-recipe-variant]:not([data-recipe-variant="detail"]),
 html[data-recipe-state="not-found"] [data-recipe-variant]:not([data-recipe-variant="not-found"]),
 html[data-recipe-state="error"] [data-recipe-variant]:not([data-recipe-variant="error"]),
-html[data-recipe-state="incomplete"] [data-recipe-variant]:not([data-recipe-variant="incomplete"]) {
+html[data-recipe-state="incomplete"] [data-recipe-variant]:not([data-recipe-variant="incomplete"]),
+html[data-recipe-state="filter-default"] [data-recipe-variant]:not([data-recipe-variant="filter-default"]),
+html[data-recipe-state="filter-category"] [data-recipe-variant]:not([data-recipe-variant="filter-category"]),
+html[data-recipe-state="filter-ingredient"] [data-recipe-variant]:not([data-recipe-variant="filter-ingredient"]),
+html[data-recipe-state="filter-combined"] [data-recipe-variant]:not([data-recipe-variant="filter-combined"]),
+html[data-recipe-state="filter-no-results"] [data-recipe-variant]:not([data-recipe-variant="filter-no-results"]),
+html[data-recipe-state="filter-invalid"] [data-recipe-variant]:not([data-recipe-variant="filter-invalid"]),
+html[data-recipe-state="filter-hover"] [data-recipe-variant]:not([data-recipe-variant="filter-hover"]),
+html[data-recipe-state="filter-focus"] [data-recipe-variant]:not([data-recipe-variant="filter-focus"]),
+html[data-recipe-state="filter-long"] [data-recipe-variant]:not([data-recipe-variant="filter-long"]) {
   display: none;
 }
 
@@ -139,6 +148,19 @@ html[data-recipe-edit-state="conflict"] [data-recipe-edit-variant]:not([data-rec
 html[data-recipe-edit-state="cancel"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="cancel"]),
 html[data-recipe-edit-state="success"] [data-recipe-edit-variant]:not([data-recipe-edit-variant="success"]) {
   display: none;
+}
+
+html[data-preview-view="recipes"][data-recipe-state="filter-hover"] [data-recipe-variant="filter-hover"] form button {
+  background-color: var(--primary-hover);
+}
+
+html[data-preview-view="recipes"][data-recipe-state="filter-focus"]
+  [data-recipe-variant="filter-focus"]
+  input[name="ingredient"] {
+  border-color: var(--ring);
+  box-shadow:
+    0 0 0 calc(var(--spacing) * 2) var(--background),
+    0 0 0 calc(var(--spacing) * 3) var(--ring);
 }
 
 html[data-preview-view="recipes"][data-recipe-state="hover"] [data-recipe-variant="populated"] li:first-child a {

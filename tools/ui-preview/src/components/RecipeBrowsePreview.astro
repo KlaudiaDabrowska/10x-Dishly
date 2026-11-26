@@ -1,9 +1,11 @@
 ---
 import DashboardView from "@/components/dashboard/DashboardView.astro";
 import RecipeDetail from "@/components/recipes/RecipeDetail.astro";
+import RecipeFilters from "@/components/recipes/RecipeFilters.astro";
 import RecipeList from "@/components/recipes/RecipeList.astro";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
+import type { RecipeFilters as RecipeFiltersModel } from "@/lib/recipes/list-params";
 import type { RecipeDetail as RecipeDetailModel, RecipeListItem } from "@/lib/recipes/read";
 
 const email = "czytelnik.przepisow@przykladowa-domena.example";
@@ -11,6 +13,26 @@ const recipes: RecipeListItem[] = [
   { id: "10000000-0000-4000-8000-000000000001", title: "Zupa z pieczonej dyni", createdAt: "2026-10-15" },
   { id: "10000000-0000-4000-8000-000000000002", title: "Naleśniki z jabłkami", createdAt: "2026-10-14" },
   { id: "10000000-0000-4000-8000-000000000003", title: null, createdAt: "2026-10-13" },
+];
+const filterVariants: {
+  state: string;
+  filters: RecipeFiltersModel;
+  results?: RecipeListItem[];
+}[] = [
+  { state: "filter-default", filters: { category: null, ingredient: null } },
+  { state: "filter-category", filters: { category: "lunch", ingredient: null } },
+  { state: "filter-ingredient", filters: { category: null, ingredient: "dynia" } },
+  { state: "filter-combined", filters: { category: "lunch", ingredient: "dynia" } },
+  { state: "filter-no-results", filters: { category: "dessert", ingredient: "dynia" }, results: [] },
+  { state: "filter-hover", filters: { category: "lunch", ingredient: "dynia" } },
+  { state: "filter-focus", filters: { category: "lunch", ingredient: "dynia" } },
+  {
+    state: "filter-long",
+    filters: {
+      category: "dinner",
+      ingredient: "bardzo długi składnik sprawdzający zachowanie pola na wąskim ekranie",
+    },
+  },
 ];
 const completeRecipe: RecipeDetailModel = {
   id: "10000000-0000-4000-8000-000000000001",
@@ -71,6 +93,31 @@ const incompleteRecipe: RecipeDetailModel = {
   <div data-recipe-variant="populated">
     <DashboardView {email} importAvailable={false}>
       <RecipeList {recipes} page={1} totalPages={1} />
+    </DashboardView>
+  </div>
+
+  {filterVariants.map(({ state, filters, results = recipes }) => (
+    <div data-recipe-variant={state}>
+      <DashboardView {email} importAvailable={false}>
+        <div class="grid gap-8">
+          <RecipeFilters {filters} />
+          <RecipeList recipes={results} page={1} totalPages={results.length > 0 ? 1 : 0} {filters} />
+        </div>
+      </DashboardView>
+    </div>
+  ))}
+
+  <div data-recipe-variant="filter-invalid">
+    <DashboardView {email} importAvailable={false} title="Nieprawidłowe filtry">
+      <Alert>
+        <AlertTitle className="line-clamp-none">Nie można zastosować tych filtrów</AlertTitle>
+        <AlertDescription>
+          <p>Wybierz dostępną kategorię i podaj składnik o długości do 500 znaków.</p>
+          <a href="/dashboard" class:list={[buttonVariants({ variant: "outline" }), "mt-3"]}>
+            Wyczyść filtry
+          </a>
+        </AlertDescription>
+      </Alert>
     </DashboardView>
   </div>
 

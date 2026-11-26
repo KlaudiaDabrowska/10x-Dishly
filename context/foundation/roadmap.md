@@ -3,7 +3,7 @@ project: Dishly
 version: 6
 status: draft
 created: 2026-09-23
-updated: 2026-11-24
+updated: 2026-11-26
 prd_version: 5
 main_goal: low-complexity
 top_blocker: pdf-processing-validation
@@ -49,7 +49,7 @@ Here, "north star" means the smallest complete flow whose delivery demonstrates 
 | S-08 | unify-dashboard-design-system | The user can use the existing dashboard with consistent colours, typography, spacing, layout and shared controls on desktop and mobile, with clear interactive and feedback states.                                                               | S-02          | FR-006, US-02; Non-Functional Requirements — responsiveness                                                     | done        |
 | S-03 | resolve-incomplete-recipes    | The user sees missing elements in detected incomplete recipes and can keep or discard each during import; saved results and pending decisions are counted separately.                                                                             | S-02          | FR-005, FR-003, US-01; Business Logic                                                                           | done        |
 | S-04 | browse-and-read-recipes       | The user can browse their own saved recipes and open their titles, ingredients, instructions and available source metadata: PDF filename and page number.                                                                                         | S-02, S-08    | FR-001, FR-006, FR-007, US-02; Non-Functional Requirements — privacy and responsiveness                         | done        |
-| S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | proposed    |
+| S-05 | find-meal-from-pdf            | After import, the user can find a meal by category, one ingredient or both together and open a matching recipe to cook from.                                                                                                                      | S-03, S-04    | FR-006, FR-007, US-02; Non-Functional Requirements — filtering and responsiveness                               | in-progress |
 | S-06 | edit-saved-recipe             | The user can correct the title, ingredients and instructions of their own saved recipe, including one kept despite incompleteness, and read the saved corrections.                                                                                | S-04          | FR-008, US-03; Access Control                                                                                   | in-progress |
 | S-07 | delete-saved-recipe           | The user can delete their own saved recipe; it disappears from the collection, read access and filtering results.                                                                                                                                 | S-04          | FR-009, US-04; Access Control                                                                                   | proposed    |
 
@@ -179,7 +179,7 @@ The view preserves separately labelled ingredient variants and shared instructio
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** Matching Polish inflected ingredient names must not broaden results to substitutions or related products.
-- **Status:** proposed
+- **Status:** in-progress
 
 US-02 verification goes from registration/login through local PDF selection, text reading, AI analysis and saving to filtering and opening a recipe. “Pomidor” matches “pomidory”, “pomidora” and “pomidorów” regardless of capitalization, but not “passata” or “ketchup”. Both filters apply together. Check the PRD response-time limit on a collection of 1000 recipes and the main flow in Chrome and Firefox on mobile and desktop, as specified in shape-notes.
 
@@ -197,7 +197,7 @@ US-02 verification goes from registration/login through local PDF selection, tex
 
 Controlled data is sufficient to test incomplete content; after S-03 is complete, also verify the actual keep flow and subsequent editing. Editing during import remains out of scope.
 
-S-06 verifies owner-only JSON persistence and read-back through the built Worker. It does not claim ingredient-filter freshness: that shared integration gate remains deferred until S-05 defines and implements its direct-JSON or derived-search contract.
+S-06 verifies owner-only JSON persistence and read-back through the built Worker. After S-05 integration, real DB and built-Worker smoke also prove that a corrected ingredient stops matching the old filter and immediately matches the new filter through the generated search column.
 
 ### S-07: Delete a saved recipe
 

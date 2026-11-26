@@ -1,4 +1,5 @@
 <!-- IMPL-REVIEW-REPORT -->
+
 # Implementation Review: Edit saved recipe
 
 - **Plan**: `context/changes/edit-saved-recipe/plan.md`
@@ -9,17 +10,18 @@
 - **Verdict**: APPROVED
 - **Findings**: 0 open; 2 resolved (0 critical, 1 warning, 1 observation)
 - **Resolved**: 2026-11-25
+- **Integration follow-up**: 2026-11-26 — PASS
 
 ## Verdicts
 
-| Dimension | Verdict |
-|-----------|---------|
-| Plan Adherence | PASS |
-| Scope Discipline | PASS |
-| Safety & Quality | PASS |
-| Architecture | PASS |
-| Pattern Consistency | PASS |
-| Success Criteria | PASS |
+| Dimension           | Verdict |
+| ------------------- | ------- |
+| Plan Adherence      | PASS    |
+| Scope Discipline    | PASS    |
+| Safety & Quality    | PASS    |
+| Architecture        | PASS    |
+| Pattern Consistency | PASS    |
+| Success Criteria    | PASS    |
 
 ## Findings
 
@@ -63,6 +65,15 @@
 - CI invokes `test:recipes` in `.github/workflows/ci.yml`.
 - Manual evidence covers the required state/viewport matrix, but does not disprove F1 because a static capture cannot verify post-submit focus movement.
 - Resolution verification: the focused UI test first failed on the missing focus contract; after the fix, `npm run test:recipes`, `npm run lint`, and `npx --no-install astro check` all pass (Astro: 0 errors, existing non-blocking hints only).
+
+## S-05 integration follow-up
+
+- Integrated merged S-05 commit `4895897` into the S-06 branch and reviewed all conflict resolutions across roadmap, contract registry, npm scripts, Worker smoke, UI preview, and shared styles.
+- Renamed the additive edit migration to `20261123220000_edit_saved_recipes.sql`, after `20261123210000_recipe_filtering.sql`, so a database that already applied S-05 can apply S-06 without out-of-order migration flags.
+- Added real-DB coverage proving `update_owned_recipe` recomputes the generated ingredient search value: the old filter becomes empty and the corrected multi-token ingredient returns the edited recipe.
+- Added built-Worker smoke coverage proving the same old-filter/new-filter transition through authenticated HTTP while retaining owner isolation.
+- Verification: `npm run test:recipes` (4/4), `npm run test:security` (2/2), `npm run test:pdf:db` (40/40), `npm run lint`, `npx --no-install astro check` (0 errors), `npm run check:ui-preview`, `npm run build`, and `npm run smoke` all pass.
+- Review result: no new findings; original verdict remains **APPROVED**.
 
 ## Review conclusion
 

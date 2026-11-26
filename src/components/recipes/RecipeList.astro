@@ -1,15 +1,18 @@
 ---
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { buildRecipeListHref, type RecipeFilters } from "@/lib/recipes/list-params";
 import type { RecipeListItem } from "@/lib/recipes/read";
 
 interface Props {
   recipes: RecipeListItem[];
   page: number;
   totalPages: number;
+  filters?: RecipeFilters;
 }
 
-const { recipes, page, totalPages } = Astro.props;
+const { recipes, page, totalPages, filters = { category: null, ingredient: null } } = Astro.props;
+const hasActiveFilters = filters.category !== null || filters.ingredient !== null;
 ---
 
 <section aria-labelledby="recipe-list-title">
@@ -29,10 +32,21 @@ const { recipes, page, totalPages } = Astro.props;
   {recipes.length === 0 ? (
     <Card className="mt-6 text-center">
       <CardHeader>
-        <h3 class="text-lg font-semibold">Nie masz jeszcze zapisanych przepisów</h3>
+        <h3 class="text-lg font-semibold">
+          {hasActiveFilters ? "Brak przepisów pasujących do filtrów" : "Nie masz jeszcze zapisanych przepisów"}
+        </h3>
       </CardHeader>
       <CardContent>
-        <p class="text-sm text-muted-foreground sm:text-base">Zaimportowane przepisy pojawią się w tym miejscu.</p>
+        <p class="text-sm text-muted-foreground sm:text-base">
+          {hasActiveFilters
+            ? "Zmień kategorię lub składnik, aby zobaczyć inne wyniki."
+            : "Zaimportowane przepisy pojawią się w tym miejscu."}
+        </p>
+        {hasActiveFilters && (
+          <a href="/dashboard" class:list={[buttonVariants({ variant: "outline" }), "mt-4"]}>
+            Wyczyść filtry
+          </a>
+        )}
       </CardContent>
     </Card>
   ) : (
@@ -65,15 +79,12 @@ const { recipes, page, totalPages } = Astro.props;
       </p>
       <div class="flex flex-wrap justify-center gap-3">
         {page > 1 && (
-          <a
-            href={page === 2 ? "/dashboard" : `/dashboard?page=${page - 1}`}
-            class:list={[buttonVariants({ variant: "outline" })]}
-          >
+          <a href={buildRecipeListHref(page - 1, filters)} class:list={[buttonVariants({ variant: "outline" })]}>
             Poprzednia
           </a>
         )}
         {page < totalPages && (
-          <a href={`/dashboard?page=${page + 1}`} class:list={[buttonVariants({ variant: "outline" })]}>
+          <a href={buildRecipeListHref(page + 1, filters)} class:list={[buttonVariants({ variant: "outline" })]}>
             Następna
           </a>
         )}

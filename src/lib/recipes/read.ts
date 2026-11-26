@@ -7,20 +7,31 @@ import {
   type OmissionCode,
   type RecipeCategory,
 } from "../pdf-processing/contracts.ts";
+import type { RecipeFilters } from "./list-params.ts";
+
+export { buildRecipeListHref } from "./list-params.ts";
+export type { RecipeFilters } from "./list-params.ts";
 
 export const PAGE_SIZE = 24;
+export const MAX_INGREDIENT_FILTER_LENGTH = 500;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const LIST_SELECT = "id,title,current_missing_reason_codes,created_at";
+const INGREDIENT_TOKEN = /[0-9a-ząćęłńóśźż]/iu;
 const DETAIL_SELECT =
   "id,title,category,ingredient_groups,instructions,source_filename,source_start_page,incomplete_at_import,import_missing_reason_codes,current_missing_reason_codes,created_at,updated_at";
 
 export interface RecipeListQuery {
-  select: typeof LIST_SELECT;
+  function: "search_recipes";
+  parameters: { p_category: RecipeCategory | null; p_ingredient: string | null };
   count: "exact";
   range: { from: number; to: number };
   order: readonly [{ column: "created_at"; ascending: false }, { column: "id"; ascending: true }];
 }
+
+export type RecipeListSearchParamsResult =
+  | { status: "ok"; page: number; filters: RecipeFilters }
+  | { status: "invalid-page"; filters: RecipeFilters }
+  | { status: "invalid-filter" };
 
 export interface RecipeDetailQuery {
   select: typeof DETAIL_SELECT;
@@ -73,6 +84,7 @@ export type RecipePageResult =
       pageSize: typeof PAGE_SIZE;
       totalCount: number;
       totalPages: number;
+      filters: RecipeFilters;
     }
   | { status: "invalid-page" }
   | { status: "error"; reason: "query" | "invalid-data" };
@@ -87,6 +99,26 @@ export function parsePage(value: string | null | undefined): number | null {
   if (!/^\d+$/.test(value)) return null;
   const page = Number(value);
   return Number.isSafeInteger(page) && page > 0 ? page : null;
+}
+
+export function parseRecipeListSearchParams(searchParams: URLSearchParams): RecipeListSearchParamsResult {
+  if (searchParams.getAll("category").length > 1 || searchParams.getAll("ingredient").length > 1)
+    return { status: "invalid-filter" };
+
+  const categoryValue = searchParams.get("category");
+  const category = categoryValue === null || categoryValue === "" ? null : categoryValue;
+  if (category !== null && !isRecipeCategory(category)) return { status: "invalid-filter" };
+
+  const ingredientValue = searchParams.get("ingredient");
+  const normalizedIngredient = ingredientValue?.normalize("NFC").trim() ?? "";
+  if (Array.from(normalizedIngredient).length > MAX_INGREDIENT_FILTER_LENGTH) return { status: "invalid-filter" };
+  if (normalizedIngredient && !INGREDIENT_TOKEN.test(normalizedIngredient)) return { status: "invalid-filter" };
+  const filters: RecipeFilters = {
+    category,
+    ingredient: normalizedIngredient || null,
+  };
+  const page = parsePage(searchParams.get("page"));
+  return page === null ? { status: "invalid-page", filters } : { status: "ok", page, filters };
 }
 
 export function isRecipeId(value: string): boolean {
@@ -231,7 +263,11 @@ export function mapRecipeDetail(value: unknown): RecipeDetail | null {
   };
 }
 
-export async function readRecipePage(port: RecipeReadPort, pageValue?: string | null): Promise<RecipePageResult> {
+export async function readRecipePage(
+  port: RecipeReadPort,
+  pageValue?: string | null,
+  filters: RecipeFilters = { category: null, ingredient: null },
+): Promise<RecipePageResult> {
   const page = parsePage(pageValue);
   if (page === null) return { status: "invalid-page" };
   const from = (page - 1) * PAGE_SIZE;
@@ -239,7 +275,8 @@ export async function readRecipePage(port: RecipeReadPort, pageValue?: string | 
   if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to)) return { status: "invalid-page" };
 
   const response = await port.listRecipes({
-    select: LIST_SELECT,
+    function: "search_recipes",
+    parameters: { p_category: filters.category, p_ingredient: filters.ingredient },
     count: "exact",
     range: { from, to },
     order: [
@@ -268,6 +305,7 @@ export async function readRecipePage(port: RecipeReadPort, pageValue?: string | 
     pageSize: PAGE_SIZE,
     totalCount,
     totalPages,
+    filters,
   };
 }
 
